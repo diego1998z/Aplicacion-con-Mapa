@@ -1,13 +1,3 @@
-document.querySelectorAll(".btnFiltro").forEach((btn) => {
-  btn.addEventListener("click", () =>
-    renderizarSenales(senales.filter((s) => s.estado === btn.dataset.estado))
-  );
-});
-
-document
-  .getElementById("btnMostrarTodas")
-  .addEventListener("click", () => renderizarSenales(senales));
-
 document.getElementById("btnUbicacion").addEventListener("click", () => {
   navigator.geolocation.getCurrentPosition((pos) => {
     const lat = pos.coords.latitude;

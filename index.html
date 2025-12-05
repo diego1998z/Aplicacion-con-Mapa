@@ -26,17 +26,29 @@
     </header>
 
     <aside id="sidebar">
-        <h2>Buscar senal</h2>
-        <input type="text" id="inputBuscar" placeholder="Buscar por tipo, zona o direccion...">
-        <button id="btnBuscarDireccion" class="btnBuscar">Buscar direccion</button>
-        <div id="sugerencias" class="sugerencias"></div>
-        <h3>Filtros por estado</h3>
-        <button class="btnFiltro" data-estado="nueva">Nuevas</button>
-        <button class="btnFiltro" data-estado="danada">Danadas</button>
-        <button class="btnFiltro" data-estado="sin_senal">Sin senal</button>
-        <button id="btnMostrarTodas" class="btnGhost">Mostrar todas</button>
-        <h3>Filtrar por zona</h3>
-        <select id="selectZona"></select>
+        <h2>Busqueda rapida</h2>
+        <div class="filtro-block">
+            <input type="text" id="inputBuscar" placeholder="Buscar por tipo o distrito...">
+            <button id="btnBuscarDireccion" class="btnBuscar">Buscar direccion</button>
+            <div id="sugerencias" class="sugerencias"></div>
+        </div>
+
+        <div class="filtro-block">
+            <h3>Region y distrito</h3>
+            <select id="selectRegion"></select>
+            <select id="selectDistrito"></select>
+        </div>
+
+        <div class="filtro-block">
+            <h3>Estado</h3>
+            <div class="estado-buttons">
+                <button class="btnFiltro" data-estado="nueva">Nueva</button>
+                <button class="btnFiltro" data-estado="danada">Danada</button>
+                <button class="btnFiltro" data-estado="sin_senal">Sin senal</button>
+                <button id="btnMostrarTodas" class="btnGhost fullwidth">Limpiar filtros</button>
+            </div>
+        </div>
+
         <hr>
         <button id="btnUbicacion" class="btnUbicacion">Mi ubicacion</button>
     </aside>

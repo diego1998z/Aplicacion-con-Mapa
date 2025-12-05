@@ -1,4 +1,3 @@
-
 #sidebar{
     position:absolute;
     top:90px;
@@ -20,7 +19,7 @@
 }
 
 #sidebar h3{
-    margin:18px 0 8px;
+    margin:0 0 8px;
     font-size:14px;
     text-transform:uppercase;
     letter-spacing:0.5px;
@@ -81,6 +80,7 @@
     background:#f4f6fb!important;
     border-color:var(--primary);
 }
+.fullwidth{width:100%;}
 
 .sugerencias{
     background:#fff;
@@ -103,7 +103,7 @@
 }
 .sugerencia-item:last-child{border-bottom:none;}
 .sugerencia-item::before{
-    content:"📍";
+    content:"•";
     font-size:14px;
 }
 .sugerencia-item:hover{background:#f4f6fb;}
@@ -112,6 +112,19 @@ hr{
     border:none;
     border-top:1px solid var(--border);
     margin:18px 0 10px;
+}
+
+.filtro-block{
+    margin-bottom:16px;
+}
+
+.estado-buttons{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:8px;
+}
+.estado-buttons .btnGhost{
+    grid-column:1/3;
 }
 
 @keyframes floatIn{

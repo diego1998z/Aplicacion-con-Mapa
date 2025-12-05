@@ -67,6 +67,7 @@ function crearIcono(estado, iconoId, modo){
 }
 
 let marcadores = [];
+let distritoLayer = null;
 
 function renderizarSenales(lista) {
     marcadores.forEach(function(m){ map.removeLayer(m); });
@@ -83,6 +84,7 @@ function renderizarSenales(lista) {
         const popupHtml = ''
             + '<strong>' + s.tipo + '</strong><br>'
             + 'Zona: ' + s.zona + '<br>'
+            + 'Region: ' + (s.region || '') + '<br>'
             + 'Estado: ' + s.estado + '<br>'
             + 'Icono: ' + (iconInfo ? iconInfo.label : icono);
 
@@ -198,16 +200,47 @@ function crearSenal(lat, lng, estado, icono){
     senales = datasetActual; // referencia activa
     const nextId = datasetActual.reduce(function(max, s){ return Math.max(max, s.id); },0) + 1;
 
+    // Capturar region/distrito actuales para que los filtros no oculten la nueva señal
+    const regionSel = (typeof selectRegion !== "undefined" && selectRegion) ? selectRegion.value : "";
+    const distritoSel = (typeof selectDistrito !== "undefined" && selectDistrito) ? selectDistrito.value : "";
+
     const nueva = {
         id: nextId,
         tipo: "SENAL",
         estado: estado,
-        zona: "Sin zona",
+        zona: distritoSel || "Sin zona",
         lat: parseFloat(lat),
         lng: parseFloat(lng),
-        icono: icono || iconoDefault()
+        icono: icono || iconoDefault(),
+        region: regionSel || "Sin region"
     };
 
     datasetActual.push(nueva);
     renderizarSenales(datasetActual);
+}
+
+async function zoomADistrito(nombre){
+    try{
+        const url = "https://nominatim.openstreetmap.org/search?format=json&polygon_geojson=1&q=" + encodeURIComponent(nombre + ", Lima, Peru") + "&limit=1";
+        const res = await fetch(url);
+        const data = await res.json();
+        if(data && data[0]){
+            const lat = parseFloat(data[0].lat);
+            const lon = parseFloat(data[0].lon);
+            map.setView([lat, lon], 13);
+
+            if(distritoLayer){
+                map.removeLayer(distritoLayer);
+                distritoLayer = null;
+            }
+
+            if(data[0].geojson){
+                distritoLayer = L.geoJSON(data[0].geojson, {
+                    style: { color: "#1d70b8", weight: 2, fillOpacity: 0.08 }
+                }).addTo(map);
+            }
+        }
+    }catch(err){
+        console.warn("No se pudo ubicar el distrito:", err);
+    }
 }
