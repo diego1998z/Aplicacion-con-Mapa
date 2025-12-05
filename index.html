@@ -22,7 +22,10 @@
             <button class="tab-mode active" data-mode="horizontal">Senalizacion horizontal</button>
             <button class="tab-mode" data-mode="vertical">Senalizacion vertical</button>
         </div>
-        <div class="badge">Panel operativo</div>
+        <div class="top-actions">
+            <button id="btnToggleReportes" class="btnGhost">Ver reportes</button>
+            <div class="badge">Panel operativo</div>
+        </div>
     </header>
 
     <aside id="sidebar">
@@ -64,11 +67,33 @@
         </div>
     </div>
 
+    <section id="reportes">
+        <div class="reporte-card">
+            <h3>Reporte Senalizacion Horizontal</h3>
+            <table id="tablaHorizontal">
+                <thead>
+                    <tr><th>Tipo</th><th>Nombre</th><th>Estado</th><th>Fecha</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <div class="reporte-card">
+            <h3>Reporte Senalizacion Vertical</h3>
+            <table id="tablaVertical">
+                <thead>
+                    <tr><th>Tipo</th><th>Nombre</th><th>Estado</th><th>Fecha</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </section>
+
     <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
     <script src="js/data.js"></script>
     <script src="js/map.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/filters.js"></script>
     <script src="js/events.js"></script>
+    <script src="js/reportes.js"></script>
 </body>
 </html>

@@ -18,6 +18,7 @@ function aplicarFiltros(){
         base = base.filter(s=>s.tipo.toLowerCase().includes(t) || s.zona.toLowerCase().includes(t));
     }
     renderizarSenales(base);
+    if(typeof updateReportes === "function"){ updateReportes(); }
 }
 
 document.getElementById("inputBuscar").addEventListener("input",e=>{

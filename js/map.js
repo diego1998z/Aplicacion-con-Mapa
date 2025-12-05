@@ -103,6 +103,7 @@ function renderizarSenales(lista) {
 }
 
 renderizarSenales(senales);
+if(typeof updateReportes === "function"){ updateReportes(); }
 
 // Popup para crear senal con pestanas estado/icono
 function templateCrearPopup(lat, lng){
@@ -212,11 +213,14 @@ function crearSenal(lat, lng, estado, icono){
         lat: parseFloat(lat),
         lng: parseFloat(lng),
         icono: icono || iconoDefault(),
-        region: regionSel || "Sin region"
+        region: regionSel || "Sin region",
+        nombre: "Nueva senal",
+        fecha_colocacion: new Date().toISOString().slice(0,10)
     };
 
     datasetActual.push(nueva);
     renderizarSenales(datasetActual);
+    if(typeof updateReportes === "function"){ updateReportes(); }
 }
 
 async function zoomADistrito(nombre){
