@@ -71,14 +71,15 @@
 .btnUbicacion:hover{background:#d88f00!important;}
 
 .btnGhost{
-    background:transparent!important;
-    color:var(--text);
-    border:1px solid var(--border);
-    box-shadow:none!important;
+    background:var(--primary)!important;
+    color:#fff;
+    border:1px solid var(--primary);
+    box-shadow:0 6px 14px rgba(29,112,184,0.25)!important;
+    font-weight:700;
 }
 .btnGhost:hover{
-    background:#f4f6fb!important;
-    border-color:var(--primary);
+    background:var(--primary-dark)!important;
+    border-color:var(--primary-dark);
 }
 .fullwidth{width:100%;}
 

@@ -1,7 +1,12 @@
+// Filtros aplicados
 let filtroRegion = "";
 let filtroDistrito = "";
 let filtroEstado = "";
 let filtroTexto = "";
+
+// Selecciones pendientes (solo region/distrito requieren confirmacion)
+let selRegion = "";
+let selDistrito = "";
 
 function aplicarFiltros(){
     let base = senales;
@@ -21,21 +26,14 @@ document.getElementById("inputBuscar").addEventListener("input",e=>{
 });
 
 selectRegion.addEventListener("change",function(){
-    filtroRegion = this.value;
-    filtroDistrito = "";
-    cargarDistritos(filtroRegion);
-    // Al cambiar region, limpiar estado
-    filtroEstado = "";
+    selRegion = this.value;
+    selDistrito = "";
+    cargarDistritos(selRegion);
     document.querySelectorAll(".btnFiltro").forEach(b=>b.classList.remove("active"));
-    aplicarFiltros();
 });
 
 selectDistrito.addEventListener("change",function(){
-    filtroDistrito = this.value;
-    aplicarFiltros();
-    if(filtroDistrito){
-        zoomADistrito(filtroDistrito);
-    }
+    selDistrito = this.value;
 });
 
 document.querySelectorAll(".btnFiltro").forEach((btn) => {
@@ -50,8 +48,23 @@ document.querySelectorAll(".btnFiltro").forEach((btn) => {
 document
   .getElementById("btnMostrarTodas")
   .addEventListener("click", () => {
-    filtroEstado=""; filtroTexto="";
+    filtroEstado=""; filtroTexto=""; filtroRegion=""; filtroDistrito="";
+    selRegion=""; selDistrito="";
     selectRegion.value=""; cargarDistritos(""); selectDistrito.disabled=true;
     document.getElementById("inputBuscar").value="";
-    aplicarFiltros();
+    document.querySelectorAll(".btnFiltro").forEach(b=>b.classList.remove("active"));
+    aplicarFiltros(); // muestra todo
   });
+
+// Confirmar selección de filtros
+document.getElementById("btnAplicarFiltros").addEventListener("click",()=>{
+    filtroRegion = selRegion;
+    filtroDistrito = selDistrito;
+    aplicarFiltros();
+    if(filtroDistrito){
+        zoomADistrito(filtroDistrito);
+    } else if(filtroRegion){
+        // si solo hay region, hacer zoom ligero a Lima
+        zoomADistrito(filtroRegion);
+    }
+});
