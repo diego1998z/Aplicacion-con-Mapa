@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Senales Viales</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="css/global.css">
+    <link rel="stylesheet" href="css/sidebar.css">
+    <link rel="stylesheet" href="css/map.css">
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <span class="brand-mark">LR</span>
+            <div class="brand-text">
+                <strong>LogiRoad</strong>
+                <small>Gestion de senalizacion</small>
+            </div>
+        </div>
+        <div class="mode-switch">
+            <button class="tab-mode active" data-mode="horizontal">Senalizacion horizontal</button>
+            <button class="tab-mode" data-mode="vertical">Senalizacion vertical</button>
+        </div>
+        <div class="badge">Panel operativo</div>
+    </header>
+
+    <aside id="sidebar">
+        <h2>Buscar senal</h2>
+        <input type="text" id="inputBuscar" placeholder="Buscar por tipo, zona o direccion...">
+        <button id="btnBuscarDireccion" class="btnBuscar">Buscar direccion</button>
+        <div id="sugerencias" class="sugerencias"></div>
+        <h3>Filtros por estado</h3>
+        <button class="btnFiltro" data-estado="nueva">Nuevas</button>
+        <button class="btnFiltro" data-estado="danada">Danadas</button>
+        <button class="btnFiltro" data-estado="sin_senal">Sin senal</button>
+        <button id="btnMostrarTodas" class="btnGhost">Mostrar todas</button>
+        <h3>Filtrar por zona</h3>
+        <select id="selectZona"></select>
+        <hr>
+        <button id="btnUbicacion" class="btnUbicacion">Mi ubicacion</button>
+    </aside>
+
+    <div id="map">
+        <div class="legend">
+            <div class="legend-title">Estados</div>
+            <div class="legend-item"><span class="dot dot-new"></span> Nueva</div>
+            <div class="legend-item"><span class="dot dot-bad"></span> Danada</div>
+            <div class="legend-item"><span class="dot dot-missing"></span> Sin senal</div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="js/data.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/filters.js"></script>
+    <script src="js/events.js"></script>
+</body>
+</html>
