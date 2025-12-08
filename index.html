@@ -11,17 +11,24 @@
 </head>
 <body>
     <div id="loginOverlay">
-        <div class="login-card">
-            <h2>Acceso</h2>
-            <p>Ingresa tu correo y contraseña para continuar</p>
-            <form id="formLogin">
-                <label for="inputCorreo">Correo</label>
-                <input type="email" id="inputCorreo" placeholder="usuario@correo.com" required>
-                <label for="inputClave">Contraseña</label>
-                <input type="password" id="inputClave" placeholder="********" required>
-                <button type="submit" id="btnLogin">Ingresar</button>
-            </form>
-            <small class="login-hint">Correos con dominio municipal/gob entran como rol municipal; el resto como visitante. También puedes usar las credenciales ejemplo.</small>
+        <div class="login-layout">
+            <div class="login-hero"></div>
+            <div class="login-card">
+                <img src="src/assets/logo-login.png" class="login-logo" alt="Logo">
+                <h2>Acceso</h2>
+                <p>Ingresa tu correo y contraseña para continuar</p>
+                <form id="formLogin">
+                    <label for="inputCorreo">Correo electrónico</label>
+                    <input type="email" id="inputCorreo" placeholder="usuario@correo.com" required>
+                    <label for="inputClave">Contraseña</label>
+                    <input type="password" id="inputClave" placeholder="********" required>
+                    <div class="login-actions">
+                        <a href="#" class="login-link">¿Contraseña olvidada?</a>
+                        <button type="submit" id="btnLogin">Iniciar sesión</button>
+                    </div>
+                </form>
+                <small class="login-hint">Municipal: muni@muni.gob.pe / Muni123! · Visitante: visitante@correo.com / Visitante123</small>
+            </div>
         </div>
     </div>
     <header class="topbar">
