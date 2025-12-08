@@ -22,8 +22,7 @@ function aplicarFiltros(){
 }
 
 document.getElementById("inputBuscar").addEventListener("input",e=>{
-    filtroTexto = e.target.value.trim();
-    aplicarFiltros();
+    // Solo autocompletado de lugares; no afecta filtrado de señales
 });
 
 selectRegion.addEventListener("change",function(){
