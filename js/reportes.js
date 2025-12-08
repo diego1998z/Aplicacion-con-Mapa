@@ -34,6 +34,7 @@ function updateReportes(){
     const vert = filtrarRegionDistrito(senalesVertical);
     renderTabla("#tablaHorizontal", horiz);
     renderTabla("#tablaVertical", vert);
+    renderTablaAvisos();
 }
 
 // Inicial
@@ -47,4 +48,24 @@ if(btnToggleReportes && reportesSection){
         const visible = reportesSection.classList.toggle("hidden");
         btnToggleReportes.textContent = visible ? "Ver reportes" : "Ocultar reportes";
     });
+}
+
+function renderTablaAvisos(){
+    const tbody = document.querySelector("#tablaAvisos tbody");
+    if(!tbody) return;
+    const data = avisos;
+    if(!data.length){
+        tbody.innerHTML = '<tr><td colspan="4" class="empty">Sin avisos</td></tr>';
+        return;
+    }
+    const rows = data.map(function(a){
+        return ''
+        + '<tr>'
+        +   '<td>' + a.tipo + '</td>'
+        +   '<td>' + (a.descripcion || "-") + '</td>'
+        +   '<td>' + a.estado + '</td>'
+        +   '<td>' + (a.fecha || "-") + '</td>'
+        + '</tr>';
+    }).join("");
+    tbody.innerHTML = rows;
 }

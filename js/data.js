@@ -89,3 +89,6 @@ const senalesVertical = [
 // Dataset actual (inicial horizontal)
 let senales = senalesHorizontal;
 let modoActual = "horizontal";
+
+// Avisos ciudadanos
+let avisos = [];

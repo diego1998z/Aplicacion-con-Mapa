@@ -7,6 +7,171 @@ document.getElementById("btnUbicacion").addEventListener("click", () => {
   });
 });
 
+// Cambiar rol
+const btnToggleRol = document.getElementById("btnToggleRol");
+if(btnToggleRol){
+  btnToggleRol.addEventListener("click", ()=>{
+    const nuevo = rolActual === "municipal" ? "visitante" : "municipal";
+    setRol(nuevo);
+    guardarSesionRol(nuevo);
+  });
+  // init
+  setRol(rolActual);
+}
+
+// Reportar problema (visitante)
+const modalReporte = document.getElementById("modalReporte");
+const btnReportar = document.getElementById("btnReportar");
+const btnCancelarReporte = document.getElementById("btnCancelarReporte");
+const btnEnviarReporte = document.getElementById("btnEnviarReporte");
+const inputTipoProblema = document.getElementById("inputTipoProblema");
+const inputDescripcion = document.getElementById("inputDescripcion");
+const inputFoto = document.getElementById("inputFoto");
+const infoUbicacion = document.getElementById("infoUbicacion");
+const btnElegirMapa = document.getElementById("btnElegirMapa");
+const loginOverlay = document.getElementById("loginOverlay");
+const formLogin = document.getElementById("formLogin");
+const inputCorreo = document.getElementById("inputCorreo");
+const inputClave = document.getElementById("inputClave");
+const btnLogout = document.getElementById("btnLogout");
+
+function abrirModalReporte(){
+  if(!modalReporte) return;
+  modalReporte.classList.remove("hidden");
+  pickingReporte = true;
+  puntoReporte = null;
+  if(infoUbicacion) infoUbicacion.textContent = "Haz click en el mapa para fijar la ubicacion.";
+}
+function cerrarModalReporte(){
+  if(!modalReporte) return;
+  modalReporte.classList.add("hidden");
+  pickingReporte = false;
+  puntoReporte = null;
+  inputDescripcion.value = "";
+  inputFoto.value = "";
+  if(typeof marcadorReporte !== "undefined" && marcadorReporte){
+    map.removeLayer(marcadorReporte);
+    marcadorReporte = null;
+  }
+  reabrirModalReporte = false;
+}
+
+if(btnReportar){ btnReportar.addEventListener("click", abrirModalReporte); }
+if(btnCancelarReporte){ btnCancelarReporte.addEventListener("click", cerrarModalReporte); }
+if(btnElegirMapa){
+  btnElegirMapa.addEventListener("click", ()=>{
+    reabrirModalReporte = true;
+    pickingReporte = true;
+    if(modalReporte) modalReporte.classList.add("hidden");
+  });
+}
+
+if(btnEnviarReporte){
+  btnEnviarReporte.addEventListener("click", ()=>{
+    if(!puntoReporte){
+      alert("Selecciona un punto en el mapa.");
+      return;
+    }
+    const tipo = inputTipoProblema ? inputTipoProblema.value : "otro";
+    const desc = inputDescripcion ? inputDescripcion.value.trim() : "";
+    const fecha = new Date().toISOString().slice(0,10);
+
+    const aviso = {
+      tipo,
+      descripcion: desc || "Sin descripcion",
+      estado: "pendiente",
+      fecha,
+      lat: puntoReporte.lat,
+      lng: puntoReporte.lng,
+      foto: null
+    };
+
+    if(inputFoto && inputFoto.files && inputFoto.files[0]){
+      const file = inputFoto.files[0];
+      const reader = new FileReader();
+      reader.onload = function(e){
+        aviso.foto = e.target.result;
+        agregarAviso(aviso);
+        cerrarModalReporte();
+      };
+      reader.readAsDataURL(file);
+    } else {
+      agregarAviso(aviso);
+      cerrarModalReporte();
+    }
+  });
+}
+
+// Login
+function detectarRolPorCorreo(correo){
+  const low = correo.toLowerCase();
+  if(low.includes("gob") || low.includes("muni") || low.endsWith(".gob.pe")) return "municipal";
+  return "visitante";
+}
+
+function guardarSesionRol(rol){
+  try{
+    localStorage.setItem("rolActual", rol);
+    if(inputCorreo && inputCorreo.value) localStorage.setItem("correoActual", inputCorreo.value);
+  }catch(e){}
+}
+
+function cargarSesionRol(){
+  try{
+    const rol = localStorage.getItem("rolActual");
+    const correo = localStorage.getItem("correoActual");
+    if(correo && inputCorreo) inputCorreo.value = correo;
+    if(rol){
+      setRol(rol);
+      if(loginOverlay) loginOverlay.classList.add("hidden");
+      return;
+    }
+  }catch(e){}
+}
+
+if(formLogin){
+  formLogin.addEventListener("submit",(e)=>{
+    e.preventDefault();
+    const correo = inputCorreo ? inputCorreo.value.trim() : "";
+    const clave = inputClave ? inputClave.value : "";
+    if(!correo || !clave) return;
+
+    // credenciales de ejemplo
+    const credMunicipal = { email:"muni@muni.gob.pe", pass:"Muni123!" };
+    const credVisitante = { email:"visitante@correo.com", pass:"Visitante123" };
+
+    let rol = null;
+    if(correo.toLowerCase() === credMunicipal.email && clave === credMunicipal.pass){
+      rol = "municipal";
+    } else if(correo.toLowerCase() === credVisitante.email && clave === credVisitante.pass){
+      rol = "visitante";
+    } else {
+      rol = detectarRolPorCorreo(correo);
+    }
+
+    setRol(rol);
+    guardarSesionRol(rol);
+    if(loginOverlay) loginOverlay.classList.add("hidden");
+  });
+}
+
+// Inicializar sesión si existe
+cargarSesionRol();
+
+// Logout
+if(btnLogout){
+  btnLogout.addEventListener("click", ()=>{
+    try{
+      localStorage.removeItem("rolActual");
+      localStorage.removeItem("correoActual");
+    }catch(e){}
+    setRol("visitante");
+    if(loginOverlay) loginOverlay.classList.remove("hidden");
+    if(inputCorreo) inputCorreo.value="";
+    if(inputClave) inputClave.value="";
+  });
+}
+
 // AUTOCOMPLETADO
 const inputBuscar = document.getElementById("inputBuscar");
 const contSug = document.getElementById("sugerencias");

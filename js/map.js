@@ -36,6 +36,15 @@ const ICONOS = {
     ]
 };
 
+let rolActual = "municipal"; // municipal o visitante
+let marcadores = [];
+let distritoLayer = null;
+let avisosMarkers = [];
+let pickingReporte = false;
+let puntoReporte = null;
+let marcadorReporte = null;
+let reabrirModalReporte = false;
+
 function iconoPorId(id, modo){
     const lista = ICONOS[modo] || [];
     return lista.find(function(i){ return i.id === id; }) || lista[0];
@@ -66,9 +75,6 @@ function crearIcono(estado, iconoId, modo){
     });
 }
 
-let marcadores = [];
-let distritoLayer = null;
-
 function renderizarSenales(lista) {
     marcadores.forEach(function(m){ map.removeLayer(m); });
     marcadores = [];
@@ -77,7 +83,7 @@ function renderizarSenales(lista) {
         const icono = s.icono || iconoDefault();
         const iconInfo = iconoPorId(icono, modoActual);
         const marker = L.marker([s.lat, s.lng], {
-            draggable: true,
+            draggable: rolActual === "municipal",
             icon: crearIcono(s.estado, icono, modoActual)
         }).addTo(map);
 
@@ -184,6 +190,7 @@ function enlazarPopupCrear(lat, lng){
 }
 
 map.on("contextmenu", function(e){
+    if(rolActual !== "municipal") return;
     const lat = e.latlng.lat;
     const lng = e.latlng.lng;
 
@@ -194,6 +201,33 @@ map.on("contextmenu", function(e){
 
     // dar tiempo a que el popup se inyecte
     setTimeout(function(){ enlazarPopupCrear(lat, lng); }, 0);
+});
+
+map.on("click", function(e){
+    if(pickingReporte){
+        puntoReporte = e.latlng;
+        const info = document.getElementById("infoUbicacion");
+        if(info){ info.textContent = "Ubicacion seleccionada: " + e.latlng.lat.toFixed(5) + ", " + e.latlng.lng.toFixed(5); }
+        if(marcadorReporte){
+            map.removeLayer(marcadorReporte);
+            marcadorReporte = null;
+        }
+        const icon = L.divIcon({
+            className:"estado-marker",
+            html:'<div class="marker-bubble" style="border-color:#f7a800;background:#fff;"><div class="marker-img" style="background:#f7a800;width:14px;height:14px;border-radius:50%;"></div></div>',
+            iconSize:[32,32],
+            iconAnchor:[16,28],
+            popupAnchor:[0,-20]
+        });
+        marcadorReporte = L.marker(puntoReporte,{icon}).addTo(map);
+        // si venimos de "Elegir en mapa", reabrir modal
+        if(reabrirModalReporte){
+            const modal = document.getElementById("modalReporte");
+            if(modal){ modal.classList.remove("hidden"); }
+            pickingReporte = false;
+            reabrirModalReporte = false;
+        }
+    }
 });
 
 function crearSenal(lat, lng, estado, icono){
@@ -247,4 +281,51 @@ async function zoomADistrito(nombre){
     }catch(err){
         console.warn("No se pudo ubicar el distrito:", err);
     }
+}
+
+function setRol(nuevo){
+    rolActual = nuevo;
+    renderizarSenales(senales);
+    const btnReportar = document.getElementById("btnReportar");
+    if(btnReportar){
+        btnReportar.style.display = rolActual === "municipal" ? "none" : "block";
+    }
+    const chipRol = document.getElementById("chipRol");
+    if(chipRol){
+        chipRol.textContent = "Rol: " + (rolActual === "municipal" ? "Municipal" : "Visitante");
+    }
+    const btnToggleRol = document.getElementById("btnToggleRol");
+    if(btnToggleRol){
+        if(rolActual === "municipal"){
+            btnToggleRol.style.display = "inline-flex";
+            btnToggleRol.textContent = "Cambiar a visitante";
+        } else {
+            btnToggleRol.style.display = "none";
+        }
+    }
+}
+
+// Avisos ciudadanos
+function renderAvisos(){
+    avisosMarkers.forEach(function(m){ map.removeLayer(m); });
+    avisosMarkers = [];
+    avisos.forEach(function(a){
+        const icon = L.divIcon({
+            className:"estado-marker",
+            html:'<div class="marker-bubble" style="border-color:#f7a800;background:#fff;"><div class="marker-img" style="background-image:url(\'\');width:14px;height:14px;border-radius:50%;background:#f7a800;"></div></div>',
+            iconSize:[32,32],
+            iconAnchor:[16,28],
+            popupAnchor:[0,-20]
+        });
+        const m = L.marker([a.lat,a.lng],{icon}).addTo(map);
+        const fotoTxt = a.foto ? '<br><em>Foto adjunta</em>' : '';
+        m.bindPopup('<strong>Aviso: '+a.tipo+'</strong><br>'+a.descripcion+fotoTxt+'<br>'+a.fecha);
+        avisosMarkers.push(m);
+    });
+}
+
+function agregarAviso(aviso){
+    avisos.push(aviso);
+    renderAvisos();
+    if(typeof updateReportes === "function"){ updateReportes(); }
 }

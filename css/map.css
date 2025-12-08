@@ -195,3 +195,106 @@
 .hidden{
     display:none!important;
 }
+
+.modal{
+    position:fixed;
+    inset:0;
+    background:rgba(15,23,42,0.45);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:2000;
+}
+.modal-content{
+    background:#fff;
+    border-radius:12px;
+    padding:18px;
+    width:340px;
+    box-shadow:0 20px 50px rgba(0,0,0,0.25);
+}
+.modal-content h3{
+    margin:0 0 12px;
+}
+.modal-content label{
+    display:block;
+    font-size:13px;
+    color:var(--muted);
+    margin:10px 0 4px;
+}
+.modal-content select,
+.modal-content textarea,
+.modal-content input[type="file"]{
+    width:100%;
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:8px 10px;
+    font-family:inherit;
+}
+.modal-content textarea{resize:vertical;}
+.modal-actions{
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    margin-top:12px;
+}
+.modal-actions button{
+    width:auto;
+    margin-top:0;
+}
+.ubica{
+    margin-top:8px;
+    font-size:12px;
+    color:var(--muted);
+}
+
+#btnReportar{
+    margin-top:8px;
+}
+
+#loginOverlay{
+    position:fixed;
+    inset:0;
+    background:linear-gradient(135deg,#0c426a,#1d70b8);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:3000;
+}
+.login-card{
+    background:#fff;
+    padding:22px;
+    border-radius:14px;
+    width:320px;
+    box-shadow:0 25px 60px rgba(0,0,0,0.3);
+}
+.login-card h2{
+    margin:0 0 8px;
+}
+.login-card p{
+    margin:0 0 12px;
+    color:var(--muted);
+}
+.login-card form{
+    display:grid;
+    gap:10px;
+}
+.login-card label{
+    font-size:13px;
+    color:var(--muted);
+}
+.login-card input{
+    width:100%;
+    padding:10px 12px;
+    border-radius:10px;
+    border:1px solid var(--border);
+}
+.login-card button{
+    width:100%;
+    margin-top:4px;
+}
+.login-hint{
+    display:block;
+    margin-top:8px;
+    color:var(--muted);
+    font-size:12px;
+}

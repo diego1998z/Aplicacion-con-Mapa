@@ -10,6 +10,20 @@
     <link rel="stylesheet" href="css/map.css">
 </head>
 <body>
+    <div id="loginOverlay">
+        <div class="login-card">
+            <h2>Acceso</h2>
+            <p>Ingresa tu correo y contraseña para continuar</p>
+            <form id="formLogin">
+                <label for="inputCorreo">Correo</label>
+                <input type="email" id="inputCorreo" placeholder="usuario@correo.com" required>
+                <label for="inputClave">Contraseña</label>
+                <input type="password" id="inputClave" placeholder="********" required>
+                <button type="submit" id="btnLogin">Ingresar</button>
+            </form>
+            <small class="login-hint">Correos con dominio municipal/gob entran como rol municipal; el resto como visitante. También puedes usar las credenciales ejemplo.</small>
+        </div>
+    </div>
     <header class="topbar">
         <div class="brand">
             <span class="brand-mark">LR</span>
@@ -23,6 +37,9 @@
             <button class="tab-mode" data-mode="vertical">Senalizacion vertical</button>
         </div>
         <div class="top-actions">
+            <span class="rol-chip" id="chipRol">Rol: Municipal</span>
+            <button id="btnToggleRol" class="btnGhost">Cambiar a visitante</button>
+            <button id="btnLogout" class="btnGhost">Cerrar sesión</button>
             <button id="btnToggleReportes" class="btnGhost">Ver reportes</button>
             <div class="badge">Panel operativo</div>
         </div>
@@ -56,6 +73,7 @@
 
         <hr>
         <button id="btnUbicacion" class="btnUbicacion">Mi ubicacion</button>
+        <button id="btnReportar" class="btnGhost fullwidth">Reportar problema</button>
     </aside>
 
     <div id="map">
@@ -86,7 +104,41 @@
                 <tbody></tbody>
             </table>
         </div>
+        <div class="reporte-card">
+            <h3>Avisos Ciudadanos</h3>
+            <table id="tablaAvisos">
+                <thead>
+                    <tr><th>Tipo</th><th>Descripcion</th><th>Estado</th><th>Fecha</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
     </section>
+
+    <div id="modalReporte" class="modal hidden">
+        <div class="modal-content">
+            <h3>Reportar problema</h3>
+            <label>Tipo de problema</label>
+            <select id="inputTipoProblema">
+                <option value="falta">Falta señal</option>
+                <option value="danada">Señal dañada</option>
+                <option value="obstruida">Obstruida</option>
+                <option value="otro">Otro</option>
+            </select>
+            <label>Descripcion</label>
+            <textarea id="inputDescripcion" rows="3" placeholder="Describe el problema"></textarea>
+            <label>Foto (opcional)</label>
+            <input type="file" id="inputFoto" accept="image/*">
+            <div class="ubica">
+                <span id="infoUbicacion">Haz click en el mapa para fijar la ubicacion.</span>
+                <button id="btnElegirMapa" class="btnGhost fullwidth" type="button">Elegir en mapa</button>
+            </div>
+            <div class="modal-actions">
+                <button id="btnCancelarReporte" class="btnGhost">Cancelar</button>
+                <button id="btnEnviarReporte">Enviar aviso</button>
+            </div>
+        </div>
+    </div>
 
     <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
     <script src="js/data.js"></script>
