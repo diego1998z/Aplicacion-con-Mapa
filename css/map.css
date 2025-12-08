@@ -196,6 +196,52 @@
     display:none!important;
 }
 
+.aviso-thumb{
+    margin-top:8px;
+}
+.aviso-thumb img{
+    max-width:120px;
+    max-height:80px;
+    border-radius:8px;
+    display:block;
+    transition:transform 200ms ease;
+}
+.btnVerFoto{
+    margin-top:6px;
+    width:auto;
+    background:#1d70b8;
+    color:#fff;
+    border:none;
+    border-radius:8px;
+    padding:6px 10px;
+    cursor:pointer;
+}
+.btnVerFoto:hover{
+    background:#155488;
+}
+.foto-fullscreen{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.7);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:4000;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 200ms ease;
+}
+.foto-fullscreen.active{
+    opacity:1;
+    pointer-events:auto;
+}
+.foto-fullscreen img{
+    max-width:80%;
+    max-height:80%;
+    border-radius:12px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.35);
+}
+
 .modal{
     position:fixed;
     inset:0;

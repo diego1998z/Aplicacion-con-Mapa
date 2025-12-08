@@ -35,6 +35,7 @@ const inputCorreo = document.getElementById("inputCorreo");
 const inputClave = document.getElementById("inputClave");
 const btnLogout = document.getElementById("btnLogout");
 const bboxLima = "-77.2,-11.7,-76.8,-12.3"; // Lima Metropolitana aprox
+let overlayFoto = null;
 
 function buildNominatimUrl(texto, limit=5){
   return `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&polygon_geojson=0&q=${encodeURIComponent(texto)}&limit=${limit}&countrycodes=pe&viewbox=${bboxLima}&bounded=1`;
@@ -87,6 +88,33 @@ if(btnElegirMapa){
     if(modalReporte) modalReporte.classList.add("hidden");
   });
 }
+
+// Ver foto completa desde popup de aviso
+function crearOverlayFoto(){
+  if(overlayFoto) return overlayFoto;
+  overlayFoto = document.createElement("div");
+  overlayFoto.className = "foto-fullscreen hidden";
+  const img = document.createElement("img");
+  overlayFoto.appendChild(img);
+  overlayFoto.addEventListener("click", ()=> {
+    overlayFoto.classList.add("hidden");
+    overlayFoto.classList.remove("active");
+  });
+  document.body.appendChild(overlayFoto);
+  return overlayFoto;
+}
+
+document.addEventListener("click", (e)=>{
+  if(e.target && e.target.classList.contains("btnVerFoto")){
+    const src = e.target.getAttribute("data-img");
+    if(!src) return;
+    const ov = crearOverlayFoto();
+    const img = ov.querySelector("img");
+    img.src = src;
+    ov.classList.remove("hidden");
+    setTimeout(()=>ov.classList.add("active"),10);
+  }
+});
 
 if(btnEnviarReporte){
   btnEnviarReporte.addEventListener("click", ()=>{

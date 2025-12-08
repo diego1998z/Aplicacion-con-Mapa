@@ -318,8 +318,9 @@ function renderAvisos(){
             popupAnchor:[0,-20]
         });
         const m = L.marker([a.lat,a.lng],{icon}).addTo(map);
-        const fotoTxt = a.foto ? '<br><em>Foto adjunta</em>' : '';
-        m.bindPopup('<strong>Aviso: '+a.tipo+'</strong><br>'+a.descripcion+fotoTxt+'<br>'+a.fecha);
+        const fotoThumb = a.foto ? '<div class="aviso-thumb"><img src="'+a.foto+'" alt="Foto aviso"></div><button class="btnVerFoto" data-img="'+a.foto+'">Ver detalles</button>' : '';
+        const popupHtml = '<div class="aviso-popup"><strong>Aviso: '+a.tipo+'</strong><br>'+a.descripcion+'<br>'+a.fecha+fotoThumb+'</div>';
+        m.bindPopup(popupHtml);
         avisosMarkers.push(m);
     });
 }
