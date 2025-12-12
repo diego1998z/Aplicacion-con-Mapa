@@ -17,7 +17,7 @@ L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.
 
 const ESTADO_COLORES = {
     nueva: "#2fa84f",
-    danada: "#d93f3f",
+    antigua: "#d93f3f",
     sin_senal: "#3f7ed9"
 };
 
@@ -116,28 +116,30 @@ function templateCrearPopup(lat, lng){
     const iconsList = (ICONOS[modoActual] || []).map(function(i){
         return ''
         + '<button class="icon-option" data-icon="' + i.id + '">'
-        +   '<span class="icon-thumb" style="background-image:url(\'' + i.src + '\')"></span>'
-        +   '<small>' + i.label + '</small>'
+            +   '<span class="icon-thumb" style="background-image:url(\'' + i.src + '\')"></span>'
+            +   '<small>' + i.label + '</small>'
         + '</button>';
     }).join("");
 
     return ''
     + '<div class="popup-crear">'
-    +   '<div class="popup-tabs">'
-    +       '<button class="tab-btn active" data-tab="estado">Estado</button>'
-    +       '<button class="tab-btn" data-tab="icono">Icono</button>'
-    +   '</div>'
-    +   '<div class="tab-panel active" data-tab="estado">'
+    +   '<div class="step estado-step active">'
+    +       '<div class="step-title">Estado</div>'
     +       '<div class="estado-grid">'
-    +           '<button class="estado-option active" data-estado="nueva">Nueva</button>'
-    +           '<button class="estado-option" data-estado="danada">Danada</button>'
+    +           '<button class="estado-option" data-estado="nueva">Nueva</button>'
+    +           '<button class="estado-option" data-estado="antigua">Antigua</button>'
     +           '<button class="estado-option" data-estado="sin_senal">Sin senal</button>'
     +       '</div>'
+    +       '<div class="fecha-row hidden">'
+    +           '<label>Fecha de colocacion</label>'
+    +           '<input type="date" id="inputFechaEstado" />'
+    +       '</div>'
     +   '</div>'
-    +   '<div class="tab-panel" data-tab="icono">'
+    +   '<div class="step icono-step hidden">'
+    +       '<div class="step-title">Icono</div>'
     +       '<div class="icon-grid">' + iconsList + '</div>'
     +   '</div>'
-    +   '<button class="btn-crear" data-lat="' + lat + '" data-lng="' + lng + '">Crear senal</button>'
+    +   '<button class="btn-crear hidden" data-lat="' + lat + '" data-lng="' + lng + '" disabled>Crear senal</button>'
     + '</div>';
 }
 
@@ -145,24 +147,39 @@ function enlazarPopupCrear(lat, lng){
     const popupEl = document.querySelector(".popup-crear");
     if(!popupEl) return;
 
-    let estadoSel = "nueva";
-    let iconSel = iconoDefault();
+    let estadoSel = null;
+    let iconSel = null;
+    let fechaSel = "";
 
-    const iconDefaultBtn = popupEl.querySelector('.icon-option[data-icon="' + iconSel + '"]') || popupEl.querySelector(".icon-option");
-    if(iconDefaultBtn){
-        iconDefaultBtn.classList.add("active");
-        iconSel = iconDefaultBtn.getAttribute("data-icon");
+    const fechaRow = popupEl.querySelector(".fecha-row");
+    const inputFecha = popupEl.querySelector("#inputFechaEstado");
+    const btnCrear = popupEl.querySelector(".btn-crear");
+    const iconStep = popupEl.querySelector(".icono-step");
+    const estadoStep = popupEl.querySelector(".estado-step");
+
+    const hoy = new Date().toISOString().slice(0,10);
+    if(inputFecha) inputFecha.value = hoy;
+
+    function toggleFecha(){
+        if(!fechaRow) return;
+        if(estadoSel === "nueva" || estadoSel === "antigua"){
+            fechaRow.classList.remove("hidden");
+            if(inputFecha && !inputFecha.value) inputFecha.value = hoy;
+            fechaSel = inputFecha ? inputFecha.value : "";
+        } else {
+            fechaRow.classList.add("hidden");
+            fechaSel = "";
+        }
+        evaluarBoton();
     }
 
-    // Tabs
-    popupEl.querySelectorAll(".tab-btn").forEach(function(btn){
-        btn.addEventListener("click", function(){
-            popupEl.querySelectorAll(".tab-btn").forEach(function(b){ b.classList.remove("active"); });
-            popupEl.querySelectorAll(".tab-panel").forEach(function(p){ p.classList.remove("active"); });
-            btn.classList.add("active");
-            popupEl.querySelector('.tab-panel[data-tab="' + btn.getAttribute("data-tab") + '"]').classList.add("active");
-        });
-    });
+    function evaluarBoton(){
+        const listo = estadoSel && iconSel && (estadoSel === "sin_senal" || fechaSel);
+        if(btnCrear){
+            btnCrear.disabled = !listo;
+            btnCrear.classList.toggle("hidden", !listo);
+        }
+    }
 
     // Estado
     popupEl.querySelectorAll(".estado-option").forEach(function(btn){
@@ -170,21 +187,38 @@ function enlazarPopupCrear(lat, lng){
             popupEl.querySelectorAll(".estado-option").forEach(function(b){ b.classList.remove("active"); });
             btn.classList.add("active");
             estadoSel = btn.getAttribute("data-estado");
+            if(estadoStep){
+                estadoStep.classList.add("collapsed");
+            }
+            if(iconStep){
+                iconStep.classList.remove("hidden");
+            }
+            toggleFecha();
         });
     });
+
+    // Fecha
+    if(inputFecha){
+        inputFecha.addEventListener("change", function(){
+            fechaSel = inputFecha.value;
+            evaluarBoton();
+        });
+    }
 
     // Iconos
     popupEl.querySelectorAll(".icon-option").forEach(function(btn){
         btn.addEventListener("click", function(){
+            if(!estadoSel) return;
             popupEl.querySelectorAll(".icon-option").forEach(function(b){ b.classList.remove("active"); });
             btn.classList.add("active");
             iconSel = btn.getAttribute("data-icon");
+            evaluarBoton();
         });
     });
 
     // Crear
     popupEl.querySelector(".btn-crear").addEventListener("click", function(){
-        crearSenal(lat, lng, estadoSel, iconSel);
+        crearSenal(lat, lng, estadoSel, iconSel, fechaSel);
         map.closePopup();
     });
 }
@@ -230,7 +264,7 @@ map.on("click", function(e){
     }
 });
 
-function crearSenal(lat, lng, estado, icono){
+function crearSenal(lat, lng, estado, icono, fecha){
     const datasetActual = modoActual === "horizontal" ? senalesHorizontal : senalesVertical;
     senales = datasetActual; // referencia activa
     const nextId = datasetActual.reduce(function(max, s){ return Math.max(max, s.id); },0) + 1;
@@ -249,7 +283,7 @@ function crearSenal(lat, lng, estado, icono){
         icono: icono || iconoDefault(),
         region: regionSel || "Sin region",
         nombre: "Nueva senal",
-        fecha_colocacion: new Date().toISOString().slice(0,10)
+        fecha_colocacion: estado === "sin_senal" ? "" : (fecha || new Date().toISOString().slice(0,10))
     };
 
     datasetActual.push(nueva);
@@ -265,8 +299,6 @@ async function zoomADistrito(nombre){
         if(data && data[0]){
             const lat = parseFloat(data[0].lat);
             const lon = parseFloat(data[0].lon);
-            map.setView([lat, lon], 13);
-
             if(distritoLayer){
                 map.removeLayer(distritoLayer);
                 distritoLayer = null;
@@ -276,6 +308,12 @@ async function zoomADistrito(nombre){
                 distritoLayer = L.geoJSON(data[0].geojson, {
                     style: { color: "#1d70b8", weight: 2, fillOpacity: 0.08 }
                 }).addTo(map);
+                const bounds = distritoLayer.getBounds();
+                const size = map.getSize();
+                const pad = Math.max(50, Math.min(size.x, size.y) * 0.12); // 12% del menor lado, más respiro
+                map.flyToBounds(bounds, {padding:[pad,pad], duration:1.6, easeLinearity:0.2, maxZoom:16});
+            } else {
+                map.flyTo([lat, lon], 14, {duration:1.2, easeLinearity:0.25});
             }
         }
     }catch(err){

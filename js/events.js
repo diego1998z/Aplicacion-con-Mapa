@@ -307,7 +307,7 @@ document
       return;
     }
     const lugar = data[0];
-    map.setView([lugar.lat, lugar.lon], 16);
+    map.flyTo([parseFloat(lugar.lat), parseFloat(lugar.lon)], 16, {duration:1.2, easeLinearity:0.25});
     L.marker([lugar.lat, lugar.lon])
       .addTo(map)
       .bindPopup(`<strong>${texto}</strong>`)
