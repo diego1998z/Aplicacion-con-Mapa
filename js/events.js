@@ -1,25 +1,6 @@
-document.getElementById("btnUbicacion").addEventListener("click", () => {
-  navigator.geolocation.getCurrentPosition((pos) => {
-    const lat = pos.coords.latitude;
-    const lon = pos.coords.longitude;
-    map.setView([lat, lon], 16);
-    L.marker([lat, lon]).addTo(map).bindPopup("Tu ubicacion").openPopup();
-  });
-});
-
-// Cambiar rol
+// Referencias principales
+const btnUbicacion = document.getElementById("btnUbicacion");
 const btnToggleRol = document.getElementById("btnToggleRol");
-if(btnToggleRol){
-  btnToggleRol.addEventListener("click", ()=>{
-    const nuevo = rolActual === "municipal" ? "visitante" : "municipal";
-    setRol(nuevo);
-    guardarSesionRol(nuevo);
-  });
-  // init
-  setRol(rolActual);
-}
-
-// Reportar problema (visitante)
 const modalReporte = document.getElementById("modalReporte");
 const btnReportar = document.getElementById("btnReportar");
 const btnCancelarReporte = document.getElementById("btnCancelarReporte");
@@ -34,15 +15,118 @@ const formLogin = document.getElementById("formLogin");
 const inputCorreo = document.getElementById("inputCorreo");
 const inputClave = document.getElementById("inputClave");
 const btnLogout = document.getElementById("btnLogout");
-const bboxLima = "-77.2,-11.7,-76.8,-12.3"; // Lima Metropolitana aprox
-let overlayFoto = null;
 const btnMenu = document.getElementById("btnMenu");
 const sidebar = document.getElementById("sidebar");
 const btnFloatingFilters = document.getElementById("btnFloatingFilters");
 const btnFloatingReport = document.getElementById("btnFloatingReport");
+const mapContainer = document.getElementById("map");
+const bboxLima = "-77.2,-11.7,-76.8,-12.3"; // Lima Metropolitana aprox
+let overlayFoto = null;
+
+// Banner de rol en mobile
 const mobileBanner = document.createElement("div");
 mobileBanner.className = "mobile-banner hidden";
-document.body.appendChild(mobileBanner);
+(mapContainer || document.body).appendChild(mobileBanner);
+
+function isMobileViewport(){
+  return window.innerWidth <= 900;
+}
+
+function hideFABs(){
+  if(btnFloatingFilters) btnFloatingFilters.classList.add("fab-hidden");
+  if(btnFloatingReport) btnFloatingReport.classList.add("fab-hidden");
+}
+
+function showFABs(){
+  if(btnFloatingFilters){
+    btnFloatingFilters.classList.remove("fab-hidden","offset");
+  }
+  if(btnFloatingReport){
+    btnFloatingReport.classList.remove("fab-hidden","offset");
+  }
+}
+
+function expandSidebar(){
+  if(!sidebar) return;
+  sidebar.classList.add("expanded");
+  sidebar.scrollTop = 0;
+  if(btnFloatingFilters) btnFloatingFilters.classList.add("offset");
+  if(btnFloatingReport) btnFloatingReport.classList.add("offset");
+  if(isMobileViewport()) hideFABs();
+}
+
+function collapseSidebar(){
+  if(!sidebar) return;
+  sidebar.classList.remove("expanded");
+  showFABs();
+}
+
+function collapseSidebarAfterAction(){
+  if(isMobileViewport()){
+    collapseSidebar();
+  } else {
+    showFABs();
+  }
+}
+
+function updateMobileBanner(){
+  if(!mobileBanner) return;
+  mobileBanner.textContent = rolActual === "municipal" ? "Vista Municipal" : "Vista Visitante";
+  repositionMobileBanner();
+  if(isMobileViewport()){
+    mobileBanner.classList.remove("hidden");
+  } else {
+    mobileBanner.classList.add("hidden");
+  }
+}
+
+updateMobileBanner();
+window.addEventListener("resize", ()=>{
+  repositionMobileBanner();
+  updateMobileBanner();
+});
+
+function repositionMobileBanner(){
+  if(!mobileBanner) return;
+  let offsetTop = 8;
+  const header = document.querySelector(".topbar");
+  const mobileSearch = document.getElementById("mobileSearch");
+  if(header){
+    const rect = header.getBoundingClientRect();
+    offsetTop = rect.bottom + 8;
+  }
+  if(mobileSearch && isMobileViewport()){
+    const rectSearch = mobileSearch.getBoundingClientRect();
+    offsetTop = rectSearch.bottom + 8;
+  }
+  mobileBanner.style.top = offsetTop + "px";
+  mobileBanner.style.right = "12px";
+}
+
+// Ubicacion actual
+if(btnUbicacion){
+  btnUbicacion.addEventListener("click", () => {
+    navigator.geolocation.getCurrentPosition((pos) => {
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      map.setView([lat, lon], 16);
+      L.marker([lat, lon]).addTo(map).bindPopup("Tu ubicacion").openPopup();
+    });
+  });
+}
+
+// Cambiar rol
+if(btnToggleRol){
+  btnToggleRol.addEventListener("click", ()=>{
+    const nuevo = rolActual === "municipal" ? "visitante" : "municipal";
+    setRol(nuevo);
+    guardarSesionRol(nuevo);
+    updateMobileBanner();
+  });
+  // init
+  setRol(rolActual);
+  updateMobileBanner();
+}
 
 function buildNominatimUrl(texto, limit=5){
   return `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&polygon_geojson=0&q=${encodeURIComponent(texto)}&limit=${limit}&countrycodes=pe&viewbox=${bboxLima}&bounded=1`;
@@ -180,6 +264,7 @@ function cargarSesionRol(){
     if(correo && inputCorreo) inputCorreo.value = correo;
     if(rol){
       setRol(rol);
+      updateMobileBanner();
       if(loginOverlay) loginOverlay.classList.add("hidden");
       return;
     }
@@ -209,6 +294,7 @@ if(formLogin){
     setRol(rol);
     guardarSesionRol(rol);
     if(loginOverlay) loginOverlay.classList.add("hidden");
+    updateMobileBanner();
   });
 }
 
@@ -223,6 +309,7 @@ if(btnLogout){
       localStorage.removeItem("correoActual");
     }catch(e){}
     setRol("visitante");
+    updateMobileBanner();
     if(loginOverlay) loginOverlay.classList.remove("hidden");
     if(inputCorreo) inputCorreo.value="";
     if(inputClave) inputClave.value="";
@@ -232,28 +319,42 @@ if(btnLogout){
 // Toggle sidebar en mobile
 if(btnMenu && sidebar){
   btnMenu.addEventListener("click", ()=>{
-    sidebar.classList.toggle("expanded");
+    const expanded = sidebar.classList.toggle("expanded");
+    if(expanded && isMobileViewport()){
+      hideFABs();
+    } else {
+      showFABs();
+    }
   });
 }
 if(btnFloatingFilters && sidebar){
   btnFloatingFilters.addEventListener("click", ()=>{
-    sidebar.classList.toggle("expanded");
-    // Si se expande, llevar el scroll al inicio
-    if(sidebar.classList.contains("expanded")){
-      sidebar.scrollTop = 0;
+    const willExpand = !sidebar.classList.contains("expanded");
+    if(willExpand){
+      expandSidebar();
+    } else {
+      collapseSidebar();
     }
   });
 }
 if(btnFloatingReport && sidebar){
   btnFloatingReport.addEventListener("click", ()=>{
-    // despliega filtros y scroll a reportes (si visible en desktop)
-    sidebar.classList.add("expanded");
+    expandSidebar();
     sidebar.scrollTop = sidebar.scrollHeight;
     const reportes = document.getElementById("reportes");
     if(reportes){
       reportes.scrollIntoView({behavior:"smooth"});
     }
   });
+}
+
+const btnAplicarFiltros = document.getElementById("btnAplicarFiltros");
+const btnMostrarTodas = document.getElementById("btnMostrarTodas");
+if(btnAplicarFiltros){
+  btnAplicarFiltros.addEventListener("click", collapseSidebarAfterAction);
+}
+if(btnMostrarTodas){
+  btnMostrarTodas.addEventListener("click", collapseSidebarAfterAction);
 }
 
 // AUTOCOMPLETADO

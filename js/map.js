@@ -345,6 +345,9 @@ function setRol(nuevo){
     if(mobileBanner){
         mobileBanner.textContent = rolActual === "municipal" ? "Vista Municipal" : "Vista Visitante";
     }
+    if(typeof updateMobileBanner === "function"){
+        updateMobileBanner();
+    }
 }
 
 // Avisos ciudadanos
