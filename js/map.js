@@ -341,6 +341,10 @@ function setRol(nuevo){
             btnToggleRol.style.display = "none";
         }
     }
+    const mobileBanner = document.querySelector(".mobile-banner");
+    if(mobileBanner){
+        mobileBanner.textContent = rolActual === "municipal" ? "Vista Municipal" : "Vista Visitante";
+    }
 }
 
 // Avisos ciudadanos

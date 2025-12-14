@@ -36,6 +36,13 @@ const inputClave = document.getElementById("inputClave");
 const btnLogout = document.getElementById("btnLogout");
 const bboxLima = "-77.2,-11.7,-76.8,-12.3"; // Lima Metropolitana aprox
 let overlayFoto = null;
+const btnMenu = document.getElementById("btnMenu");
+const sidebar = document.getElementById("sidebar");
+const btnFloatingFilters = document.getElementById("btnFloatingFilters");
+const btnFloatingReport = document.getElementById("btnFloatingReport");
+const mobileBanner = document.createElement("div");
+mobileBanner.className = "mobile-banner hidden";
+document.body.appendChild(mobileBanner);
 
 function buildNominatimUrl(texto, limit=5){
   return `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&polygon_geojson=0&q=${encodeURIComponent(texto)}&limit=${limit}&countrycodes=pe&viewbox=${bboxLima}&bounded=1`;
@@ -222,6 +229,33 @@ if(btnLogout){
   });
 }
 
+// Toggle sidebar en mobile
+if(btnMenu && sidebar){
+  btnMenu.addEventListener("click", ()=>{
+    sidebar.classList.toggle("expanded");
+  });
+}
+if(btnFloatingFilters && sidebar){
+  btnFloatingFilters.addEventListener("click", ()=>{
+    sidebar.classList.toggle("expanded");
+    // Si se expande, llevar el scroll al inicio
+    if(sidebar.classList.contains("expanded")){
+      sidebar.scrollTop = 0;
+    }
+  });
+}
+if(btnFloatingReport && sidebar){
+  btnFloatingReport.addEventListener("click", ()=>{
+    // despliega filtros y scroll a reportes (si visible en desktop)
+    sidebar.classList.add("expanded");
+    sidebar.scrollTop = sidebar.scrollHeight;
+    const reportes = document.getElementById("reportes");
+    if(reportes){
+      reportes.scrollIntoView({behavior:"smooth"});
+    }
+  });
+}
+
 // AUTOCOMPLETADO
 const inputBuscar = document.getElementById("inputBuscar");
 const contSug = document.getElementById("sugerencias");
@@ -313,3 +347,97 @@ document
       .bindPopup(`<strong>${texto}</strong>`)
       .openPopup();
   });
+
+// Mobile search listeners
+const inputBuscarMobile = document.getElementById("inputBuscarMobile");
+const contSugMobile = document.getElementById("sugerenciasMobile");
+const btnBuscarDireccionMobile = document.getElementById("btnBuscarDireccionMobile");
+let timeoutAutocompleteMobile;
+
+function bindSearch(inputEl, contEl){
+  inputEl.addEventListener("input", () => {
+    const texto = inputEl.value.trim();
+    if (texto.length < 2) {
+      contEl.style.display = "none";
+      contEl.innerHTML = "";
+      return;
+    }
+    clearTimeout(timeoutAutocompleteMobile);
+    timeoutAutocompleteMobile = setTimeout(async () => {
+      const norm = normalizarTexto(texto);
+      contEl.innerHTML = "";
+
+      const locales = distritosLocales()
+        .filter(d => normalizarTexto(d).includes(norm))
+        .slice(0,5)
+        .map(d => ({label:d, type:"local"}));
+
+      let externas = [];
+      try{
+        const url = buildNominatimUrl(texto,7);
+        const res = await fetch(url);
+        externas = await res.json();
+      }catch(err){ externas = []; }
+
+      const externasMapped = (externas || []).map(item=>{
+        const label = item.display_name;
+        const esLima = (item.address && (item.address.city === "Lima" || item.address.town === "Lima" || item.address.state === "Lima")) || label.toLowerCase().includes("lima");
+        return {label, lat:item.lat, lon:item.lon, type:"ext", esLima};
+      });
+
+      const sugerencias = [...locales, ...externasMapped];
+      if(!sugerencias.length){
+        contEl.style.display = "none";
+        return;
+      }
+
+      sugerencias.forEach(item=>{
+        const div = document.createElement("div");
+        div.className = "sugerencia-item";
+        div.innerText = item.label;
+        if(item.esLima || item.type==="local") div.style.fontWeight = "700";
+        div.addEventListener("click", async () => {
+          inputEl.value = item.label;
+          contEl.style.display = "none";
+          if(item.type === "local"){
+            await zoomADistrito(item.label);
+          } else if(item.lat && item.lon){
+            map.flyTo([parseFloat(item.lat), parseFloat(item.lon)], 16, {duration:1.2, easeLinearity:0.25});
+            L.marker([item.lat, item.lon])
+              .addTo(map)
+              .bindPopup(`<strong>${item.label}</strong>`)
+              .openPopup();
+          }
+        });
+        contEl.appendChild(div);
+      });
+      contEl.style.display = "block";
+    }, 500);
+  });
+}
+
+if(inputBuscarMobile && contSugMobile){
+  bindSearch(inputBuscarMobile, contSugMobile);
+}
+if(btnBuscarDireccionMobile && inputBuscarMobile){
+  btnBuscarDireccionMobile.addEventListener("click", async () => {
+    const texto = inputBuscarMobile.value;
+    if(!texto.trim()){
+      alert("Ingresa un texto para buscar.");
+      return;
+    }
+    const url = buildNominatimUrl(texto,1);
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!data.length) {
+      alert("No encontrado");
+      return;
+    }
+    const lugar = data[0];
+    map.flyTo([parseFloat(lugar.lat), parseFloat(lugar.lon)], 16, {duration:1.2, easeLinearity:0.25});
+    L.marker([lugar.lat, lugar.lon])
+      .addTo(map)
+      .bindPopup(`<strong>${texto}</strong>`)
+      .openPopup();
+  });
+}
