@@ -26,7 +26,29 @@ const ICONOS = {
         { id: "pista", label: "Pista", src: "src/horizontal/pista.png" },
         { id: "paso", label: "Paso peatonal", src: "src/horizontal/invalidez.png" },
         { id: "acceso", label: "Acceso", src: "src/horizontal/images.png" },
-        { id: "ceda", label: "Ceda el paso", src: "src/horizontal/sedaelpaso.png" }
+        { id: "ceda", label: "Ceda el paso", src: "src/horizontal/sedaelpaso.png" },
+        { id: "banda_transversal", label: "Banda transversal", src: "src/horizontal/ico_banda_transversal.png" },
+        { id: "crucero", label: "Crucero", src: "src/horizontal/ico_crucero.png" },
+        { id: "enrejado", label: "Enrejado amarillo", src: "src/horizontal/ico_enrrejado_amarillo.png" },
+        { id: "flecha_arriba", label: "Flecha recto", src: "src/horizontal/ico_flecha_arriba.png" },
+        { id: "flecha_arriba_der", label: "Recto y derecha", src: "src/horizontal/ico_flecha_arriba_giro_derecha.png" },
+        { id: "flecha_arriba_izq", label: "Recto y izquierda", src: "src/horizontal/ico_flecha_arriba_giro_izquierda.png" },
+        { id: "flecha_der", label: "Flecha giro der", src: "src/horizontal/ico_flecha_giro_der.png" },
+        { id: "flecha_izq", label: "Flecha giro izq", src: "src/horizontal/ico_flecha_giro_izq.png" },
+        { id: "isla", label: "Isla", src: "src/horizontal/ico_isla.png" },
+        { id: "isla_amarilla", label: "Isla amarilla", src: "src/horizontal/ico_isla_amarilla.png" },
+        { id: "linea_continua", label: "Linea continua", src: "src/horizontal/ico_linea_continua.png" },
+        { id: "linea_continua_amarilla", label: "Linea continua amarilla", src: "src/horizontal/ico_linea_continua_Amarillo.png" },
+        { id: "linea_continua_relieve", label: "Linea continua relieve", src: "src/horizontal/ico_linea_continua_relieve.png" },
+        { id: "linea_discontinua", label: "Linea discontinua", src: "src/horizontal/ico_linea_discontinua.png" },
+        { id: "linea_discontinua_amarilla", label: "Linea discontinua amarilla", src: "src/horizontal/ico_linea_discontinua_amarillo.png" },
+        { id: "linea_pare", label: "Linea PARE", src: "src/horizontal/ico_linea_pare.png" },
+        { id: "pare", label: "PARE horizontal", src: "src/horizontal/ico_pare.png" },
+        { id: "peatones", label: "Peatones", src: "src/horizontal/ico_peatones.png" },
+        { id: "vel_30", label: "Velocidad 30", src: "src/horizontal/ico_vel_30.png" },
+        { id: "vel_35", label: "Velocidad 35", src: "src/horizontal/ico_vel_35.png" },
+        { id: "vel_40", label: "Velocidad 40", src: "src/horizontal/ico_vel_40.png" },
+        { id: "zona_escolar", label: "Zona escolar", src: "src/horizontal/ico_zona_escolar.png" }
     ],
     vertical: [
         { id: "stop", label: "PARE", src: "src/vertical/senal-de-stop.png" },
@@ -137,6 +159,7 @@ function templateCrearPopup(lat, lng){
     +   '</div>'
     +   '<div class="step icono-step hidden">'
     +       '<div class="step-title">Icono</div>'
+    +       '<input type="text" class="icon-search" placeholder="Buscar icono...">'
     +       '<div class="icon-grid">' + iconsList + '</div>'
     +   '</div>'
     +   '<button class="btn-crear hidden" data-lat="' + lat + '" data-lng="' + lng + '" disabled>Crear senal</button>'
@@ -156,9 +179,14 @@ function enlazarPopupCrear(lat, lng){
     const btnCrear = popupEl.querySelector(".btn-crear");
     const iconStep = popupEl.querySelector(".icono-step");
     const estadoStep = popupEl.querySelector(".estado-step");
+    const iconSearch = popupEl.querySelector(".icon-search");
 
     const hoy = new Date().toISOString().slice(0,10);
     if(inputFecha) inputFecha.value = hoy;
+
+    function norm(str){
+        return (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+    }
 
     function toggleFecha(){
         if(!fechaRow) return;
@@ -206,6 +234,7 @@ function enlazarPopupCrear(lat, lng){
     }
 
     // Iconos
+    const iconOptions = popupEl.querySelectorAll(".icon-option");
     popupEl.querySelectorAll(".icon-option").forEach(function(btn){
         btn.addEventListener("click", function(){
             if(!estadoSel) return;
@@ -215,6 +244,16 @@ function enlazarPopupCrear(lat, lng){
             evaluarBoton();
         });
     });
+    if(iconSearch){
+        iconSearch.addEventListener("input", function(){
+            const term = norm(iconSearch.value);
+            iconOptions.forEach(function(btn){
+                const label = norm(btn.querySelector("small") ? btn.querySelector("small").textContent : "");
+                const match = !term || label.includes(term);
+                btn.style.display = match ? "grid" : "none";
+            });
+        });
+    }
 
     // Crear
     popupEl.querySelector(".btn-crear").addEventListener("click", function(){
