@@ -399,6 +399,10 @@ async function zoomADistrito(nombre){
 function setRol(nuevo){
     rolActual = nuevo;
     renderizarSenales(senales);
+    try{
+        document.body.classList.toggle("role-municipal", rolActual === "municipal");
+        document.body.classList.toggle("role-visitante", rolActual === "visitante");
+    }catch(e){}
     const btnReportar = document.getElementById("btnReportar");
     if(btnReportar){
         btnReportar.style.display = rolActual === "municipal" ? "none" : "block";

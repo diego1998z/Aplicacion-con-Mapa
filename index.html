@@ -111,7 +111,7 @@
         <div class="reportes-sheet">
             <div class="sheet-handle"></div>
             <button id="btnCerrarReportes" class="close-reportes">Cerrar</button>
-            <div class="reporte-card">
+            <div class="reporte-card reporte-horizontal">
                 <h3>Reporte Senalizacion Horizontal</h3>
                 <table id="tablaHorizontal">
                     <thead>
@@ -120,7 +120,7 @@
                     <tbody></tbody>
                 </table>
             </div>
-            <div class="reporte-card">
+            <div class="reporte-card reporte-vertical">
                 <h3>Reporte Senalizacion Vertical</h3>
                 <table id="tablaVertical">
                     <thead>
@@ -129,11 +129,35 @@
                     <tbody></tbody>
                 </table>
             </div>
-            <div class="reporte-card">
+            <div class="reporte-card reporte-avisos">
                 <h3>Avisos Ciudadanos</h3>
+                <div class="reportes-toolbar">
+                    <input id="filtroAvisoTexto" type="text" placeholder="Buscar aviso...">
+                    <select id="filtroAvisoTipo">
+                        <option value="">Todos los tipos</option>
+                        <option value="falta">Falta señal</option>
+                        <option value="danada">Señal dañada</option>
+                        <option value="obstruida">Obstruida</option>
+                        <option value="otro">Otro</option>
+                    </select>
+                    <select id="filtroAvisoEstado">
+                        <option value="">Todos los estados</option>
+                        <option value="pendiente">Pendiente</option>
+                        <option value="atendido">Atendido</option>
+                    </select>
+                    <div class="toolbar-dates">
+                        <input id="filtroAvisoDesde" type="date" title="Desde">
+                        <input id="filtroAvisoHasta" type="date" title="Hasta">
+                    </div>
+                    <select id="filtroAvisoOrden">
+                        <option value="antiguos">Más antiguos primero</option>
+                        <option value="recientes">Más recientes primero</option>
+                    </select>
+                    <button id="btnLimpiarFiltrosAvisos" type="button" class="btnToolbar">Limpiar</button>
+                </div>
                 <table id="tablaAvisos">
                     <thead>
-                        <tr><th>Tipo</th><th>Descripcion</th><th>Estado</th><th>Fecha</th></tr>
+                        <tr><th>ID</th><th>Region</th><th>Distrito</th><th>Tipo</th><th>Descripcion</th><th>Estado</th><th>Fecha</th><th>Imagen</th></tr>
                     </thead>
                     <tbody></tbody>
                 </table>

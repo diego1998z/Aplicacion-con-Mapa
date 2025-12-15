@@ -245,6 +245,58 @@
     border-collapse:collapse;
     font-size:13px;
 }
+.reporte-card{
+    overflow:hidden;
+}
+.reporte-card .reportes-toolbar{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    align-items:center;
+    margin:10px 0 12px;
+}
+.reportes-toolbar input,
+.reportes-toolbar select{
+    height:38px;
+    padding:8px 10px;
+    border:1px solid var(--border);
+    border-radius:10px;
+    background:#fff;
+    font-family:inherit;
+}
+.reportes-toolbar #filtroAvisoTexto{
+    flex:1;
+    min-width:180px;
+}
+.toolbar-dates{
+    display:flex;
+    gap:8px;
+}
+.btnToolbar{
+    width:auto;
+    padding:9px 12px;
+    border:none;
+    border-radius:10px;
+    background:#233447;
+    color:#fff;
+    font-weight:700;
+    cursor:pointer;
+}
+.btnToolbar:hover{
+    background:#182531;
+}
+.aviso-img-link{
+    color:var(--primary);
+    text-decoration:underline;
+    font-weight:700;
+    cursor:pointer;
+}
+
+/* Vista visitante: solo Avisos */
+.role-visitante .reporte-horizontal,
+.role-visitante .reporte-vertical{
+    display:none;
+}
 .reporte-card th,
 .reporte-card td{
     border-bottom:1px solid #e5e9f2;
@@ -524,6 +576,13 @@
         color:#fff;
         font-weight:700;
         width:120px;
+    }
+    .reporte-avisos .reportes-toolbar{
+        position:sticky;
+        top:0;
+        background:#fff;
+        padding-top:6px;
+        z-index:5;
     }
     #map{
         position:fixed;

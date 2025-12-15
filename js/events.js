@@ -207,6 +207,7 @@ function crearOverlayFoto(){
 
 document.addEventListener("click", (e)=>{
   if(e.target && e.target.classList.contains("btnVerFoto")){
+    try{ e.preventDefault(); }catch(err){}
     const src = e.target.getAttribute("data-img");
     if(!src) return;
     const ov = crearOverlayFoto();
@@ -227,14 +228,23 @@ if(btnEnviarReporte){
     const desc = inputDescripcion ? inputDescripcion.value.trim() : "";
     const fecha = new Date().toISOString().slice(0,10);
 
+    const nextAvisoId = (Array.isArray(avisos) ? avisos.reduce((m,a)=> Math.max(m, a.id || 0), 0) : 0) + 1;
+    const selRegionEl = document.getElementById("selectRegion");
+    const selDistritoEl = document.getElementById("selectDistrito");
+    const region = selRegionEl ? selRegionEl.value : "";
+    const distrito = selDistritoEl ? selDistritoEl.value : "";
+
     const aviso = {
+      id: nextAvisoId,
       tipo,
       descripcion: desc || "Sin descripcion",
       estado: "pendiente",
       fecha,
       lat: puntoReporte.lat,
       lng: puntoReporte.lng,
-      foto: null
+      foto: null,
+      region: region || "",
+      distrito: distrito || ""
     };
 
     if(inputFoto && inputFoto.files && inputFoto.files[0]){
