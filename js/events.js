@@ -19,6 +19,7 @@ const btnMenu = document.getElementById("btnMenu");
 const sidebar = document.getElementById("sidebar");
 const btnFloatingFilters = document.getElementById("btnFloatingFilters");
 const btnFloatingReport = document.getElementById("btnFloatingReport");
+const btnFloatingLogout = document.getElementById("btnFloatingLogout");
 const reportesPanel = document.getElementById("reportes");
 const btnCerrarReportes = document.getElementById("btnCerrarReportes");
 const reportesSheet = reportesPanel ? reportesPanel.querySelector(".reportes-sheet") : null;
@@ -38,6 +39,7 @@ function isMobileViewport(){
 function hideFABs(){
   if(btnFloatingFilters) btnFloatingFilters.classList.add("fab-hidden");
   if(btnFloatingReport) btnFloatingReport.classList.add("fab-hidden");
+  if(btnFloatingLogout) btnFloatingLogout.classList.add("fab-hidden");
 }
 
 function showFABs(){
@@ -47,6 +49,9 @@ function showFABs(){
   if(btnFloatingReport){
     btnFloatingReport.classList.remove("fab-hidden","offset");
   }
+  if(btnFloatingLogout){
+    btnFloatingLogout.classList.remove("fab-hidden","offset");
+  }
 }
 
 function expandSidebar(){
@@ -55,6 +60,7 @@ function expandSidebar(){
   sidebar.scrollTop = 0;
   if(btnFloatingFilters) btnFloatingFilters.classList.add("offset");
   if(btnFloatingReport) btnFloatingReport.classList.add("offset");
+  if(btnFloatingLogout) btnFloatingLogout.classList.add("offset");
   if(isMobileViewport()) hideFABs();
 }
 
@@ -115,6 +121,7 @@ if(btnUbicacion){
       map.setView([lat, lon], 16);
       L.marker([lat, lon]).addTo(map).bindPopup("Tu ubicacion").openPopup();
     });
+    collapseSidebarAfterAction();
   });
 }
 
@@ -305,18 +312,29 @@ if(formLogin){
 cargarSesionRol();
 
 // Logout
+function ejecutarLogout(){
+  try{
+    localStorage.removeItem("rolActual");
+    localStorage.removeItem("correoActual");
+  }catch(e){}
+  setRol("visitante");
+  updateMobileBanner();
+  if(loginOverlay) loginOverlay.classList.remove("hidden");
+  if(inputCorreo) inputCorreo.value="";
+  if(inputClave) inputClave.value="";
+  if(reportesPanel){
+    reportesPanel.classList.add("hidden");
+    reportesPanel.classList.remove("mobile-visible");
+  }
+  collapseSidebar();
+  showFABs();
+}
+
 if(btnLogout){
-  btnLogout.addEventListener("click", ()=>{
-    try{
-      localStorage.removeItem("rolActual");
-      localStorage.removeItem("correoActual");
-    }catch(e){}
-    setRol("visitante");
-    updateMobileBanner();
-    if(loginOverlay) loginOverlay.classList.remove("hidden");
-    if(inputCorreo) inputCorreo.value="";
-    if(inputClave) inputClave.value="";
-  });
+  btnLogout.addEventListener("click", ejecutarLogout);
+}
+if(btnFloatingLogout){
+  btnFloatingLogout.addEventListener("click", ejecutarLogout);
 }
 
 // Toggle sidebar en mobile
@@ -380,6 +398,9 @@ if(btnAplicarFiltros){
 if(btnMostrarTodas){
   btnMostrarTodas.addEventListener("click", collapseSidebarAfterAction);
 }
+document.querySelectorAll(".btnFiltro").forEach((btn)=>{
+  btn.addEventListener("click", collapseSidebarAfterAction);
+});
 
 if(btnCerrarReportes && reportesPanel){
   btnCerrarReportes.addEventListener("click", ()=>{
