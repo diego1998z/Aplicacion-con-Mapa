@@ -108,3 +108,13 @@ body{
     border-color:var(--primary);
     box-shadow:0 10px 20px rgba(29,112,184,0.25);
 }
+
+@media (max-width: 900px){
+    #chipRol,
+    #btnToggleRol,
+    #btnToggleReportes,
+    #btnLogout,
+    .badge{
+        display:none!important;
+    }
+}
