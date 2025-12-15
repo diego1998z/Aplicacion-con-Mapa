@@ -67,6 +67,11 @@ let puntoReporte = null;
 let marcadorReporte = null;
 let reabrirModalReporte = false;
 
+const AVISO_COLORES = {
+    pendiente: "#f7a800",
+    atendido: "#2fa84f"
+};
+
 function iconoPorId(id, modo){
     const lista = ICONOS[modo] || [];
     return lista.find(function(i){ return i.id === id; }) || lista[0];
@@ -430,21 +435,84 @@ function setRol(nuevo){
 }
 
 // Avisos ciudadanos
+function iconoAviso(estado){
+    const color = AVISO_COLORES[estado] || AVISO_COLORES.pendiente;
+    return L.divIcon({
+        className:"estado-marker",
+        html:'<div class="marker-bubble" style="border-color:'+color+';background:#fff;"><div class="marker-img" style="background:'+color+';width:14px;height:14px;border-radius:50%;"></div></div>',
+        iconSize:[32,32],
+        iconAnchor:[16,28],
+        popupAnchor:[0,-20]
+    });
+}
+
+function abrirPopupEstadoAviso(aviso, latlng){
+    if(!aviso) return;
+    const container = document.createElement("div");
+    container.className = "aviso-estado-popup";
+    const titulo = document.createElement("div");
+    titulo.className = "aviso-estado-title";
+    titulo.textContent = "Estado del aviso";
+    const desc = document.createElement("div");
+    desc.className = "aviso-estado-desc";
+    desc.textContent = (aviso.tipo || "Aviso") + " • " + (aviso.fecha || "");
+
+    const actions = document.createElement("div");
+    actions.className = "aviso-estado-actions";
+
+    function mkBtn(label, value){
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "aviso-estado-btn" + (aviso.estado === value ? " active" : "");
+        btn.textContent = label;
+        btn.addEventListener("click", ()=>{
+            aviso.estado = value;
+            renderAvisos();
+            if(typeof updateReportes === "function"){ updateReportes(); }
+            map.closePopup();
+        });
+        return btn;
+    }
+
+    actions.appendChild(mkBtn("Pendiente", "pendiente"));
+    actions.appendChild(mkBtn("Atendido", "atendido"));
+
+    container.appendChild(titulo);
+    container.appendChild(desc);
+    container.appendChild(actions);
+
+    L.popup({closeButton:true, className:"popup-aviso-estado"})
+        .setLatLng(latlng)
+        .setContent(container)
+        .openOn(map);
+}
+
 function renderAvisos(){
     avisosMarkers.forEach(function(m){ map.removeLayer(m); });
     avisosMarkers = [];
     avisos.forEach(function(a){
-        const icon = L.divIcon({
-            className:"estado-marker",
-            html:'<div class="marker-bubble" style="border-color:#f7a800;background:#fff;"><div class="marker-img" style="background-image:url(\'\');width:14px;height:14px;border-radius:50%;background:#f7a800;"></div></div>',
-            iconSize:[32,32],
-            iconAnchor:[16,28],
-            popupAnchor:[0,-20]
-        });
-        const m = L.marker([a.lat,a.lng],{icon}).addTo(map);
+        const m = L.marker([a.lat,a.lng],{icon: iconoAviso(a.estado)}).addTo(map);
         const fotoThumb = a.foto ? '<div class="aviso-thumb"><img src="'+a.foto+'" alt="Foto aviso"></div><button class="btnVerFoto" data-img="'+a.foto+'">Ver detalles</button>' : '';
-        const popupHtml = '<div class="aviso-popup"><strong>Aviso: '+a.tipo+'</strong><br>'+a.descripcion+'<br>'+a.fecha+fotoThumb+'</div>';
+        const popupHtml = '<div class="aviso-popup"><strong>Aviso: '+(a.tipo || "-")+'</strong><br>'
+            + (a.descripcion || "-") + '<br>'
+            + 'Estado: ' + (a.estado || "-") + '<br>'
+            + (a.region ? ('Region: ' + a.region + '<br>') : '')
+            + (a.distrito ? ('Distrito: ' + a.distrito + '<br>') : '')
+            + (a.fecha || "-")
+            + fotoThumb + '</div>';
         m.bindPopup(popupHtml);
+
+        m.on("contextmenu", function(ev){
+            if(ev && ev.originalEvent){
+                try{
+                    L.DomEvent.stopPropagation(ev.originalEvent);
+                    L.DomEvent.preventDefault(ev.originalEvent);
+                }catch(e){}
+            }
+            if(rolActual !== "municipal") return;
+            abrirPopupEstadoAviso(a, ev.latlng);
+        });
+
         avisosMarkers.push(m);
     });
 }

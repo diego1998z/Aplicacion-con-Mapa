@@ -358,6 +358,44 @@
 .btnVerFoto:hover{
     background:#155488;
 }
+.popup-aviso-estado .leaflet-popup-content{
+    margin:12px 14px;
+}
+.aviso-estado-popup{
+    min-width:220px;
+    font-size:13px;
+    color:var(--text);
+}
+.aviso-estado-title{
+    font-weight:800;
+    margin-bottom:6px;
+}
+.aviso-estado-desc{
+    color:var(--muted);
+    margin-bottom:10px;
+    font-size:12px;
+}
+.aviso-estado-actions{
+    display:flex;
+    gap:10px;
+}
+.aviso-estado-btn{
+    flex:1;
+    padding:10px 12px;
+    border-radius:10px;
+    border:1px solid var(--border);
+    background:#f5f7fb;
+    cursor:pointer;
+    font-weight:700;
+}
+.aviso-estado-btn.active{
+    background:rgba(29,112,184,0.1);
+    border-color:var(--primary);
+    color:var(--primary);
+}
+.aviso-estado-btn:hover{
+    border-color:var(--primary);
+}
 .foto-fullscreen{
     position:fixed;
     inset:0;
