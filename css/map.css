@@ -216,6 +216,18 @@
     padding:14px 20px 24px;
     background:#f7f8fb;
 }
+
+@media (min-width: 601px){
+    /* En desktop la hoja no debe comportarse como bottom-sheet */
+    #reportes .reportes-sheet{
+        display:contents;
+        transform:none !important;
+    }
+    #reportes .sheet-handle,
+    #reportes .close-reportes{
+        display:none;
+    }
+}
 .reporte-card{
     background:#fff;
     border:1px solid var(--border);
@@ -394,11 +406,14 @@
     display:flex;
     flex-direction:column;
     justify-content:center;
+    align-items:center;
+    text-align:center;
     gap:16px;
     box-shadow:0 20px 60px rgba(0,0,0,0.18);
 }
 .login-logo{
     max-width:180px;
+    margin:0 auto;
 }
 .login-card h2{
     margin:0;
@@ -410,6 +425,7 @@
 .login-card form{
     display:grid;
     gap:12px;
+    width:100%;
 }
 .login-card label{
     font-size:13px;
@@ -465,6 +481,49 @@
 @media (max-width: 600px){
     #reportes{
         display:none;
+    }
+    #reportes.mobile-visible{
+        display:block;
+        position:fixed;
+        inset:0;
+        background:rgba(15,23,42,0.18);
+        z-index:2200;
+        overflow:hidden;
+    }
+    #reportes .reportes-sheet{
+        position:absolute;
+        left:0; right:0; bottom:0;
+        background:#fff;
+        border-radius:16px 16px 0 0;
+        box-shadow:0 -8px 30px rgba(0,0,0,0.18);
+        max-height:85vh;
+        padding:14px 12px 24px;
+        transform:translateY(100%);
+        transition:transform 220ms ease;
+    }
+    #reportes.mobile-visible .reportes-sheet{
+        transform:translateY(0);
+    }
+    .sheet-handle{
+        width:48px;
+        height:5px;
+        background:#cfd6e0;
+        border-radius:99px;
+        margin:0 auto 10px;
+    }
+    #reportes.mobile-visible .reporte-card{
+        margin-top:12px;
+    }
+    .close-reportes{
+        display:block;
+        margin:0 auto 6px;
+        padding:10px 14px;
+        border:none;
+        border-radius:10px;
+        background:#233447;
+        color:#fff;
+        font-weight:700;
+        width:120px;
     }
     #map{
         position:fixed;

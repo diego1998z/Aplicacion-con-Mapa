@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestor de Senales Viales</title>
+    <title>Urbbis | Gestor de Senales</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"/>
     <link rel="stylesheet" href="css/global.css">
     <link rel="stylesheet" href="css/sidebar.css">
@@ -33,9 +33,9 @@
     </div>
     <header class="topbar">
         <div class="brand">
-            <span class="brand-mark">LR</span>
+            <span class="brand-mark">UR</span>
             <div class="brand-text">
-                <strong>LogiRoad</strong>
+                <strong>Urbbis</strong>
                 <small>Gestion de senalizacion</small>
             </div>
         </div>
@@ -106,33 +106,37 @@
         </div>
     </div>
 
-    <section id="reportes">
-        <div class="reporte-card">
-            <h3>Reporte Senalizacion Horizontal</h3>
-            <table id="tablaHorizontal">
-                <thead>
-                    <tr><th>Tipo</th><th>Nombre</th><th>Estado</th><th>Fecha</th></tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
-        <div class="reporte-card">
-            <h3>Reporte Senalizacion Vertical</h3>
-            <table id="tablaVertical">
-                <thead>
-                    <tr><th>Tipo</th><th>Nombre</th><th>Estado</th><th>Fecha</th></tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
-        <div class="reporte-card">
-            <h3>Avisos Ciudadanos</h3>
-            <table id="tablaAvisos">
-                <thead>
-                    <tr><th>Tipo</th><th>Descripcion</th><th>Estado</th><th>Fecha</th></tr>
-                </thead>
-                <tbody></tbody>
-            </table>
+    <section id="reportes" class="hidden">
+        <div class="reportes-sheet">
+            <div class="sheet-handle"></div>
+            <button id="btnCerrarReportes" class="close-reportes">Cerrar</button>
+            <div class="reporte-card">
+                <h3>Reporte Senalizacion Horizontal</h3>
+                <table id="tablaHorizontal">
+                    <thead>
+                        <tr><th>Tipo</th><th>Nombre</th><th>Estado</th><th>Fecha</th></tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div class="reporte-card">
+                <h3>Reporte Senalizacion Vertical</h3>
+                <table id="tablaVertical">
+                    <thead>
+                        <tr><th>Tipo</th><th>Nombre</th><th>Estado</th><th>Fecha</th></tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div class="reporte-card">
+                <h3>Avisos Ciudadanos</h3>
+                <table id="tablaAvisos">
+                    <thead>
+                        <tr><th>Tipo</th><th>Descripcion</th><th>Estado</th><th>Fecha</th></tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
         </div>
     </section>
 

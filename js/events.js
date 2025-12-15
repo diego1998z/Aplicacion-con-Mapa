@@ -19,6 +19,9 @@ const btnMenu = document.getElementById("btnMenu");
 const sidebar = document.getElementById("sidebar");
 const btnFloatingFilters = document.getElementById("btnFloatingFilters");
 const btnFloatingReport = document.getElementById("btnFloatingReport");
+const reportesPanel = document.getElementById("reportes");
+const btnCerrarReportes = document.getElementById("btnCerrarReportes");
+const reportesSheet = reportesPanel ? reportesPanel.querySelector(".reportes-sheet") : null;
 const mapContainer = document.getElementById("map");
 const bboxLima = "-77.2,-11.7,-76.8,-12.3"; // Lima Metropolitana aprox
 let overlayFoto = null;
@@ -152,9 +155,9 @@ function distritosLocales(){
 function abrirModalReporte(){
   if(!modalReporte) return;
   modalReporte.classList.remove("hidden");
-  pickingReporte = true;
+  pickingReporte = false;
   puntoReporte = null;
-  if(infoUbicacion) infoUbicacion.textContent = "Haz click en el mapa para fijar la ubicacion.";
+  if(infoUbicacion) infoUbicacion.textContent = "Pulsa 'Elegir en mapa' o haz click derecho en el mapa para fijar la ubicacion.";
 }
 function cerrarModalReporte(){
   if(!modalReporte) return;
@@ -339,11 +342,32 @@ if(btnFloatingFilters && sidebar){
 }
 if(btnFloatingReport && sidebar){
   btnFloatingReport.addEventListener("click", ()=>{
-    expandSidebar();
-    sidebar.scrollTop = sidebar.scrollHeight;
-    const reportes = document.getElementById("reportes");
-    if(reportes){
-      reportes.scrollIntoView({behavior:"smooth"});
+    if(typeof updateReportes === "function"){ updateReportes(); }
+    // Ir directo a la seccion de reportes
+    if(isMobileViewport()){
+      if(reportesPanel){
+        reportesPanel.classList.remove("hidden");
+        reportesPanel.classList.add("mobile-visible");
+        if(reportesSheet){
+          reportesSheet.style.transform = "translateY(0)";
+        }
+      }
+      collapseSidebar();
+      hideFABs();
+    } else {
+      if(reportesPanel){
+        reportesPanel.classList.remove("hidden");
+        reportesPanel.classList.remove("mobile-visible");
+        if(reportesSheet){
+          reportesSheet.style.transform = "";
+        }
+        if(typeof updateReportes === "function"){ updateReportes(); }
+        const header = document.querySelector(".topbar");
+        const headerH = header ? header.getBoundingClientRect().height : 0;
+        const top = reportesPanel.getBoundingClientRect().top + window.pageYOffset - headerH - 12;
+        window.scrollTo({top: Math.max(0, top), behavior:"smooth"});
+      }
+      collapseSidebar();
     }
   });
 }
@@ -355,6 +379,62 @@ if(btnAplicarFiltros){
 }
 if(btnMostrarTodas){
   btnMostrarTodas.addEventListener("click", collapseSidebarAfterAction);
+}
+
+if(btnCerrarReportes && reportesPanel){
+  btnCerrarReportes.addEventListener("click", ()=>{
+    reportesPanel.classList.remove("mobile-visible");
+    reportesPanel.classList.add("hidden");
+    if(reportesSheet){
+      reportesSheet.style.transform = "translateY(100%)";
+    }
+    showFABs();
+  });
+}
+
+// Drag para hoja de reportes en mobile
+if(reportesSheet && isMobileViewport()){
+  let startY = 0;
+  let currentY = 0;
+  let dragging = false;
+
+  const onMove = (clientY)=>{
+    if(!dragging) return;
+    currentY = clientY;
+    const delta = Math.max(0, currentY - startY);
+    reportesSheet.style.transform = `translateY(${delta}px)`;
+  };
+
+  const endDrag = ()=>{
+    if(!dragging) return;
+    const delta = Math.max(0, currentY - startY);
+    dragging = false;
+    if(delta > 120){
+      reportesPanel.classList.remove("mobile-visible");
+      reportesPanel.classList.add("hidden");
+      reportesSheet.style.transform = "translateY(100%)";
+      showFABs();
+    } else {
+      reportesSheet.style.transform = "translateY(0)";
+    }
+  };
+
+  reportesSheet.addEventListener("touchstart",(e)=>{
+    dragging = true;
+    startY = e.touches[0].clientY;
+    currentY = startY;
+  });
+  reportesSheet.addEventListener("touchmove",(e)=>{
+    onMove(e.touches[0].clientY);
+  });
+  reportesSheet.addEventListener("touchend", endDrag);
+  reportesSheet.addEventListener("mousedown",(e)=>{
+    dragging = true;
+    startY = e.clientY;
+    currentY = startY;
+  });
+  window.addEventListener("mousemove",(e)=> onMove(e.clientY));
+  window.addEventListener("mouseup", endDrag);
 }
 
 // AUTOCOMPLETADO

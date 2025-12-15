@@ -263,17 +263,53 @@ function enlazarPopupCrear(lat, lng){
 }
 
 map.on("contextmenu", function(e){
-    if(rolActual !== "municipal") return;
-    const lat = e.latlng.lat;
-    const lng = e.latlng.lng;
+    if(e && e.originalEvent){
+        try{ L.DomEvent.preventDefault(e.originalEvent); }catch(err){}
+    }
 
-    L.popup()
-        .setLatLng([lat, lng])
-        .setContent(templateCrearPopup(lat, lng))
-        .openOn(map);
+    // Municipal: crear señal
+    if(rolActual === "municipal"){
+        const lat = e.latlng.lat;
+        const lng = e.latlng.lng;
 
-    // dar tiempo a que el popup se inyecte
-    setTimeout(function(){ enlazarPopupCrear(lat, lng); }, 0);
+        L.popup()
+            .setLatLng([lat, lng])
+            .setContent(templateCrearPopup(lat, lng))
+            .openOn(map);
+
+        // dar tiempo a que el popup se inyecte
+        setTimeout(function(){ enlazarPopupCrear(lat, lng); }, 0);
+        return;
+    }
+
+    // Visitante: seleccionar punto de aviso (click derecho)
+    if(rolActual === "visitante"){
+        puntoReporte = e.latlng;
+        pickingReporte = false;
+
+        const info = document.getElementById("infoUbicacion");
+        if(info){
+            info.textContent = "Ubicacion seleccionada: " + e.latlng.lat.toFixed(5) + ", " + e.latlng.lng.toFixed(5);
+        }
+        if(marcadorReporte){
+            map.removeLayer(marcadorReporte);
+            marcadorReporte = null;
+        }
+        const icon = L.divIcon({
+            className:"estado-marker",
+            html:'<div class="marker-bubble" style="border-color:#f7a800;background:#fff;"><div class="marker-img" style="background:#f7a800;width:14px;height:14px;border-radius:50%;"></div></div>',
+            iconSize:[32,32],
+            iconAnchor:[16,28],
+            popupAnchor:[0,-20]
+        });
+        marcadorReporte = L.marker(puntoReporte,{icon}).addTo(map);
+
+        const modal = document.getElementById("modalReporte");
+        if(modal){
+            modal.classList.remove("hidden");
+        }
+        reabrirModalReporte = false;
+    }
 });
 
 map.on("click", function(e){
