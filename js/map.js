@@ -86,6 +86,65 @@ function iconoDefault(){
     return lista[0] ? lista[0].id : null;
 }
 
+function normalizarNombreLugar(str){
+    if(!str) return "";
+    return String(str)
+        .toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+        .replace(/[^a-z0-9\s]/g," ")
+        .replace(/\s+/g," ")
+        .trim();
+}
+
+function regionPorDistrito(distrito){
+    if(!distrito) return "";
+    const objetivo = normalizarNombreLugar(distrito);
+    try{
+        for(const region of Object.keys(MAPA_REGIONES || {})){
+            const lista = MAPA_REGIONES[region] || [];
+            for(const d of lista){
+                if(normalizarNombreLugar(d) === objetivo){
+                    return region;
+                }
+            }
+        }
+    }catch(e){}
+    return "";
+}
+
+async function inferirDistritoPorLatLng(lat, lng){
+    try{
+        const url = "https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1&lat=" + encodeURIComponent(lat) + "&lon=" + encodeURIComponent(lng);
+        const res = await fetch(url, { headers: { Accept: "application/json" } });
+        const data = await res.json();
+        const addr = (data && data.address) ? data.address : {};
+        const candidatos = [
+            addr.city_district,
+            addr.district,
+            addr.suburb,
+            addr.municipality,
+            addr.county,
+            addr.neighbourhood
+        ].filter(Boolean);
+
+        let distritos = [];
+        try{
+            distritos = Object.values(MAPA_REGIONES || {}).flat();
+        }catch(e){
+            distritos = [];
+        }
+        const normDistritos = distritos.map(d=>normalizarNombreLugar(d));
+        for(const c of candidatos){
+            const n = normalizarNombreLugar(c);
+            const idx = normDistritos.indexOf(n);
+            if(idx >= 0) return distritos[idx];
+        }
+        return candidatos[0] || "";
+    }catch(err){
+        return "";
+    }
+}
+
 function crearIcono(estado, iconoId, modo){
     const color = colorPorEstado(estado);
     const iconDef = iconoPorId(iconoId, modo);
@@ -109,19 +168,43 @@ function renderizarSenales(lista) {
     lista.forEach(function(s){
         const icono = s.icono || iconoDefault();
         const iconInfo = iconoPorId(icono, modoActual);
+        if(s.zona && (!s.region || s.region === "Sin region")){
+            const reg = regionPorDistrito(s.zona);
+            if(reg) s.region = reg;
+        }
+
+        function buildPopup(){
+            const distrito = (s.zona && s.zona !== "Sin zona" && s.zona !== "Sin distrito") ? s.zona : "-";
+            const region = regionPorDistrito(distrito) || (s.region && s.region !== "Sin region" ? s.region : "-");
+            return ''
+                + '<strong>' + s.tipo + '</strong><br>'
+                + 'Distrito: ' + distrito + '<br>'
+                + 'Region: ' + region + '<br>'
+                + 'Estado: ' + s.estado + '<br>'
+                + 'Icono: ' + (iconInfo ? iconInfo.label : icono);
+        }
         const marker = L.marker([s.lat, s.lng], {
             draggable: rolActual === "municipal",
             icon: crearIcono(s.estado, icono, modoActual)
         }).addTo(map);
 
-        const popupHtml = ''
-            + '<strong>' + s.tipo + '</strong><br>'
-            + 'Zona: ' + s.zona + '<br>'
-            + 'Region: ' + (s.region || '') + '<br>'
-            + 'Estado: ' + s.estado + '<br>'
-            + 'Icono: ' + (iconInfo ? iconInfo.label : icono);
-
-        marker.bindPopup(popupHtml);
+        marker.bindPopup(buildPopup());
+        marker.on("popupopen", async function(){
+            const needsDistrito = !s.zona || s.zona === "Sin zona" || s.zona === "Sin distrito";
+            const needsRegion = !s.region || s.region === "Sin region" || !regionPorDistrito(s.zona || "");
+            if(s.__geoResolving) return;
+            if(!needsDistrito && !needsRegion) return;
+            s.__geoResolving = true;
+            if(needsDistrito){
+                const d = await inferirDistritoPorLatLng(s.lat, s.lng);
+                if(d) s.zona = d;
+            }
+            const reg = regionPorDistrito(s.zona || "");
+            if(reg) s.region = reg;
+            marker.setPopupContent(buildPopup());
+            if(typeof updateReportes === "function"){ updateReportes(); }
+            s.__geoResolving = false;
+        });
 
         marker.on("dragend", function (e) {
             const nueva = e.target.getLatLng();
@@ -352,16 +435,27 @@ function crearSenal(lat, lng, estado, icono, fecha){
     // Capturar region/distrito actuales para que los filtros no oculten la nueva señal
     const regionSel = (typeof selectRegion !== "undefined" && selectRegion) ? selectRegion.value : "";
     const distritoSel = (typeof selectDistrito !== "undefined" && selectDistrito) ? selectDistrito.value : "";
+    let distritoInfer = "Sin distrito";
+    let regionInfer = "Sin region";
+    try{
+        if(distritoSel && distritoLayer && typeof distritoLayer.getBounds === "function"){
+            const bounds = distritoLayer.getBounds();
+            if(bounds && bounds.contains([parseFloat(lat), parseFloat(lng)])){
+                distritoInfer = distritoSel;
+                regionInfer = regionSel || regionPorDistrito(distritoInfer) || "Sin region";
+            }
+        }
+    }catch(e){}
 
     const nueva = {
         id: nextId,
         tipo: "SENAL",
         estado: estado,
-        zona: distritoSel || "Sin zona",
+        zona: distritoInfer,
         lat: parseFloat(lat),
         lng: parseFloat(lng),
         icono: icono || iconoDefault(),
-        region: regionSel || "Sin region",
+        region: regionInfer,
         nombre: "Nueva senal",
         fecha_colocacion: estado === "sin_senal" ? "" : (fecha || new Date().toISOString().slice(0,10))
     };
@@ -369,6 +463,19 @@ function crearSenal(lat, lng, estado, icono, fecha){
     datasetActual.push(nueva);
     renderizarSenales(datasetActual);
     if(typeof updateReportes === "function"){ updateReportes(); }
+    // Siempre intentar inferir distrito/region por coordenadas para evitar errores
+    // cuando se crea fuera del distrito seleccionado.
+    inferirDistritoPorLatLng(nueva.lat, nueva.lng).then(function(d){
+        if(d){
+            nueva.zona = d;
+        }
+        const reg = regionPorDistrito(nueva.zona || "");
+        if(reg){
+            nueva.region = reg;
+        }
+        renderizarSenales(datasetActual);
+        if(typeof updateReportes === "function"){ updateReportes(); }
+    });
 }
 
 async function zoomADistrito(nombre){
