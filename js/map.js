@@ -287,6 +287,10 @@ function enlazarPopupCrear(lat, lng){
             fechaSel = "";
         }
         evaluarBoton();
+        // Re-centrar si el alto del popup cambia
+        setTimeout(function(){
+            try{ if(map && map._popup){ centrarPopupCrear(map._popup); } }catch(e){}
+        }, 0);
     }
 
     function evaluarBoton(){
@@ -310,6 +314,9 @@ function enlazarPopupCrear(lat, lng){
                 iconStep.classList.remove("hidden");
             }
             toggleFecha();
+            setTimeout(function(){
+                try{ if(map && map._popup){ centrarPopupCrear(map._popup); } }catch(e){}
+            }, 0);
         });
     });
 
@@ -318,6 +325,9 @@ function enlazarPopupCrear(lat, lng){
         inputFecha.addEventListener("change", function(){
             fechaSel = inputFecha.value;
             evaluarBoton();
+            setTimeout(function(){
+                try{ if(map && map._popup){ centrarPopupCrear(map._popup); } }catch(e){}
+            }, 0);
         });
     }
 
@@ -330,6 +340,9 @@ function enlazarPopupCrear(lat, lng){
             btn.classList.add("active");
             iconSel = btn.getAttribute("data-icon");
             evaluarBoton();
+            setTimeout(function(){
+                try{ if(map && map._popup){ centrarPopupCrear(map._popup); } }catch(e){}
+            }, 0);
         });
     });
     if(iconSearch){
@@ -360,7 +373,7 @@ map.on("contextmenu", function(e){
         const lat = e.latlng.lat;
         const lng = e.latlng.lng;
 
-        L.popup()
+        L.popup({ closeButton: true, autoPan: false, className: "popup-crear-leaflet" })
             .setLatLng([lat, lng])
             .setContent(templateCrearPopup(lat, lng))
             .openOn(map);
@@ -398,6 +411,70 @@ map.on("contextmenu", function(e){
         }
         reabrirModalReporte = false;
     }
+});
+
+function centrarPopupCrear(popup){
+    try{
+        if(!popup) return;
+        const popupEl = typeof popup.getElement === "function" ? popup.getElement() : null;
+        if(!popupEl) return;
+        if(!popupEl.querySelector(".popup-crear")) return;
+
+        const wrapper = popupEl.querySelector(".leaflet-popup-content-wrapper") || popupEl;
+        const mapEl = map.getContainer();
+        if(!mapEl) return;
+
+        const mapRect = mapEl.getBoundingClientRect();
+        const wRect = wrapper.getBoundingClientRect();
+
+        const popupCenterX = wRect.left + (wRect.width / 2);
+        const popupCenterY = wRect.top + (wRect.height / 2);
+        const mapCenterX = mapRect.left + (mapRect.width / 2);
+        const mapCenterY = mapRect.top + (mapRect.height / 2);
+
+        // Queremos que el popup quede centrado pero un poco más abajo para
+        // que se vea completo el contenido (especialmente en pantallas pequeñas).
+        const padX = Math.max(12, mapRect.width * 0.04);
+        const padTop = Math.max(12, mapRect.height * 0.06);
+        const padBottom = Math.max(12, mapRect.height * 0.08);
+        const offsetDown = Math.min(140, mapRect.height * 0.14);
+
+        const minCenterX = mapRect.left + padX + (wRect.width / 2);
+        const maxCenterX = mapRect.right - padX - (wRect.width / 2);
+        const minCenterY = mapRect.top + padTop + (wRect.height / 2);
+        const maxCenterY = mapRect.bottom - padBottom - (wRect.height / 2);
+
+        let targetCenterX = mapCenterX;
+        let targetCenterY = mapCenterY + offsetDown;
+
+        if(Number.isFinite(minCenterX) && Number.isFinite(maxCenterX)){
+            targetCenterX = Math.max(minCenterX, Math.min(maxCenterX, targetCenterX));
+        }
+        if(Number.isFinite(minCenterY) && Number.isFinite(maxCenterY)){
+            targetCenterY = Math.max(minCenterY, Math.min(maxCenterY, targetCenterY));
+        }
+
+        let dx = popupCenterX - targetCenterX;
+        let dy = popupCenterY - targetCenterY;
+
+        const maxX = mapRect.width * 0.48;
+        const maxY = mapRect.height * 0.48;
+        dx = Math.max(-maxX, Math.min(maxX, dx));
+        dy = Math.max(-maxY, Math.min(maxY, dy));
+
+        map.panBy([dx, dy], { animate: true, duration: 0.55, easeLinearity: 0.22, noMoveStart: true });
+    }catch(e){}
+}
+
+map.on("popupopen", function(ev){
+    // Asegura medidas correctas (DOM + estilos ya aplicados)
+    requestAnimationFrame(function(){
+        requestAnimationFrame(function(){
+            if(ev && ev.popup){
+                centrarPopupCrear(ev.popup);
+            }
+        });
+    });
 });
 
 map.on("click", function(e){
