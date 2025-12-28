@@ -150,6 +150,9 @@ function cerrarDashboard(){
 let dashViewActual = "dashboard";
 function setDashView(view){
   if(!dashboardOverlay) return;
+  if(view === "reportes" && rolActual === "visitante"){
+    view = "dashboard";
+  }
   dashViewActual = view;
   try{ document.body.classList.add("dash-shell"); }catch(e){}
 
@@ -342,6 +345,9 @@ if(btnToggleRol){
     setRol(nuevo);
     guardarSesionRol(nuevo);
     updateMobileBanner();
+    if(nuevo === "visitante" && typeof dashViewActual !== "undefined" && dashViewActual === "reportes"){
+      setDashView("dashboard");
+    }
   });
   // init
   setRol(rolActual);

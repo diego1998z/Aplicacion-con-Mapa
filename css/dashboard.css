@@ -101,6 +101,12 @@
   border-color:rgba(47,226,194,0.35);
   color:#eafffb;
 }
+.role-visitante .dash-link[data-dash="reportes"]{
+  display:none;
+}
+.role-visitante [data-dash-go="reportes"]{
+  display:none;
+}
 .dash-link:disabled{
   opacity:0.4;
   cursor:not-allowed;
