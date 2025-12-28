@@ -1,4 +1,25 @@
-const map = L.map("map").setView([-12.0464, -77.0428], 13);
+function leerConfigUrbbis(){
+    try{
+        if(typeof window !== "undefined" && window.URBBIS_CONFIG && typeof window.URBBIS_CONFIG === "object"){
+            return window.URBBIS_CONFIG;
+        }
+    }catch(e){}
+    try{
+        const raw = localStorage.getItem("urbbisConfig");
+        const cfg = raw ? JSON.parse(raw) : {};
+        if(typeof window !== "undefined"){
+            window.URBBIS_CONFIG = cfg || {};
+        }
+        return cfg || {};
+    }catch(e){
+        return {};
+    }
+}
+
+const _cfgInitUrbbis = leerConfigUrbbis();
+const _zoomInicial = (Number.isFinite(_cfgInitUrbbis.zoomInicial) ? _cfgInitUrbbis.zoomInicial : 13);
+
+const map = L.map("map").setView([-12.0464, -77.0428], _zoomInicial);
 
 // Base limpia sin iconos; solo vias
 L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png", {
@@ -504,6 +525,9 @@ map.on("contextmenu", function(e){
 
 function centrarPopupCrear(popup){
     try{
+        const cfg = leerConfigUrbbis();
+        const animOn = cfg && cfg.animaciones !== false;
+        const duration = animOn ? (Number.isFinite(cfg.animDur) ? cfg.animDur : 0.55) : 0;
         if(!popup) return;
         const popupEl = typeof popup.getElement === "function" ? popup.getElement() : null;
         if(!popupEl) return;
@@ -551,7 +575,7 @@ function centrarPopupCrear(popup){
         dx = Math.max(-maxX, Math.min(maxX, dx));
         dy = Math.max(-maxY, Math.min(maxY, dy));
 
-        map.panBy([dx, dy], { animate: true, duration: 0.55, easeLinearity: 0.22, noMoveStart: true });
+        map.panBy([dx, dy], { animate: animOn, duration: duration, easeLinearity: 0.22, noMoveStart: true });
     }catch(e){}
 }
 
@@ -652,6 +676,9 @@ function crearSenal(lat, lng, estado, icono, fecha, precio){
 
 async function zoomADistrito(nombre){
     try{
+        const cfg = leerConfigUrbbis();
+        const animOn = cfg && cfg.animaciones !== false;
+        const dur = animOn ? (Number.isFinite(cfg.animDur) ? cfg.animDur : 1.2) : 0;
         const url = "https://nominatim.openstreetmap.org/search?format=json&polygon_geojson=1&q=" + encodeURIComponent(nombre + ", Lima, Peru") + "&limit=1";
         const res = await fetch(url);
         const data = await res.json();
@@ -670,9 +697,9 @@ async function zoomADistrito(nombre){
                 const bounds = distritoLayer.getBounds();
                 const size = map.getSize();
                 const pad = Math.max(50, Math.min(size.x, size.y) * 0.12); // 12% del menor lado, más respiro
-                map.flyToBounds(bounds, {padding:[pad,pad], duration:1.6, easeLinearity:0.2, maxZoom:16});
+                map.flyToBounds(bounds, {padding:[pad,pad], duration:Math.max(dur, 0.6), easeLinearity:0.2, maxZoom:16});
             } else {
-                map.flyTo([lat, lon], 14, {duration:1.2, easeLinearity:0.25});
+                map.flyTo([lat, lon], 14, {duration:dur, easeLinearity:0.25});
             }
         }
     }catch(err){

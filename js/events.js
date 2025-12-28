@@ -6,6 +6,8 @@ const btnReportar = document.getElementById("btnReportar");
 const btnCancelarReporte = document.getElementById("btnCancelarReporte");
 const btnEnviarReporte = document.getElementById("btnEnviarReporte");
 const inputTipoProblema = document.getElementById("inputTipoProblema");
+const inputNombreReporte = document.getElementById("inputNombreReporte");
+const inputDniReporte = document.getElementById("inputDniReporte");
 const inputDescripcion = document.getElementById("inputDescripcion");
 const inputFoto = document.getElementById("inputFoto");
 const infoUbicacion = document.getElementById("infoUbicacion");
@@ -34,8 +36,95 @@ const dashScore = document.getElementById("dashScore");
 const dashTotalSenales = document.getElementById("dashTotalSenales");
 const dashInversion = document.getElementById("dashInversion");
 const dashAtencion = document.getElementById("dashAtencion");
+
+// Configuracion
+const cfgNombre = document.getElementById("cfgNombre");
+const cfgEmail = document.getElementById("cfgEmail");
+const cfgRol = document.getElementById("cfgRol");
+const btnCfgGuardarPerfil = document.getElementById("btnCfgGuardarPerfil");
+const cfgTemaOscuro = document.getElementById("cfgTemaOscuro");
+const cfgAnimaciones = document.getElementById("cfgAnimaciones");
+const cfgNotificaciones = document.getElementById("cfgNotificaciones");
+const cfgZoomInicial = document.getElementById("cfgZoomInicial");
+const cfgAnimDur = document.getElementById("cfgAnimDur");
+const btnCfgIrALima = document.getElementById("btnCfgIrALima");
+const btnCfgExportar = document.getElementById("btnCfgExportar");
+const cfgImportar = document.getElementById("cfgImportar");
 const bboxLima = "-77.2,-11.7,-76.8,-12.3"; // Lima Metropolitana aprox
 let overlayFoto = null;
+
+function loadUrbbisConfig(){
+  try{
+    const raw = localStorage.getItem("urbbisConfig");
+    if(!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  }catch(e){
+    return {};
+  }
+}
+
+function saveUrbbisConfig(cfg){
+  try{
+    localStorage.setItem("urbbisConfig", JSON.stringify(cfg || {}));
+  }catch(e){}
+}
+
+function applyUrbbisConfig(cfg){
+  const c = cfg || {};
+  try{
+    document.body.classList.toggle("theme-dark", !!c.temaOscuro);
+  }catch(e){}
+  try{
+    window.URBBIS_CONFIG = c;
+  }catch(e){}
+}
+
+function getSessionEmail(){
+  try{
+    const fromInput = (inputCorreo && inputCorreo.value) ? inputCorreo.value.trim() : "";
+    if(fromInput) return fromInput;
+    return localStorage.getItem("correoActual") || "";
+  }catch(e){
+    return "";
+  }
+}
+
+function getProfileName(){
+  try{
+    const cfg = loadUrbbisConfig();
+    if(cfg && cfg.profileName) return String(cfg.profileName);
+    return "";
+  }catch(e){
+    return "";
+  }
+}
+
+function updateConfigUI(){
+  const cfg = loadUrbbisConfig();
+  const correo = getSessionEmail();
+  const name = (cfg && cfg.profileName) ? String(cfg.profileName) : "";
+  if(cfgNombre) cfgNombre.value = name || (correo ? nombreDesdeCorreo(correo) : "");
+  if(cfgEmail) cfgEmail.value = correo || "-";
+  if(cfgRol) cfgRol.value = rolActual === "municipal" ? "Municipal" : "Visitante";
+
+  if(cfgTemaOscuro) cfgTemaOscuro.checked = !!cfg.temaOscuro;
+  if(cfgAnimaciones) cfgAnimaciones.checked = cfg.animaciones !== false;
+  if(cfgNotificaciones) cfgNotificaciones.checked = !!cfg.notificaciones;
+  if(cfgZoomInicial) cfgZoomInicial.value = String(Number.isFinite(cfg.zoomInicial) ? cfg.zoomInicial : 13);
+  if(cfgAnimDur) cfgAnimDur.value = String(Number.isFinite(cfg.animDur) ? cfg.animDur : 0.6);
+
+  applyUrbbisConfig(cfg);
+}
+
+function updateAndPersistConfig(partial){
+  const current = loadUrbbisConfig();
+  const next = Object.assign({}, current, partial || {});
+  saveUrbbisConfig(next);
+  applyUrbbisConfig(next);
+  updateConfigUI();
+  if(typeof updateDashboard === "function"){ updateDashboard(); }
+}
 
 function capitalizeWord(str){
   const s = String(str || "").trim();
@@ -95,11 +184,10 @@ function precioDeSenal(modo, senal){
 
 function updateDashboard(){
   if(!dashboardOverlay) return;
-  const correo = (inputCorreo && inputCorreo.value) ? inputCorreo.value.trim() : (function(){
-    try{ return localStorage.getItem("correoActual") || ""; }catch(e){ return ""; }
-  })();
+  const correo = getSessionEmail();
 
-  if(dashUserName) dashUserName.textContent = nombreDesdeCorreo(correo);
+  const profileName = getProfileName();
+  if(dashUserName) dashUserName.textContent = profileName || nombreDesdeCorreo(correo);
   if(dashUserEmail) dashUserEmail.textContent = correo || "";
   if(dashAvatarInitials) dashAvatarInitials.textContent = inicialesDesdeCorreo(correo);
 
@@ -183,6 +271,12 @@ function setDashView(view){
     updateDashboard();
   }
 
+  if(view === "tareas"){
+    try{
+      if(typeof updateReportes === "function"){ updateReportes(); }
+    }catch(e){}
+  }
+
   if(view === "mapa"){
     // Cerrar reportes si estaban abiertos
     try{
@@ -244,6 +338,9 @@ window.setDashView = setDashView;
 const mobileBanner = document.createElement("div");
 mobileBanner.className = "mobile-banner hidden";
 (mapContainer || document.body).appendChild(mobileBanner);
+
+// Inicializar configuracion (tema/valores)
+updateConfigUI();
 
 function isMobileViewport(){
   return window.innerWidth <= 900;
@@ -381,6 +478,19 @@ function abrirModalReporte(){
   pickingReporte = false;
   puntoReporte = null;
   if(infoUbicacion) infoUbicacion.textContent = "Pulsa 'Elegir en mapa' o haz click derecho en el mapa para fijar la ubicacion.";
+  try{
+    const correo = (function(){
+      try{ return localStorage.getItem("correoActual") || ""; }catch(e){ return ""; }
+    })();
+    if(inputNombreReporte && !inputNombreReporte.value){
+      const last = (function(){ try{ return localStorage.getItem("nombreAviso") || ""; }catch(e){ return ""; } })();
+      inputNombreReporte.value = last || (correo ? nombreDesdeCorreo(correo) : "");
+    }
+    if(inputDniReporte && !inputDniReporte.value){
+      const lastDni = (function(){ try{ return localStorage.getItem("dniAviso") || ""; }catch(e){ return ""; } })();
+      inputDniReporte.value = lastDni || "";
+    }
+  }catch(e){}
 }
 function cerrarModalReporte(){
   if(!modalReporte) return;
@@ -442,6 +552,12 @@ if(btnEnviarReporte){
     }
     const tipo = inputTipoProblema ? inputTipoProblema.value : "otro";
     const desc = inputDescripcion ? inputDescripcion.value.trim() : "";
+    const nombre = inputNombreReporte ? inputNombreReporte.value.trim() : "";
+    const dni = inputDniReporte ? inputDniReporte.value.trim() : "";
+    if(dni && !/^\d{8}$/.test(dni)){
+      alert("El DNI debe tener 8 digitos.");
+      return;
+    }
     const fecha = new Date().toISOString().slice(0,10);
 
     const nextAvisoId = (Array.isArray(avisos) ? avisos.reduce((m,a)=> Math.max(m, a.id || 0), 0) : 0) + 1;
@@ -449,6 +565,11 @@ if(btnEnviarReporte){
     const selDistritoEl = document.getElementById("selectDistrito");
     const region = selRegionEl ? selRegionEl.value : "";
     const distrito = selDistritoEl ? selDistritoEl.value : "";
+
+    const correoActual = (function(){
+      try{ return localStorage.getItem("correoActual") || ""; }catch(e){ return ""; }
+    })();
+    const usuario = correoActual ? (correoActual.split("@")[0] || correoActual) : "anonimo";
 
     const aviso = {
       id: nextAvisoId,
@@ -460,8 +581,17 @@ if(btnEnviarReporte){
       lng: puntoReporte.lng,
       foto: null,
       region: region || "",
-      distrito: distrito || ""
+      distrito: distrito || "",
+      usuario: usuario,
+      usuarioEmail: correoActual || "",
+      usuarioNombre: nombre || (correoActual ? nombreDesdeCorreo(correoActual) : ""),
+      usuarioDni: dni || ""
     };
+
+    try{
+      if(nombre) localStorage.setItem("nombreAviso", nombre);
+      if(dni) localStorage.setItem("dniAviso", dni);
+    }catch(e){}
 
     if(inputFoto && inputFoto.files && inputFoto.files[0]){
       const file = inputFoto.files[0];
@@ -589,6 +719,141 @@ if(dashboardOverlay){
     }
 
     setDashView(key);
+  });
+}
+
+// Acciones configuracion
+if(btnCfgGuardarPerfil){
+  btnCfgGuardarPerfil.addEventListener("click", ()=>{
+    const name = cfgNombre ? cfgNombre.value.trim() : "";
+    updateAndPersistConfig({ profileName: name });
+    alert("Configuracion guardada.");
+  });
+}
+if(cfgTemaOscuro){
+  cfgTemaOscuro.addEventListener("change", ()=>{
+    updateAndPersistConfig({ temaOscuro: !!cfgTemaOscuro.checked });
+  });
+}
+if(cfgAnimaciones){
+  cfgAnimaciones.addEventListener("change", ()=>{
+    updateAndPersistConfig({ animaciones: !!cfgAnimaciones.checked });
+  });
+}
+if(cfgNotificaciones){
+  cfgNotificaciones.addEventListener("change", ()=>{
+    updateAndPersistConfig({ notificaciones: !!cfgNotificaciones.checked });
+  });
+}
+if(cfgZoomInicial){
+  cfgZoomInicial.addEventListener("change", ()=>{
+    const v = parseInt(cfgZoomInicial.value, 10);
+    if(Number.isFinite(v)){
+      updateAndPersistConfig({ zoomInicial: Math.max(10, Math.min(19, v)) });
+    }
+  });
+}
+if(cfgAnimDur){
+  cfgAnimDur.addEventListener("change", ()=>{
+    const v = parseFloat(cfgAnimDur.value);
+    if(Number.isFinite(v)){
+      updateAndPersistConfig({ animDur: Math.max(0, Math.min(3, v)) });
+    }
+  });
+}
+if(btnCfgIrALima){
+  btnCfgIrALima.addEventListener("click", ()=>{
+    try{
+      const cfg = loadUrbbisConfig();
+      const zoom = Number.isFinite(cfg.zoomInicial) ? cfg.zoomInicial : 13;
+      const dur = Number.isFinite(cfg.animDur) ? cfg.animDur : 0.8;
+      if(typeof map !== "undefined" && map && typeof map.flyTo === "function"){
+        map.flyTo([-12.0464, -77.0428], zoom, { duration: dur, easeLinearity: 0.25 });
+      }
+      setDashView("mapa");
+    }catch(e){}
+  });
+}
+
+function descargarJSON(nombreArchivo, dataObj){
+  try{
+    const json = JSON.stringify(dataObj, null, 2);
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nombreArchivo;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 2000);
+  }catch(e){
+    alert("No se pudo exportar.");
+  }
+}
+
+if(btnCfgExportar){
+  btnCfgExportar.addEventListener("click", ()=>{
+    const now = new Date();
+    const stamp = now.toISOString().slice(0,10).replace(/-/g,"");
+    const payload = {
+      app: "Urbbis",
+      version: 1,
+      exportedAt: now.toISOString(),
+      config: loadUrbbisConfig(),
+      senalesHorizontal: typeof senalesHorizontal !== "undefined" ? senalesHorizontal : [],
+      senalesVertical: typeof senalesVertical !== "undefined" ? senalesVertical : [],
+      avisos: typeof avisos !== "undefined" ? avisos : []
+    };
+    descargarJSON("urbbis-datos-" + stamp + ".json", payload);
+  });
+}
+
+if(cfgImportar){
+  cfgImportar.addEventListener("change", ()=>{
+    const file = cfgImportar.files && cfgImportar.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = function(ev){
+      try{
+        const text = String(ev.target.result || "");
+        const parsed = JSON.parse(text);
+        if(!parsed || typeof parsed !== "object") throw new Error("Formato invalido");
+
+        const h = Array.isArray(parsed.senalesHorizontal) ? parsed.senalesHorizontal : null;
+        const v = Array.isArray(parsed.senalesVertical) ? parsed.senalesVertical : null;
+        const a = Array.isArray(parsed.avisos) ? parsed.avisos : null;
+
+        if(h && typeof senalesHorizontal !== "undefined"){
+          senalesHorizontal.splice(0, senalesHorizontal.length, ...h);
+        }
+        if(v && typeof senalesVertical !== "undefined"){
+          senalesVertical.splice(0, senalesVertical.length, ...v);
+        }
+        if(a && typeof avisos !== "undefined"){
+          avisos = a;
+          try{
+            if(typeof renderAvisos === "function"){ renderAvisos(); }
+          }catch(e){}
+        }
+
+        if(parsed.config && typeof parsed.config === "object"){
+          updateAndPersistConfig(parsed.config);
+        }
+
+        try{
+          if(typeof aplicarFiltros === "function"){ aplicarFiltros(); }
+          if(typeof updateReportes === "function"){ updateReportes(); }
+        }catch(e){}
+
+        alert("Datos importados correctamente.");
+      }catch(err){
+        alert("Archivo JSON invalido.");
+      }finally{
+        cfgImportar.value = "";
+      }
+    };
+    reader.readAsText(file);
   });
 }
 

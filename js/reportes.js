@@ -171,6 +171,7 @@ function updateReportes(){
     renderTabla("#tablaHorizontal", horiz, "SH", idxH, "horizontal");
     renderTabla("#tablaVertical", vert, "SV", idxV, "vertical");
     renderTablaAvisos();
+    renderTablaAvisosTareas();
     if(typeof updateDashboard === "function"){ updateDashboard(); }
 }
 
@@ -302,3 +303,103 @@ function bindFiltrosAvisos(){
 }
 
 bindFiltrosAvisos();
+
+function renderTablaAvisosTareas(){
+    const tbody = document.querySelector("#tablaAvisosTareas tbody");
+    if(!tbody) return;
+    const q = document.getElementById("filtroAvisoTextoTareas");
+    const selEstado = document.getElementById("filtroAvisoEstadoTareas");
+    const selOrden = document.getElementById("filtroAvisoOrdenTareas");
+
+    let data = Array.isArray(avisos) ? avisos.slice() : [];
+
+    if(typeof filtroRegion !== "undefined" && filtroRegion){
+        data = data.filter(a => a.region === filtroRegion);
+    }
+    if(typeof filtroDistrito !== "undefined" && filtroDistrito){
+        data = data.filter(a => a.distrito === filtroDistrito);
+    }
+
+    const texto = q ? (q.value || "").trim().toLowerCase() : "";
+    const estado = selEstado ? selEstado.value : "";
+
+    if(texto){
+        data = data.filter(a=>{
+            const hay = (a.tipo || "") + " " + (a.descripcion || "") + " " + (a.region || "") + " " + (a.distrito || "")
+                + " " + (a.usuario || "") + " " + (a.usuarioEmail || "") + " " + (a.usuarioNombre || "") + " " + (a.usuarioDni || "");
+            return hay.toLowerCase().includes(texto);
+        });
+    }
+    if(estado){
+        data = data.filter(a => a.estado === estado);
+    }
+
+    const orden = selOrden ? selOrden.value : "antiguos";
+    data.sort((a,b)=>{
+        const fa = a.fecha || "";
+        const fb = b.fecha || "";
+        if(orden === "recientes") return fb.localeCompare(fa);
+        return fa.localeCompare(fb);
+    });
+
+    if(!data.length){
+        tbody.innerHTML = '<tr><td colspan="8" class="empty">Sin avisos</td></tr>';
+        return;
+    }
+
+    const rows = data.map(function(a){
+        const linkImg = a.foto ? '<a href="#" class="btnVerFoto aviso-img-link" data-img="'+a.foto+'">Ver</a>' : '-';
+        const usuario = a.usuario || "-";
+        const email = a.usuarioEmail || "-";
+        const nombre = a.usuarioNombre || "-";
+        const dni = a.usuarioDni || "-";
+        return ''
+        + '<tr>'
+        +   '<td>' + (a.id || "-") + '</td>'
+        +   '<td>' + (a.region || "-") + '</td>'
+        +   '<td>' + (a.distrito || "-") + '</td>'
+        +   '<td>' + (a.tipo || "-") + '</td>'
+        +   '<td>' + (a.descripcion || "-") + '</td>'
+        +   '<td>' + (a.estado || "-") + '</td>'
+        +   '<td>' + (a.fecha || "-") + '</td>'
+        +   '<td>' + linkImg + '</td>'
+        + '</tr>'
+        + '<tr class="aviso-meta-row">'
+        +   '<td colspan="8">'
+        +     '<div class="aviso-meta">'
+        +       '<span><strong>Usuario:</strong> ' + usuario + '</span>'
+        +       '<span><strong>Email:</strong> ' + email + '</span>'
+        +       '<span><strong>Nombre:</strong> ' + nombre + '</span>'
+        +       '<span><strong>DNI:</strong> ' + dni + '</span>'
+        +     '</div>'
+        +   '</td>'
+        + '</tr>';
+    }).join("");
+    tbody.innerHTML = rows;
+}
+
+function bindFiltrosAvisosTareas(){
+    const ids = ["filtroAvisoTextoTareas","filtroAvisoEstadoTareas","filtroAvisoOrdenTareas"];
+    ids.forEach(id=>{
+        const el = document.getElementById(id);
+        if(!el) return;
+        el.addEventListener("input", renderTablaAvisosTareas);
+        el.addEventListener("change", renderTablaAvisosTareas);
+    });
+    const btnLimpiar = document.getElementById("btnLimpiarFiltrosAvisosTareas");
+    if(btnLimpiar){
+        btnLimpiar.addEventListener("click", ()=>{
+            ids.forEach(id=>{
+                const el = document.getElementById(id);
+                if(!el) return;
+                if(el.tagName === "SELECT") el.value = "";
+                else el.value = "";
+            });
+            const orden = document.getElementById("filtroAvisoOrdenTareas");
+            if(orden) orden.value = "antiguos";
+            renderTablaAvisosTareas();
+        });
+    }
+}
+
+bindFiltrosAvisosTareas();

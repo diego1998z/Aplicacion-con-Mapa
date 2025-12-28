@@ -120,12 +120,125 @@
                 <div class="dash-top">
                     <div>
                         <div class="dash-entity">Tareas</div>
-                        <div class="dash-msg">Administracion de tareas operativas (proximamente).</div>
+                        <div class="dash-msg">Gestion y seguimiento de avisos ciudadanos.</div>
                     </div>
                 </div>
                 <div class="dash-title">
-                    <h1>Tareas <span>/ Proximamente</span></h1>
+                    <h1>Tareas <span>/ Avisos ciudadanos</span></h1>
                 </div>
+                <div class="reporte-card reporte-avisos dash-avisos-expanded">
+                    <h3>Avisos Ciudadanos</h3>
+                    <div class="reportes-toolbar reportes-toolbar--compact">
+                        <input id="filtroAvisoTextoTareas" type="text" placeholder="Buscar aviso...">
+                        <select id="filtroAvisoEstadoTareas">
+                            <option value="">Todos los estados</option>
+                            <option value="pendiente">Pendiente</option>
+                            <option value="atendido">Atendido</option>
+                        </select>
+                        <select id="filtroAvisoOrdenTareas">
+                            <option value="antiguos">Mas antiguos primero</option>
+                            <option value="recientes">Mas recientes primero</option>
+                        </select>
+                        <button id="btnLimpiarFiltrosAvisosTareas" type="button" class="btnToolbar">Limpiar</button>
+                    </div>
+                    <table id="tablaAvisosTareas">
+                        <thead>
+                            <tr><th>ID</th><th>Region</th><th>Distrito</th><th>Tipo</th><th>Descripcion</th><th>Estado</th><th>Fecha</th><th>Imagen</th></tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <!-- <section class="dash-config" aria-label="Configuracion">
+                    <article class="dash-card dash-card--muted dash-config-card">
+                        <h3 class="dash-section-title">Cuenta</h3>
+                        <div class="dash-form">
+                            <label>Nombre</label>
+                            <input id="cfgNombre" type="text" placeholder="Tu nombre">
+                            <div class="dash-grid-2">
+                                <div>
+                                    <label>Email</label>
+                                    <input id="cfgEmail" type="text" disabled>
+                                </div>
+                                <div>
+                                    <label>Rol</label>
+                                    <input id="cfgRol" type="text" disabled>
+                                </div>
+                            </div>
+                            <div class="dash-actions-row">
+                                <button id="btnCfgGuardarPerfil" type="button" class="dash-btn">Guardar</button>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="dash-card dash-card--muted dash-config-card">
+                        <h3 class="dash-section-title">Preferencias</h3>
+                        <div class="dash-form">
+                            <div class="dash-toggle">
+                                <div>
+                                    <div class="dash-toggle-title">Tema oscuro</div>
+                                    <div class="dash-toggle-sub">Cambia el estilo visual de la interfaz.</div>
+                                </div>
+                                <label class="switch">
+                                    <input id="cfgTemaOscuro" type="checkbox">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="dash-toggle">
+                                <div>
+                                    <div class="dash-toggle-title">Animaciones</div>
+                                    <div class="dash-toggle-sub">Transiciones suaves en mapa y paneles.</div>
+                                </div>
+                                <label class="switch">
+                                    <input id="cfgAnimaciones" type="checkbox" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="dash-toggle">
+                                <div>
+                                    <div class="dash-toggle-title">Notificaciones</div>
+                                    <div class="dash-toggle-sub">Avisos del sistema (proximamente).</div>
+                                </div>
+                                <label class="switch">
+                                    <input id="cfgNotificaciones" type="checkbox">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="dash-card dash-card--muted dash-config-card">
+                        <h3 class="dash-section-title">Mapa</h3>
+                        <div class="dash-form">
+                            <div class="dash-grid-2">
+                                <div>
+                                    <label>Zoom inicial</label>
+                                    <input id="cfgZoomInicial" type="number" min="10" max="19" step="1">
+                                </div>
+                                <div>
+                                    <label>Duracion animacion (s)</label>
+                                    <input id="cfgAnimDur" type="number" min="0" max="3" step="0.1">
+                                </div>
+                            </div>
+                            <div class="dash-actions-row">
+                                <button id="btnCfgIrALima" type="button" class="dash-btn dash-btn--ghost">Centrar Lima</button>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="dash-card dash-card--muted dash-config-card">
+                        <h3 class="dash-section-title">Datos</h3>
+                        <div class="dash-form">
+                            <div class="dash-actions-row">
+                                <button id="btnCfgExportar" type="button" class="dash-btn">Exportar JSON</button>
+                                <label class="dash-btn dash-btn--ghost dash-file">
+                                    Importar JSON
+                                    <input id="cfgImportar" type="file" accept="application/json">
+                                </label>
+                            </div>
+                            <div class="dash-help">Incluye senales horizontales, verticales y avisos ciudadanos del navegador.</div>
+                        </div>
+                    </article>
+                </section> -->
                 <div class="dash-placeholder">
                     <strong>En construccion</strong>
                     <p>Este modulo te permitira asignar y dar seguimiento a tareas por distrito, tipo de señal y prioridad.</p>
@@ -136,12 +249,103 @@
                 <div class="dash-top">
                     <div>
                         <div class="dash-entity">Configuracion</div>
-                        <div class="dash-msg">Ajustes del sistema (proximamente).</div>
+                        <div class="dash-msg">Preferencias de cuenta, mapa y datos.</div>
                     </div>
                 </div>
                 <div class="dash-title">
-                    <h1>Configuracion <span>/ Proximamente</span></h1>
+                    <h1>Configuracion <span>/ Preferencias</span></h1>
                 </div>
+                <section class="dash-config" aria-label="Configuracion">
+                    <article class="dash-card dash-card--muted dash-config-card">
+                        <h3 class="dash-section-title">Cuenta</h3>
+                        <div class="dash-form">
+                            <label>Nombre</label>
+                            <input id="cfgNombre" type="text" placeholder="Tu nombre">
+                            <div class="dash-grid-2">
+                                <div>
+                                    <label>Email</label>
+                                    <input id="cfgEmail" type="text" disabled>
+                                </div>
+                                <div>
+                                    <label>Rol</label>
+                                    <input id="cfgRol" type="text" disabled>
+                                </div>
+                            </div>
+                            <div class="dash-actions-row">
+                                <button id="btnCfgGuardarPerfil" type="button" class="dash-btn">Guardar</button>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="dash-card dash-card--muted dash-config-card">
+                        <h3 class="dash-section-title">Preferencias</h3>
+                        <div class="dash-form">
+                            <div class="dash-toggle">
+                                <div>
+                                    <div class="dash-toggle-title">Tema oscuro</div>
+                                    <div class="dash-toggle-sub">Cambia el estilo visual de la interfaz.</div>
+                                </div>
+                                <label class="switch">
+                                    <input id="cfgTemaOscuro" type="checkbox">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="dash-toggle">
+                                <div>
+                                    <div class="dash-toggle-title">Animaciones</div>
+                                    <div class="dash-toggle-sub">Transiciones suaves en mapa y paneles.</div>
+                                </div>
+                                <label class="switch">
+                                    <input id="cfgAnimaciones" type="checkbox" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div class="dash-toggle">
+                                <div>
+                                    <div class="dash-toggle-title">Notificaciones</div>
+                                    <div class="dash-toggle-sub">Avisos del sistema (proximamente).</div>
+                                </div>
+                                <label class="switch">
+                                    <input id="cfgNotificaciones" type="checkbox">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="dash-card dash-card--muted dash-config-card">
+                        <h3 class="dash-section-title">Mapa</h3>
+                        <div class="dash-form">
+                            <div class="dash-grid-2">
+                                <div>
+                                    <label>Zoom inicial</label>
+                                    <input id="cfgZoomInicial" type="number" min="10" max="19" step="1">
+                                </div>
+                                <div>
+                                    <label>Duracion animacion (s)</label>
+                                    <input id="cfgAnimDur" type="number" min="0" max="3" step="0.1">
+                                </div>
+                            </div>
+                            <div class="dash-actions-row">
+                                <button id="btnCfgIrALima" type="button" class="dash-btn dash-btn--ghost">Centrar Lima</button>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="dash-card dash-card--muted dash-config-card">
+                        <h3 class="dash-section-title">Datos</h3>
+                        <div class="dash-form">
+                            <div class="dash-actions-row">
+                                <button id="btnCfgExportar" type="button" class="dash-btn">Exportar JSON</button>
+                                <label class="dash-btn dash-btn--ghost dash-file">
+                                    Importar JSON
+                                    <input id="cfgImportar" type="file" accept="application/json">
+                                </label>
+                            </div>
+                            <div class="dash-help">Incluye senales horizontales, verticales y avisos ciudadanos del navegador.</div>
+                        </div>
+                    </article>
+                </section>
                 <div class="dash-placeholder">
                     <strong>En construccion</strong>
                     <p>Aqui podras configurar costos por señal, permisos, catálogos de iconos y parametros de reportes.</p>
@@ -294,6 +498,10 @@
                 <option value="obstruida">Obstruida</option>
                 <option value="otro">Otro</option>
             </select>
+            <label>Nombre</label>
+            <input type="text" id="inputNombreReporte" placeholder="Nombre y apellido">
+            <label>DNI</label>
+            <input type="text" id="inputDniReporte" inputmode="numeric" maxlength="8" placeholder="00000000">
             <label>Descripcion</label>
             <textarea id="inputDescripcion" rows="3" placeholder="Describe el problema"></textarea>
             <label>Foto (opcional)</label>

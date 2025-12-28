@@ -13,7 +13,7 @@
     position:absolute;
     bottom:24px;
     right:24px;
-    background:rgba(255,255,255,0.94);
+    background:var(--panel-glass-strong);
     border:1px solid var(--border);
     border-radius:12px;
     padding:14px 16px;
@@ -242,7 +242,7 @@
     grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
     gap:14px;
     padding:14px 20px 24px;
-    background:#f7f8fb;
+    background:var(--surface);
 }
 
 @media (min-width: 601px){
@@ -257,7 +257,7 @@
     }
 }
 .reporte-card{
-    background:#fff;
+    background:var(--panel);
     border:1px solid var(--border);
     border-radius:12px;
     box-shadow:var(--shadow);
@@ -289,7 +289,8 @@
     padding:8px 10px;
     border:1px solid var(--border);
     border-radius:10px;
-    background:#fff;
+    background:var(--field-bg);
+    color:var(--text);
     font-family:inherit;
 }
 .reportes-toolbar #filtroAvisoTexto{
@@ -327,12 +328,26 @@
 }
 .reporte-card th,
 .reporte-card td{
-    border-bottom:1px solid #e5e9f2;
+    border-bottom:1px solid var(--border);
     padding:8px;
     text-align:left;
 }
+.aviso-meta-row td{
+    background:var(--row-alt-bg);
+    color:var(--muted);
+    font-size:12px;
+    padding:10px 8px;
+}
+.aviso-meta{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px 16px;
+}
+.aviso-meta strong{
+    color:var(--text);
+}
 .reporte-card th{
-    background:#f5f7fb;
+    background:var(--table-header-bg);
     color:var(--muted);
     font-weight:700;
 }
@@ -352,7 +367,7 @@
     position:fixed;
     top:80px;
     right:12px;
-    background:rgba(255,255,255,0.92);
+    background:var(--panel-glass-strong);
     backdrop-filter:blur(6px);
     padding:6px 10px;
     border-radius:12px;
@@ -412,7 +427,7 @@
     padding:10px 12px;
     border-radius:10px;
     border:1px solid var(--border);
-    background:#f5f7fb;
+    background:var(--field-bg);
     cursor:pointer;
     font-weight:700;
 }
@@ -457,7 +472,7 @@
     z-index:2000;
 }
 .modal-content{
-    background:#fff;
+    background:var(--panel);
     border-radius:12px;
     padding:18px;
     width:340px;
@@ -474,11 +489,14 @@
 }
 .modal-content select,
 .modal-content textarea,
+.modal-content input[type="text"],
 .modal-content input[type="file"]{
     width:100%;
     border:1px solid var(--border);
     border-radius:10px;
     padding:8px 10px;
+    background:var(--field-bg);
+    color:var(--text);
     font-family:inherit;
 }
 .modal-content textarea{resize:vertical;}
@@ -505,7 +523,7 @@
 #loginOverlay{
     position:fixed;
     inset:0;
-    background:#f5f7fb;
+    background:var(--bg);
     display:flex;
     z-index:3000;
 }
@@ -519,7 +537,7 @@
     background:url(" ../src/assets/login-bg.png") center/cover no-repeat;
 }
 .login-card{
-    background:#fff;
+    background:var(--panel);
     padding:48px;
     display:flex;
     flex-direction:column;
@@ -555,6 +573,8 @@
     padding:10px 12px;
     border-radius:10px;
     border:1px solid var(--border);
+    background:var(--field-bg);
+    color:var(--text);
 }
 .login-card button{
     width:auto;
@@ -611,7 +631,7 @@
     #reportes .reportes-sheet{
         position:absolute;
         left:0; right:0; bottom:0;
-        background:#fff;
+        background:var(--panel);
         border-radius:16px 16px 0 0;
         box-shadow:0 -8px 30px rgba(0,0,0,0.18);
         max-height:85vh;
@@ -646,7 +666,7 @@
     .reporte-avisos .reportes-toolbar{
         position:sticky;
         top:0;
-        background:#fff;
+        background:var(--panel);
         padding-top:6px;
         z-index:5;
     }
