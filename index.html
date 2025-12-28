@@ -52,67 +52,101 @@
                 <button type="button" class="dash-link active" data-dash="dashboard">Dashboard</button>
                 <button type="button" class="dash-link" data-dash="mapa">Mapa</button>
                 <button type="button" class="dash-link" data-dash="reportes">Reportes</button>
-                <button type="button" class="dash-link" data-dash="tareas" disabled>Tareas</button>
-                <button type="button" class="dash-link" data-dash="config" disabled>Configuracion</button>
+                <button type="button" class="dash-link" data-dash="tareas">Tareas</button>
+                <button type="button" class="dash-link" data-dash="config">Configuracion</button>
             </nav>
 
             <button type="button" id="btnDashLogout" class="dash-logout">Cerrar sesion</button>
         </aside>
 
         <main class="dash-main">
-            <div class="dash-top">
-                <div>
-                    <div class="dash-entity" id="dashEntity">Entidad: Municipalidad</div>
-                    <div class="dash-msg">Hoy es un gran dia para mejorar la seguridad vial.</div>
+            <div class="dash-page" data-dash-page="dashboard">
+                <div class="dash-top">
+                    <div>
+                        <div class="dash-entity" id="dashEntity">Entidad: Municipalidad</div>
+                        <div class="dash-msg">Hoy es un gran dia para mejorar la seguridad vial.</div>
+                    </div>
+                </div>
+
+                <div class="dash-title">
+                    <h1>Dashboard <span>/ Resumen General</span></h1>
+                </div>
+
+                <section class="dash-grid" aria-label="Resumen general">
+                    <article class="dash-card dash-card--primary">
+                        <div class="dash-card-head">
+                            <div class="dash-card-kicker">Estado general de señalizacion</div>
+                            <button type="button" class="dash-card-go" data-dash-go="mapa" title="Ir al mapa">↗</button>
+                        </div>
+                        <div class="dash-card-value"><span id="dashScore">0</span><span class="dash-card-unit">/100</span></div>
+                    </article>
+
+                    <article class="dash-card dash-card--secondary">
+                        <div class="dash-card-head">
+                            <div class="dash-card-kicker">Señales registradas</div>
+                            <button type="button" class="dash-card-go" data-dash-go="reportes" title="Ver reportes">↗</button>
+                        </div>
+                        <div class="dash-card-value"><span id="dashTotalSenales">0</span></div>
+                        <div class="dash-card-sub">Activas en tu proyecto</div>
+                    </article>
+
+                    <article class="dash-card dash-card--muted">
+                        <div class="dash-card-head">
+                            <div class="dash-card-kicker">Inversion en señalizacion</div>
+                            <button type="button" class="dash-card-go" data-dash-go="reportes" title="Ver detalle">↗</button>
+                        </div>
+                        <div class="dash-card-sub">Monto:</div>
+                        <div class="dash-card-money" id="dashInversion">S/ 0</div>
+                        <div class="dash-card-sub">Valor estimado de infraestructura instalada</div>
+                    </article>
+
+                    <article class="dash-card dash-card--muted">
+                        <div class="dash-card-head">
+                            <div class="dash-card-kicker">Señales requieren atencion</div>
+                            <button type="button" class="dash-card-go" data-dash-go="reportes" title="Ver pendientes">↗</button>
+                        </div>
+                        <div class="dash-card-split">
+                            <div class="dash-card-big" id="dashAtencion">0</div>
+                            <div>
+                                <div class="dash-card-sub"><strong>Señales</strong><br>requieren atencion</div>
+                                <div class="dash-card-sub">Antiguas o sin señal</div>
+                            </div>
+                        </div>
+                    </article>
+                </section>
+            </div>
+
+            <div class="dash-page hidden" data-dash-page="tareas">
+                <div class="dash-top">
+                    <div>
+                        <div class="dash-entity">Tareas</div>
+                        <div class="dash-msg">Administracion de tareas operativas (proximamente).</div>
+                    </div>
+                </div>
+                <div class="dash-title">
+                    <h1>Tareas <span>/ Proximamente</span></h1>
+                </div>
+                <div class="dash-placeholder">
+                    <strong>En construccion</strong>
+                    <p>Este modulo te permitira asignar y dar seguimiento a tareas por distrito, tipo de señal y prioridad.</p>
                 </div>
             </div>
 
-            <div class="dash-title">
-                <h1>Dashboard <span>/ Resumen General</span></h1>
+            <div class="dash-page hidden" data-dash-page="config">
+                <div class="dash-top">
+                    <div>
+                        <div class="dash-entity">Configuracion</div>
+                        <div class="dash-msg">Ajustes del sistema (proximamente).</div>
+                    </div>
+                </div>
+                <div class="dash-title">
+                    <h1>Configuracion <span>/ Proximamente</span></h1>
+                </div>
+                <div class="dash-placeholder">
+                    <strong>En construccion</strong>
+                    <p>Aqui podras configurar costos por señal, permisos, catálogos de iconos y parametros de reportes.</p>
+                </div>
             </div>
-
-            <section class="dash-grid" aria-label="Resumen general">
-                <article class="dash-card dash-card--primary">
-                    <div class="dash-card-head">
-                        <div class="dash-card-kicker">Estado general de señalizacion</div>
-                        <button type="button" class="dash-card-go" data-dash-go="mapa" title="Ir al mapa">↗</button>
-                    </div>
-                    <div class="dash-card-value"><span id="dashScore">0</span><span class="dash-card-unit">/100</span></div>
-                </article>
-
-                <article class="dash-card dash-card--secondary">
-                    <div class="dash-card-head">
-                        <div class="dash-card-kicker">Señales registradas</div>
-                        <button type="button" class="dash-card-go" data-dash-go="reportes" title="Ver reportes">↗</button>
-                    </div>
-                    <div class="dash-card-value"><span id="dashTotalSenales">0</span></div>
-                    <div class="dash-card-sub">Activas en tu proyecto</div>
-                </article>
-
-                <article class="dash-card dash-card--muted">
-                    <div class="dash-card-head">
-                        <div class="dash-card-kicker">Inversion en señalizacion</div>
-                        <button type="button" class="dash-card-go" data-dash-go="reportes" title="Ver detalle">↗</button>
-                    </div>
-                    <div class="dash-card-sub">Monto:</div>
-                    <div class="dash-card-money" id="dashInversion">S/ 0</div>
-                    <div class="dash-card-sub">Valor estimado de infraestructura instalada</div>
-                </article>
-
-                <article class="dash-card dash-card--muted">
-                    <div class="dash-card-head">
-                        <div class="dash-card-kicker">Señales requieren atencion</div>
-                        <button type="button" class="dash-card-go" data-dash-go="reportes" title="Ver pendientes">↗</button>
-                    </div>
-                    <div class="dash-card-split">
-                        <div class="dash-card-big" id="dashAtencion">0</div>
-                        <div>
-                            <div class="dash-card-sub"><strong>Señales</strong><br>requieren atencion</div>
-                            <div class="dash-card-sub">Antiguas o sin señal</div>
-                        </div>
-                    </div>
-                </article>
-            </section>
         </main>
     </div>
 

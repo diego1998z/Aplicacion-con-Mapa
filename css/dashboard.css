@@ -16,6 +16,20 @@
   overflow:hidden;
 }
 
+.dashboard-overlay.dash-mode-mapa,
+.dashboard-overlay.dash-mode-reportes{
+  background:transparent;
+  pointer-events:none;
+}
+.dashboard-overlay.dash-mode-mapa .dash-sidebar,
+.dashboard-overlay.dash-mode-reportes .dash-sidebar{
+  pointer-events:auto;
+}
+.dashboard-overlay.dash-mode-mapa .dash-main,
+.dashboard-overlay.dash-mode-reportes .dash-main{
+  display:none;
+}
+
 .dash-sidebar{
   width:280px;
   min-width:260px;
@@ -194,6 +208,45 @@
   font-size:52px;
   font-weight:900;
   line-height:1;
+}
+
+.dash-placeholder{
+  background:#fff;
+  border-radius:22px;
+  padding:22px;
+  border:1px solid rgba(11,34,48,0.06);
+  box-shadow:0 14px 32px rgba(11,34,48,0.08);
+  max-width:720px;
+}
+.dash-placeholder p{
+  margin:10px 0 0;
+  color:#4a5b66;
+  font-weight:600;
+  line-height:1.5;
+}
+
+/* Cuando el sidebar del dashboard esta activo, desplazar la UI principal en desktop */
+@media (min-width: 901px){
+  body.dash-shell .topbar{
+    left:280px;
+    right:0;
+    width:auto;
+  }
+  body.dash-shell #map{
+    margin-left:280px;
+    width:calc(100% - 280px);
+  }
+  body.dash-shell #sidebar{
+    left:300px;
+  }
+  body.dash-shell #reportes{
+    margin-left:280px;
+    width:calc(100% - 280px);
+  }
+  body.dash-shell .mobile-search{
+    left:280px;
+    right:0;
+  }
 }
 
 /* Responsivo */

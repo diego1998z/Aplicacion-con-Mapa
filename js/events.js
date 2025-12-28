@@ -138,15 +138,7 @@ function updateDashboard(){
 window.updateDashboard = updateDashboard;
 
 function abrirDashboard(){
-  if(!dashboardOverlay) return;
-  dashboardOverlay.classList.remove("hidden");
-  dashboardOverlay.setAttribute("aria-hidden","false");
-  try{
-    dashboardOverlay.querySelectorAll(".dash-link").forEach(btn=>btn.classList.remove("active"));
-    const dashBtn = dashboardOverlay.querySelector('.dash-link[data-dash="dashboard"]');
-    if(dashBtn) dashBtn.classList.add("active");
-  }catch(e){}
-  updateDashboard();
+  setDashView("dashboard");
 }
 
 function cerrarDashboard(){
@@ -154,6 +146,96 @@ function cerrarDashboard(){
   dashboardOverlay.classList.add("hidden");
   dashboardOverlay.setAttribute("aria-hidden","true");
 }
+
+let dashViewActual = "dashboard";
+function setDashView(view){
+  if(!dashboardOverlay) return;
+  dashViewActual = view;
+  try{ document.body.classList.add("dash-shell"); }catch(e){}
+
+  dashboardOverlay.classList.remove("hidden");
+  dashboardOverlay.setAttribute("aria-hidden","false");
+
+  dashboardOverlay.classList.toggle("dash-mode-mapa", view === "mapa");
+  dashboardOverlay.classList.toggle("dash-mode-reportes", view === "reportes");
+
+  // Activar item del menu
+  try{
+    dashboardOverlay.querySelectorAll(".dash-link").forEach(btn=>{
+      btn.classList.toggle("active", btn.getAttribute("data-dash") === view);
+    });
+  }catch(e){}
+
+  // Mostrar pagina interna (dashboard/tareas/config)
+  try{
+    const pages = dashboardOverlay.querySelectorAll("[data-dash-page]");
+    pages.forEach(p=>{
+      const key = p.getAttribute("data-dash-page");
+      const shouldShow = (view === key);
+      p.classList.toggle("hidden", !shouldShow);
+    });
+  }catch(e){}
+
+  if(view === "dashboard"){
+    updateDashboard();
+  }
+
+  if(view === "mapa"){
+    // Cerrar reportes si estaban abiertos
+    try{
+      if(reportesPanel){
+        reportesPanel.classList.add("hidden");
+        reportesPanel.classList.remove("mobile-visible");
+      }
+      const btnDesktop = document.getElementById("btnToggleReportes");
+      if(btnDesktop) btnDesktop.textContent = "Ver reportes";
+    }catch(e){}
+
+    // Recalcular tamaño del mapa al quedar visible
+    setTimeout(()=>{
+      try{
+        if(typeof map !== "undefined" && map && typeof map.invalidateSize === "function"){
+          map.invalidateSize();
+        }
+      }catch(e){}
+    }, 60);
+    return;
+  }
+
+  if(view === "reportes"){
+    try{
+      if(typeof updateReportes === "function"){ updateReportes(); }
+    }catch(e){}
+    // Abrir reportes según viewport
+    setTimeout(()=>{
+      try{
+        if(isMobileViewport()){
+          if(reportesPanel){
+            reportesPanel.classList.remove("hidden");
+            reportesPanel.classList.add("mobile-visible");
+            if(reportesSheet){ reportesSheet.style.transform = "translateY(0)"; }
+          }
+        } else {
+          const btnDesktop = document.getElementById("btnToggleReportes");
+          if(btnDesktop){
+            const willShow = reportesPanel && reportesPanel.classList.contains("hidden");
+            if(willShow){
+              btnDesktop.click();
+            } else {
+              // si ya estaba abierto, solo scroll suave al contenedor
+              const header = document.querySelector(".topbar");
+              const headerH = header ? header.getBoundingClientRect().height : 0;
+              const top = reportesPanel.getBoundingClientRect().top + window.pageYOffset - headerH - 12;
+              window.scrollTo({top: Math.max(0, top), behavior:"smooth"});
+            }
+          }
+        }
+      }catch(e){}
+    }, 0);
+    return;
+  }
+}
+window.setDashView = setDashView;
 
 // Banner de rol en mobile
 const mobileBanner = document.createElement("div");
@@ -414,6 +496,7 @@ function cargarSesionRol(){
       setRol(rol);
       updateMobileBanner();
       if(loginOverlay) loginOverlay.classList.add("hidden");
+      try{ document.body.classList.add("dash-shell"); }catch(e){}
       abrirDashboard();
       return;
     }
@@ -444,6 +527,7 @@ if(formLogin){
     guardarSesionRol(rol);
     if(loginOverlay) loginOverlay.classList.add("hidden");
     updateMobileBanner();
+    try{ document.body.classList.add("dash-shell"); }catch(e){}
     abrirDashboard();
   });
 }
@@ -460,6 +544,7 @@ function ejecutarLogout(){
   setRol("visitante");
   updateMobileBanner();
   cerrarDashboard();
+  try{ document.body.classList.remove("dash-shell"); }catch(e){}
   if(loginOverlay) loginOverlay.classList.remove("hidden");
   if(inputCorreo) inputCorreo.value="";
   if(inputClave) inputClave.value="";
@@ -486,7 +571,6 @@ if(dashboardOverlay){
   dashboardOverlay.addEventListener("click", (e)=>{
     const btn = e.target && e.target.closest ? e.target.closest("[data-dash],[data-dash-go]") : null;
     if(!btn) return;
-    if(btn.hasAttribute("disabled")) return;
 
     const go = btn.getAttribute("data-dash-go");
     const key = go || btn.getAttribute("data-dash");
@@ -498,39 +582,7 @@ if(dashboardOverlay){
       btn.classList.add("active");
     }
 
-    if(key === "dashboard"){
-      abrirDashboard();
-      return;
-    }
-    if(key === "mapa"){
-      cerrarDashboard();
-      return;
-    }
-    if(key === "reportes"){
-      cerrarDashboard();
-      // Abrir reportes según viewport
-      setTimeout(()=>{
-        try{
-          if(typeof updateReportes === "function"){ updateReportes(); }
-          if(isMobileViewport()){
-            if(reportesPanel){
-              reportesPanel.classList.remove("hidden");
-              reportesPanel.classList.add("mobile-visible");
-              if(reportesSheet){ reportesSheet.style.transform = "translateY(0)"; }
-            }
-          } else {
-            const btnDesktop = document.getElementById("btnToggleReportes");
-            if(btnDesktop){
-              const willShow = reportesPanel && reportesPanel.classList.contains("hidden");
-              if(willShow){
-                btnDesktop.click();
-              }
-            }
-          }
-        }catch(e){}
-      }, 0);
-      return;
-    }
+    setDashView(key);
   });
 }
 
