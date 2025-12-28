@@ -24,8 +24,126 @@ const reportesPanel = document.getElementById("reportes");
 const btnCerrarReportes = document.getElementById("btnCerrarReportes");
 const reportesSheet = reportesPanel ? reportesPanel.querySelector(".reportes-sheet") : null;
 const mapContainer = document.getElementById("map");
+const dashboardOverlay = document.getElementById("dashboardOverlay");
+const btnDashLogout = document.getElementById("btnDashLogout");
+const dashUserName = document.getElementById("dashUserName");
+const dashUserEmail = document.getElementById("dashUserEmail");
+const dashAvatarInitials = document.getElementById("dashAvatarInitials");
+const dashEntity = document.getElementById("dashEntity");
+const dashScore = document.getElementById("dashScore");
+const dashTotalSenales = document.getElementById("dashTotalSenales");
+const dashInversion = document.getElementById("dashInversion");
+const dashAtencion = document.getElementById("dashAtencion");
 const bboxLima = "-77.2,-11.7,-76.8,-12.3"; // Lima Metropolitana aprox
 let overlayFoto = null;
+
+function capitalizeWord(str){
+  const s = String(str || "").trim();
+  if(!s) return "";
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function nombreDesdeCorreo(correo){
+  const c = String(correo || "").trim();
+  const user = (c.split("@")[0] || "").trim();
+  if(!user) return "Usuario";
+  const parts = user.split(/[._-]+/g).filter(Boolean);
+  const name = parts.map(capitalizeWord).join(" ");
+  return name || capitalizeWord(user) || "Usuario";
+}
+
+function inicialesDesdeCorreo(correo){
+  const name = nombreDesdeCorreo(correo);
+  const parts = name.split(/\s+/g).filter(Boolean);
+  const a = (parts[0] && parts[0][0]) ? parts[0][0] : "U";
+  const b = (parts[1] && parts[1][0]) ? parts[1][0] : ((parts[0] && parts[0][1]) ? parts[0][1] : "R");
+  return (a + b).toUpperCase();
+}
+
+function formatearMonedaPEN(monto){
+  const n = Number(monto || 0);
+  try{
+    return new Intl.NumberFormat("es-PE", {style:"currency", currency:"PEN", maximumFractionDigits:0}).format(n);
+  }catch(e){
+    return "S/ " + Math.round(n).toLocaleString("es-PE");
+  }
+}
+
+function filtrarPorSeleccion(dataset){
+  let base = Array.isArray(dataset) ? dataset.slice() : [];
+  try{
+    if(typeof filtroRegion !== "undefined" && filtroRegion){
+      base = base.filter(s => s.region === filtroRegion);
+    }
+    if(typeof filtroDistrito !== "undefined" && filtroDistrito){
+      base = base.filter(s => s.zona === filtroDistrito);
+    }
+  }catch(e){}
+  return base;
+}
+
+function updateDashboard(){
+  if(!dashboardOverlay) return;
+  const correo = (inputCorreo && inputCorreo.value) ? inputCorreo.value.trim() : (function(){
+    try{ return localStorage.getItem("correoActual") || ""; }catch(e){ return ""; }
+  })();
+
+  if(dashUserName) dashUserName.textContent = nombreDesdeCorreo(correo);
+  if(dashUserEmail) dashUserEmail.textContent = correo || "";
+  if(dashAvatarInitials) dashAvatarInitials.textContent = inicialesDesdeCorreo(correo);
+
+  if(dashEntity){
+    if(rolActual === "visitante"){
+      dashEntity.textContent = "Entidad: Portal ciudadano";
+    } else if(typeof filtroDistrito !== "undefined" && filtroDistrito){
+      dashEntity.textContent = "Entidad: Municipalidad de " + filtroDistrito;
+    } else {
+      dashEntity.textContent = "Entidad: Municipalidad Metropolitana de Lima";
+    }
+  }
+
+  const horiz = filtrarPorSeleccion(typeof senalesHorizontal !== "undefined" ? senalesHorizontal : []);
+  const vert = filtrarPorSeleccion(typeof senalesVertical !== "undefined" ? senalesVertical : []);
+  const all = horiz.concat(vert);
+
+  const total = all.length;
+  const nNueva = all.filter(s => s.estado === "nueva").length;
+  const nAntigua = all.filter(s => s.estado === "antigua").length;
+  const nSin = all.filter(s => s.estado === "sin_senal").length;
+
+  const score = total ? Math.round(((nNueva * 1.0) + (nAntigua * 0.6) + (nSin * 0.0)) / total * 100) : 0;
+  const atencion = nAntigua + nSin;
+
+  // Estimación simple (ajustable) por tipo de señalización
+  const costoH = 1200;
+  const costoV = 1800;
+  const inversion = (horiz.length * costoH) + (vert.length * costoV);
+
+  if(dashScore) dashScore.textContent = String(score);
+  if(dashTotalSenales) dashTotalSenales.textContent = String(total);
+  if(dashAtencion) dashAtencion.textContent = String(atencion);
+  if(dashInversion) dashInversion.textContent = formatearMonedaPEN(inversion);
+}
+
+window.updateDashboard = updateDashboard;
+
+function abrirDashboard(){
+  if(!dashboardOverlay) return;
+  dashboardOverlay.classList.remove("hidden");
+  dashboardOverlay.setAttribute("aria-hidden","false");
+  try{
+    dashboardOverlay.querySelectorAll(".dash-link").forEach(btn=>btn.classList.remove("active"));
+    const dashBtn = dashboardOverlay.querySelector('.dash-link[data-dash="dashboard"]');
+    if(dashBtn) dashBtn.classList.add("active");
+  }catch(e){}
+  updateDashboard();
+}
+
+function cerrarDashboard(){
+  if(!dashboardOverlay) return;
+  dashboardOverlay.classList.add("hidden");
+  dashboardOverlay.setAttribute("aria-hidden","true");
+}
 
 // Banner de rol en mobile
 const mobileBanner = document.createElement("div");
@@ -286,6 +404,7 @@ function cargarSesionRol(){
       setRol(rol);
       updateMobileBanner();
       if(loginOverlay) loginOverlay.classList.add("hidden");
+      abrirDashboard();
       return;
     }
   }catch(e){}
@@ -315,6 +434,7 @@ if(formLogin){
     guardarSesionRol(rol);
     if(loginOverlay) loginOverlay.classList.add("hidden");
     updateMobileBanner();
+    abrirDashboard();
   });
 }
 
@@ -329,6 +449,7 @@ function ejecutarLogout(){
   }catch(e){}
   setRol("visitante");
   updateMobileBanner();
+  cerrarDashboard();
   if(loginOverlay) loginOverlay.classList.remove("hidden");
   if(inputCorreo) inputCorreo.value="";
   if(inputClave) inputClave.value="";
@@ -345,6 +466,72 @@ if(btnLogout){
 }
 if(btnFloatingLogout){
   btnFloatingLogout.addEventListener("click", ejecutarLogout);
+}
+if(btnDashLogout){
+  btnDashLogout.addEventListener("click", ejecutarLogout);
+}
+
+// Navegación dashboard
+if(dashboardOverlay){
+  dashboardOverlay.addEventListener("click", (e)=>{
+    const btn = e.target && e.target.closest ? e.target.closest("[data-dash],[data-dash-go]") : null;
+    if(!btn) return;
+    if(btn.hasAttribute("disabled")) return;
+
+    const go = btn.getAttribute("data-dash-go");
+    const key = go || btn.getAttribute("data-dash");
+    if(!key) return;
+
+    // Marcar activo en menú solo si es un link del menú
+    if(btn.classList.contains("dash-link")){
+      dashboardOverlay.querySelectorAll(".dash-link").forEach(b=>b.classList.remove("active"));
+      btn.classList.add("active");
+    }
+
+    if(key === "dashboard"){
+      abrirDashboard();
+      return;
+    }
+    if(key === "mapa"){
+      cerrarDashboard();
+      return;
+    }
+    if(key === "reportes"){
+      cerrarDashboard();
+      // Abrir reportes según viewport
+      setTimeout(()=>{
+        try{
+          if(typeof updateReportes === "function"){ updateReportes(); }
+          if(isMobileViewport()){
+            if(reportesPanel){
+              reportesPanel.classList.remove("hidden");
+              reportesPanel.classList.add("mobile-visible");
+              if(reportesSheet){ reportesSheet.style.transform = "translateY(0)"; }
+            }
+          } else {
+            const btnDesktop = document.getElementById("btnToggleReportes");
+            if(btnDesktop){
+              const willShow = reportesPanel && reportesPanel.classList.contains("hidden");
+              if(willShow){
+                btnDesktop.click();
+              }
+            }
+          }
+        }catch(e){}
+      }, 0);
+      return;
+    }
+  });
+}
+
+// Abrir dashboard al hacer click en la marca (opcional)
+const brandEl = document.querySelector(".topbar .brand");
+if(brandEl){
+  brandEl.style.cursor = "pointer";
+  brandEl.addEventListener("click", ()=>{
+    if(loginOverlay && !loginOverlay.classList.contains("hidden")) return;
+    abrirDashboard();
+  });
 }
 
 // Toggle sidebar en mobile

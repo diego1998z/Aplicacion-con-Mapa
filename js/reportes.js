@@ -171,6 +171,7 @@ function updateReportes(){
     renderTabla("#tablaHorizontal", horiz, "SH", idxH, "horizontal");
     renderTabla("#tablaVertical", vert, "SV", idxV, "vertical");
     renderTablaAvisos();
+    if(typeof updateDashboard === "function"){ updateDashboard(); }
 }
 
 // Inicial

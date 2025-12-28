@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="css/global.css">
     <link rel="stylesheet" href="css/sidebar.css">
     <link rel="stylesheet" href="css/map.css">
+    <link rel="stylesheet" href="css/dashboard.css">
 </head>
 <body>
     <div id="loginOverlay">
@@ -31,6 +32,90 @@
             </div>
         </div>
     </div>
+
+    <div id="dashboardOverlay" class="dashboard-overlay hidden" aria-hidden="true">
+        <aside class="dash-sidebar">
+            <div class="dash-brand">
+                <div class="dash-logo">URBBIS</div>
+            </div>
+
+            <div class="dash-user">
+                <div class="dash-avatar" aria-hidden="true"><span id="dashAvatarInitials">UR</span></div>
+                <div class="dash-user-meta">
+                    <div class="dash-welcome">Bienvenido,</div>
+                    <div class="dash-name" id="dashUserName">Usuario</div>
+                    <div class="dash-email" id="dashUserEmail"></div>
+                </div>
+            </div>
+
+            <nav class="dash-nav" aria-label="Navegacion principal">
+                <button type="button" class="dash-link active" data-dash="dashboard">Dashboard</button>
+                <button type="button" class="dash-link" data-dash="mapa">Mapa</button>
+                <button type="button" class="dash-link" data-dash="reportes">Reportes</button>
+                <button type="button" class="dash-link" data-dash="tareas" disabled>Tareas</button>
+                <button type="button" class="dash-link" data-dash="config" disabled>Configuracion</button>
+            </nav>
+
+            <button type="button" id="btnDashLogout" class="dash-logout">Cerrar sesion</button>
+        </aside>
+
+        <main class="dash-main">
+            <div class="dash-top">
+                <div>
+                    <div class="dash-entity" id="dashEntity">Entidad: Municipalidad</div>
+                    <div class="dash-msg">Hoy es un gran dia para mejorar la seguridad vial.</div>
+                </div>
+            </div>
+
+            <div class="dash-title">
+                <h1>Dashboard <span>/ Resumen General</span></h1>
+            </div>
+
+            <section class="dash-grid" aria-label="Resumen general">
+                <article class="dash-card dash-card--primary">
+                    <div class="dash-card-head">
+                        <div class="dash-card-kicker">Estado general de señalizacion</div>
+                        <button type="button" class="dash-card-go" data-dash-go="mapa" title="Ir al mapa">↗</button>
+                    </div>
+                    <div class="dash-card-value"><span id="dashScore">0</span><span class="dash-card-unit">/100</span></div>
+                </article>
+
+                <article class="dash-card dash-card--secondary">
+                    <div class="dash-card-head">
+                        <div class="dash-card-kicker">Señales registradas</div>
+                        <button type="button" class="dash-card-go" data-dash-go="reportes" title="Ver reportes">↗</button>
+                    </div>
+                    <div class="dash-card-value"><span id="dashTotalSenales">0</span></div>
+                    <div class="dash-card-sub">Activas en tu proyecto</div>
+                </article>
+
+                <article class="dash-card dash-card--muted">
+                    <div class="dash-card-head">
+                        <div class="dash-card-kicker">Inversion en señalizacion</div>
+                        <button type="button" class="dash-card-go" data-dash-go="reportes" title="Ver detalle">↗</button>
+                    </div>
+                    <div class="dash-card-sub">Monto:</div>
+                    <div class="dash-card-money" id="dashInversion">S/ 0</div>
+                    <div class="dash-card-sub">Valor estimado de infraestructura instalada</div>
+                </article>
+
+                <article class="dash-card dash-card--muted">
+                    <div class="dash-card-head">
+                        <div class="dash-card-kicker">Señales requieren atencion</div>
+                        <button type="button" class="dash-card-go" data-dash-go="reportes" title="Ver pendientes">↗</button>
+                    </div>
+                    <div class="dash-card-split">
+                        <div class="dash-card-big" id="dashAtencion">0</div>
+                        <div>
+                            <div class="dash-card-sub"><strong>Señales</strong><br>requieren atencion</div>
+                            <div class="dash-card-sub">Antiguas o sin señal</div>
+                        </div>
+                    </div>
+                </article>
+            </section>
+        </main>
+    </div>
+
     <header class="topbar">
         <div class="brand">
             <span class="brand-mark">UR</span>
