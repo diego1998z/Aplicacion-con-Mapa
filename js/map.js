@@ -58,6 +58,49 @@ const ICONOS = {
     ]
 };
 
+function hashEntero(str){
+    const s = String(str || "");
+    let h = 0;
+    for(let i = 0; i < s.length; i++){
+        h = ((h << 5) - h) + s.charCodeAt(i);
+        h |= 0;
+    }
+    return Math.abs(h);
+}
+
+function precioBaseIcono(modo, iconId){
+    const base = modo === "vertical" ? 5200 : 4200;
+    const range = modo === "vertical" ? 2200 : 1800;
+    const step = 50;
+    const h = hashEntero((modo || "") + ":" + (iconId || ""));
+    const slots = Math.floor(range / step) + 1;
+    return base + ((h % slots) * step);
+}
+
+function construirPreciosIconos(){
+    const out = { horizontal:{}, vertical:{} };
+    ["horizontal","vertical"].forEach(function(modo){
+        const usados = new Set();
+        (ICONOS[modo] || []).forEach(function(icon){
+            let p = precioBaseIcono(modo, icon.id);
+            while(usados.has(p)){
+                p += 50;
+            }
+            usados.add(p);
+            out[modo][icon.id] = p;
+        });
+    });
+    return out;
+}
+
+const PRECIOS_ICONOS = construirPreciosIconos();
+function precioSugeridoPorIcono(modo, iconId){
+    const map = PRECIOS_ICONOS[modo] || {};
+    if(map && map[iconId]) return map[iconId];
+    return modo === "vertical" ? 6000 : 4500;
+}
+window.precioSugeridoPorIcono = precioSugeridoPorIcono;
+
 let rolActual = "municipal"; // municipal o visitante
 let marcadores = [];
 let distritoLayer = null;
@@ -84,6 +127,25 @@ function colorPorEstado(estado){
 function iconoDefault(){
     const lista = ICONOS[modoActual] || [];
     return lista[0] ? lista[0].id : null;
+}
+
+function asegurarPreciosSenales(){
+    try{
+        if(Array.isArray(senalesHorizontal)){
+            senalesHorizontal.forEach(function(s){
+                if(!s) return;
+                if(typeof s.precio === "number" && isFinite(s.precio) && s.precio > 0) return;
+                s.precio = precioSugeridoPorIcono("horizontal", s.icono);
+            });
+        }
+        if(Array.isArray(senalesVertical)){
+            senalesVertical.forEach(function(s){
+                if(!s) return;
+                if(typeof s.precio === "number" && isFinite(s.precio) && s.precio > 0) return;
+                s.precio = precioSugeridoPorIcono("vertical", s.icono);
+            });
+        }
+    }catch(e){}
 }
 
 function normalizarNombreLugar(str){
@@ -176,12 +238,16 @@ function renderizarSenales(lista) {
         function buildPopup(){
             const distrito = (s.zona && s.zona !== "Sin zona" && s.zona !== "Sin distrito") ? s.zona : "-";
             const region = regionPorDistrito(distrito) || (s.region && s.region !== "Sin region" ? s.region : "-");
+            const precio = (typeof s.precio === "number" && isFinite(s.precio) && s.precio > 0)
+                ? ("S/ " + Math.round(s.precio).toLocaleString("es-PE"))
+                : "-";
             return ''
                 + '<strong>' + s.tipo + '</strong><br>'
                 + 'Distrito: ' + distrito + '<br>'
                 + 'Region: ' + region + '<br>'
                 + 'Estado: ' + s.estado + '<br>'
-                + 'Icono: ' + (iconInfo ? iconInfo.label : icono);
+                + 'Icono: ' + (iconInfo ? iconInfo.label : icono) + '<br>'
+                + 'Precio: ' + precio;
         }
         const marker = L.marker([s.lat, s.lng], {
             draggable: rolActual === "municipal",
@@ -218,6 +284,7 @@ function renderizarSenales(lista) {
     });
 }
 
+asegurarPreciosSenales();
 renderizarSenales(senales);
 if(typeof updateReportes === "function"){ updateReportes(); }
 
@@ -249,6 +316,10 @@ function templateCrearPopup(lat, lng){
     +       '<div class="step-title">Icono</div>'
     +       '<input type="text" class="icon-search" placeholder="Buscar icono...">'
     +       '<div class="icon-grid">' + iconsList + '</div>'
+    +       '<div class="precio-row">'
+    +           '<label>Precio (S/)</label>'
+    +           '<div class="precio-input"><span>S/</span><input type="number" id="inputPrecioSenal" min="0" step="50" placeholder="0"></div>'
+    +       '</div>'
     +   '</div>'
     +   '<button class="btn-crear hidden" data-lat="' + lat + '" data-lng="' + lng + '" disabled>Crear senal</button>'
     + '</div>';
@@ -261,9 +332,11 @@ function enlazarPopupCrear(lat, lng){
     let estadoSel = null;
     let iconSel = null;
     let fechaSel = "";
+    let precioSel = 0;
 
     const fechaRow = popupEl.querySelector(".fecha-row");
     const inputFecha = popupEl.querySelector("#inputFechaEstado");
+    const inputPrecio = popupEl.querySelector("#inputPrecioSenal");
     const btnCrear = popupEl.querySelector(".btn-crear");
     const iconStep = popupEl.querySelector(".icono-step");
     const estadoStep = popupEl.querySelector(".estado-step");
@@ -294,7 +367,8 @@ function enlazarPopupCrear(lat, lng){
     }
 
     function evaluarBoton(){
-        const listo = estadoSel && iconSel && (estadoSel === "sin_senal" || fechaSel);
+        const precioOk = typeof precioSel === "number" && isFinite(precioSel) && precioSel > 0;
+        const listo = estadoSel && iconSel && precioOk && (estadoSel === "sin_senal" || fechaSel);
         if(btnCrear){
             btnCrear.disabled = !listo;
             btnCrear.classList.toggle("hidden", !listo);
@@ -339,12 +413,27 @@ function enlazarPopupCrear(lat, lng){
             popupEl.querySelectorAll(".icon-option").forEach(function(b){ b.classList.remove("active"); });
             btn.classList.add("active");
             iconSel = btn.getAttribute("data-icon");
+
+            if(inputPrecio){
+                const actual = parseFloat(inputPrecio.value);
+                if(!isFinite(actual) || actual <= 0){
+                    inputPrecio.value = String(precioSugeridoPorIcono(modoActual, iconSel));
+                }
+                precioSel = parseFloat(inputPrecio.value) || 0;
+            }
             evaluarBoton();
             setTimeout(function(){
                 try{ if(map && map._popup){ centrarPopupCrear(map._popup); } }catch(e){}
             }, 0);
         });
     });
+    if(inputPrecio){
+        inputPrecio.addEventListener("input", function(){
+            const v = parseFloat(inputPrecio.value);
+            precioSel = (isFinite(v) && v >= 0) ? v : 0;
+            evaluarBoton();
+        });
+    }
     if(iconSearch){
         iconSearch.addEventListener("input", function(){
             const term = norm(iconSearch.value);
@@ -358,7 +447,7 @@ function enlazarPopupCrear(lat, lng){
 
     // Crear
     popupEl.querySelector(".btn-crear").addEventListener("click", function(){
-        crearSenal(lat, lng, estadoSel, iconSel, fechaSel);
+        crearSenal(lat, lng, estadoSel, iconSel, fechaSel, precioSel);
         map.closePopup();
     });
 }
@@ -504,10 +593,15 @@ map.on("click", function(e){
     }
 });
 
-function crearSenal(lat, lng, estado, icono, fecha){
+function crearSenal(lat, lng, estado, icono, fecha, precio){
     const datasetActual = modoActual === "horizontal" ? senalesHorizontal : senalesVertical;
     senales = datasetActual; // referencia activa
     const nextId = datasetActual.reduce(function(max, s){ return Math.max(max, s.id); },0) + 1;
+    const modoPrecio = modoActual === "horizontal" ? "horizontal" : "vertical";
+    const iconFinal = icono || iconoDefault();
+    const precioFinal = (typeof precio === "number" && isFinite(precio) && precio > 0)
+        ? precio
+        : precioSugeridoPorIcono(modoPrecio, iconFinal);
 
     // Capturar region/distrito actuales para que los filtros no oculten la nueva señal
     const regionSel = (typeof selectRegion !== "undefined" && selectRegion) ? selectRegion.value : "";
@@ -531,9 +625,10 @@ function crearSenal(lat, lng, estado, icono, fecha){
         zona: distritoInfer,
         lat: parseFloat(lat),
         lng: parseFloat(lng),
-        icono: icono || iconoDefault(),
+        icono: iconFinal,
         region: regionInfer,
         nombre: "Nueva senal",
+        precio: precioFinal,
         fecha_colocacion: estado === "sin_senal" ? "" : (fecha || new Date().toISOString().slice(0,10))
     };
 

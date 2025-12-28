@@ -82,6 +82,17 @@ function filtrarPorSeleccion(dataset){
   return base;
 }
 
+function precioDeSenal(modo, senal){
+  try{
+    const p = senal && typeof senal.precio === "number" ? senal.precio : NaN;
+    if(Number.isFinite(p) && p > 0) return p;
+    if(typeof window.precioSugeridoPorIcono === "function"){
+      return window.precioSugeridoPorIcono(modo, senal ? senal.icono : null);
+    }
+  }catch(e){}
+  return 0;
+}
+
 function updateDashboard(){
   if(!dashboardOverlay) return;
   const correo = (inputCorreo && inputCorreo.value) ? inputCorreo.value.trim() : (function(){
@@ -115,9 +126,8 @@ function updateDashboard(){
   const atencion = nAntigua + nSin;
 
   // Estimación simple (ajustable) por tipo de señalización
-  const costoH = 1200;
-  const costoV = 1800;
-  const inversion = (horiz.length * costoH) + (vert.length * costoV);
+  const inversion = horiz.reduce((sum, s)=> sum + precioDeSenal("horizontal", s), 0)
+    + vert.reduce((sum, s)=> sum + precioDeSenal("vertical", s), 0);
 
   if(dashScore) dashScore.textContent = String(score);
   if(dashTotalSenales) dashTotalSenales.textContent = String(total);
