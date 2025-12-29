@@ -22,10 +22,29 @@ const sidebar = document.getElementById("sidebar");
 const btnFloatingFilters = document.getElementById("btnFloatingFilters");
 const btnFloatingReport = document.getElementById("btnFloatingReport");
 const btnFloatingLogout = document.getElementById("btnFloatingLogout");
+const btnMapVisualizacion = document.getElementById("btnMapVisualizacion");
+const btnMapAgregar = document.getElementById("btnMapAgregar");
+const visualizacionPanel = document.getElementById("visualizacionPanel");
+const btnVisualizacionAvanzada = document.getElementById("btnVisualizacionAvanzada");
+const visualizacionAvanzada = document.getElementById("visualizacionAvanzada");
+const btnVisualizacionReset = document.getElementById("btnVisualizacionReset");
+const chkLayerTransito = document.getElementById("chkLayerTransito");
+const chkLayerMarcas = document.getElementById("chkLayerMarcas");
+const chkLayerMobiliario = document.getElementById("chkLayerMobiliario");
+const chkLayerEventos = document.getElementById("chkLayerEventos");
+const chkConsOperativos = document.getElementById("chkConsOperativos");
+const chkConsDeteriorados = document.getElementById("chkConsDeteriorados");
+const chkConsNoOperativos = document.getElementById("chkConsNoOperativos");
+const chkFotoCon = document.getElementById("chkFotoCon");
+const chkFotoSin = document.getElementById("chkFotoSin");
+const chkTiempoActivos = document.getElementById("chkTiempoActivos");
+const chkTiempoProgramados = document.getElementById("chkTiempoProgramados");
+const chkTiempoSinFinalizados = document.getElementById("chkTiempoSinFinalizados");
 const reportesPanel = document.getElementById("reportes");
 const btnCerrarReportes = document.getElementById("btnCerrarReportes");
 const reportesSheet = reportesPanel ? reportesPanel.querySelector(".reportes-sheet") : null;
 const mapContainer = document.getElementById("map");
+const mapFloatingControls = document.getElementById("mapFloatingControls");
 const dashboardOverlay = document.getElementById("dashboardOverlay");
 const btnDashLogout = document.getElementById("btnDashLogout");
 const dashUserName = document.getElementById("dashUserName");
@@ -249,6 +268,7 @@ function setDashView(view){
 
   dashboardOverlay.classList.toggle("dash-mode-mapa", view === "mapa");
   dashboardOverlay.classList.toggle("dash-mode-reportes", view === "reportes");
+  try{ repositionMapFloatingControls(); }catch(e){}
 
   // Activar item del menu
   try{
@@ -325,6 +345,12 @@ function setDashView(view){
               const top = reportesPanel.getBoundingClientRect().top + window.pageYOffset - headerH - 12;
               window.scrollTo({top: Math.max(0, top), behavior:"smooth"});
             }
+          } else if(reportesPanel){
+            reportesPanel.classList.remove("hidden");
+            reportesPanel.classList.remove("mobile-visible");
+            if(reportesSheet){ reportesSheet.style.transform = ""; }
+            const top = reportesPanel.getBoundingClientRect().top + window.pageYOffset - 12;
+            window.scrollTo({top: Math.max(0, top), behavior:"smooth"});
           }
         }
       }catch(e){}
@@ -400,7 +426,9 @@ function updateMobileBanner(){
 }
 
 updateMobileBanner();
+repositionMapFloatingControls();
 window.addEventListener("resize", ()=>{
+  repositionMapFloatingControls();
   repositionMobileBanner();
   updateMobileBanner();
 });
@@ -408,18 +436,33 @@ window.addEventListener("resize", ()=>{
 function repositionMobileBanner(){
   if(!mobileBanner) return;
   let offsetTop = 8;
-  const header = document.querySelector(".topbar");
-  const mobileSearch = document.getElementById("mobileSearch");
-  if(header){
-    const rect = header.getBoundingClientRect();
-    offsetTop = rect.bottom + 8;
+  if(isMobileViewport() && dashboardOverlay && !dashboardOverlay.classList.contains("hidden")){
+    if(dashboardOverlay.classList.contains("dash-mode-mapa") || dashboardOverlay.classList.contains("dash-mode-reportes")){
+      const dashSide = dashboardOverlay.querySelector(".dash-sidebar");
+      if(dashSide){
+        offsetTop = Math.max(offsetTop, dashSide.getBoundingClientRect().bottom + 8);
+      }
+    }
   }
-  if(mobileSearch && isMobileViewport()){
-    const rectSearch = mobileSearch.getBoundingClientRect();
-    offsetTop = rectSearch.bottom + 8;
+  if(isMobileViewport() && mapFloatingControls){
+    const rectControls = mapFloatingControls.getBoundingClientRect();
+    offsetTop = Math.max(offsetTop, rectControls.bottom + 8);
   }
   mobileBanner.style.top = offsetTop + "px";
   mobileBanner.style.right = "12px";
+}
+
+function repositionMapFloatingControls(){
+  if(!mapFloatingControls) return;
+  mapFloatingControls.style.top = "";
+  if(!isMobileViewport()) return;
+  if(!dashboardOverlay || dashboardOverlay.classList.contains("hidden")) return;
+  if(!(dashboardOverlay.classList.contains("dash-mode-mapa") || dashboardOverlay.classList.contains("dash-mode-reportes"))) return;
+  const dashSide = dashboardOverlay.querySelector(".dash-sidebar");
+  if(!dashSide) return;
+  const rectSide = dashSide.getBoundingClientRect();
+  const nextTop = Math.max(12, rectSide.bottom + 12);
+  mapFloatingControls.style.top = nextTop + "px";
 }
 
 // Ubicacion actual
@@ -866,6 +909,143 @@ if(brandEl){
     abrirDashboard();
   });
 }
+
+// Acciones flotantes (desktop y mobile)
+if(btnMapVisualizacion){
+  btnMapVisualizacion.addEventListener("click", ()=>{
+    const open = visualizacionPanel ? visualizacionPanel.classList.contains("hidden") : false;
+    if(!visualizacionPanel) return;
+    if(open){
+      visualizacionPanel.classList.remove("hidden");
+      btnMapVisualizacion.classList.add("active");
+    } else {
+      visualizacionPanel.classList.add("hidden");
+      btnMapVisualizacion.classList.remove("active");
+      if(visualizacionAvanzada) visualizacionAvanzada.classList.add("hidden");
+    }
+  });
+}
+if(btnMapAgregar){
+  btnMapAgregar.addEventListener("click", ()=>{
+    if(rolActual === "visitante"){
+      try{ abrirModalReporte(); }catch(e){}
+      return;
+    }
+    alert("Para agregar una señal: haz click derecho en el mapa.");
+  });
+}
+
+function setModoCreacion(modo){
+  try{
+    window.modoActual = modo;
+    if(modo === "horizontal") window.senales = window.senalesHorizontal;
+    if(modo === "vertical") window.senales = window.senalesVertical;
+  }catch(e){}
+}
+
+function syncVisualizacionToMap(){
+  const vis = window.URBBIS_VISUALIZACION;
+  if(!vis) return;
+
+  try{
+    if(chkLayerMarcas) window.setCapaVisible("marcas", chkLayerMarcas.checked);
+    if(chkLayerTransito) window.setCapaVisible("transito", chkLayerTransito.checked);
+    if(chkLayerMobiliario) window.setCapaVisible("mobiliario", chkLayerMobiliario.checked);
+    if(chkLayerEventos) window.setCapaVisible("eventos", chkLayerEventos.checked);
+  }catch(e){}
+
+  try{
+    if(chkConsOperativos) vis.conservacion.operativos = chkConsOperativos.checked;
+    if(chkConsDeteriorados) vis.conservacion.deteriorados = chkConsDeteriorados.checked;
+    if(chkConsNoOperativos) vis.conservacion.no_operativos = chkConsNoOperativos.checked;
+
+    if(chkFotoCon) vis.verificacion.con_foto = chkFotoCon.checked;
+    if(chkFotoSin) vis.verificacion.sin_foto = chkFotoSin.checked;
+
+    if(chkTiempoActivos) vis.tiempo.activos = chkTiempoActivos.checked;
+    if(chkTiempoProgramados) vis.tiempo.programados = chkTiempoProgramados.checked;
+    if(chkTiempoSinFinalizados) vis.tiempo.sin_finalizados = chkTiempoSinFinalizados.checked;
+  }catch(e){}
+
+  try{
+    if(typeof renderizarTodo === "function") renderizarTodo();
+    if(typeof updateReportes === "function") updateReportes();
+  }catch(e){}
+}
+
+function initVisualizacionUI(){
+  if(!visualizacionPanel) return;
+
+  // defaults
+  if(chkLayerMarcas) chkLayerMarcas.checked = true;
+  if(chkLayerTransito) chkLayerTransito.checked = true;
+  if(chkLayerMobiliario) chkLayerMobiliario.checked = true;
+  if(chkLayerEventos) chkLayerEventos.checked = true;
+
+  if(chkConsOperativos) chkConsOperativos.checked = true;
+  if(chkConsDeteriorados) chkConsDeteriorados.checked = true;
+  if(chkConsNoOperativos) chkConsNoOperativos.checked = true;
+
+  if(chkFotoCon) chkFotoCon.checked = true;
+  if(chkFotoSin) chkFotoSin.checked = true;
+
+  if(chkTiempoActivos) chkTiempoActivos.checked = true;
+  if(chkTiempoProgramados) chkTiempoProgramados.checked = true;
+  if(chkTiempoSinFinalizados) chkTiempoSinFinalizados.checked = true;
+
+  [chkLayerMarcas, chkLayerTransito, chkLayerMobiliario, chkLayerEventos,
+    chkConsOperativos, chkConsDeteriorados, chkConsNoOperativos,
+    chkFotoCon, chkFotoSin,
+    chkTiempoActivos, chkTiempoProgramados, chkTiempoSinFinalizados].forEach((el)=>{
+    if(!el) return;
+    el.addEventListener("change", ()=>{
+      // Si el usuario marca una capa de senales, usarla como modo para crear (municipal)
+      if(el === chkLayerMarcas && chkLayerMarcas.checked) setModoCreacion("horizontal");
+      if(el === chkLayerTransito && chkLayerTransito.checked) setModoCreacion("vertical");
+      syncVisualizacionToMap();
+    });
+  });
+
+  if(btnVisualizacionAvanzada && visualizacionAvanzada){
+    btnVisualizacionAvanzada.addEventListener("click", ()=>{
+      const open = visualizacionAvanzada.classList.contains("hidden");
+      visualizacionAvanzada.classList.toggle("hidden", !open);
+    });
+  }
+
+  if(btnVisualizacionReset){
+    btnVisualizacionReset.addEventListener("click", ()=>{
+      if(chkLayerMarcas) chkLayerMarcas.checked = true;
+      if(chkLayerTransito) chkLayerTransito.checked = true;
+      if(chkLayerMobiliario) chkLayerMobiliario.checked = true;
+      if(chkLayerEventos) chkLayerEventos.checked = true;
+      if(chkConsOperativos) chkConsOperativos.checked = true;
+      if(chkConsDeteriorados) chkConsDeteriorados.checked = true;
+      if(chkConsNoOperativos) chkConsNoOperativos.checked = true;
+      if(chkFotoCon) chkFotoCon.checked = true;
+      if(chkFotoSin) chkFotoSin.checked = true;
+      if(chkTiempoActivos) chkTiempoActivos.checked = true;
+      if(chkTiempoProgramados) chkTiempoProgramados.checked = true;
+      if(chkTiempoSinFinalizados) chkTiempoSinFinalizados.checked = true;
+      setModoCreacion("horizontal");
+      syncVisualizacionToMap();
+    });
+  }
+
+  // click fuera para cerrar
+  document.addEventListener("click", (e)=>{
+    if(!visualizacionPanel || visualizacionPanel.classList.contains("hidden")) return;
+    const target = e.target;
+    if(btnMapVisualizacion && (target === btnMapVisualizacion || btnMapVisualizacion.contains(target))) return;
+    if(visualizacionPanel.contains(target)) return;
+    visualizacionPanel.classList.add("hidden");
+    if(btnMapVisualizacion) btnMapVisualizacion.classList.remove("active");
+    if(visualizacionAvanzada) visualizacionAvanzada.classList.add("hidden");
+  });
+
+  syncVisualizacionToMap();
+}
+initVisualizacionUI();
 
 // Toggle sidebar en mobile
 if(btnMenu && sidebar){

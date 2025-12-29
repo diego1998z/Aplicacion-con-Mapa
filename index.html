@@ -120,14 +120,14 @@
                 <div class="dash-top">
                     <div>
                         <div class="dash-entity">Tareas</div>
-                        <div class="dash-msg">Gestion y seguimiento de avisos ciudadanos.</div>
+                        <div class="dash-msg">Gestion y seguimiento de eventos.</div>
                     </div>
                 </div>
                 <div class="dash-title">
-                    <h1>Tareas <span>/ Avisos ciudadanos</span></h1>
+                    <h1>Tareas <span>/ Eventos</span></h1>
                 </div>
                 <div class="reporte-card reporte-avisos dash-avisos-expanded">
-                    <h3>Avisos Ciudadanos</h3>
+                    <h3>Eventos</h3>
                     <div class="reportes-toolbar reportes-toolbar--compact">
                         <input id="filtroAvisoTextoTareas" type="text" placeholder="Buscar aviso...">
                         <select id="filtroAvisoEstadoTareas">
@@ -354,26 +354,60 @@
         </main>
     </div>
 
-    <header class="topbar">
-        <div class="brand">
-            <span class="brand-mark">UR</span>
-            <div class="brand-text">
-                <strong>Urbbis</strong>
-                <small>Gestion de senalizacion</small>
+    <div id="mapFloatingControls" class="map-floating-controls" aria-label="Controles del mapa">
+        <div class="map-floating-row">
+            <div class="filtro-block desktop-search map-floating-search">
+                <input type="text" id="inputBuscar" placeholder="Buscar un lugar...">
+                <button id="btnBuscarDireccion" class="btnBuscar">Buscar</button>
+                <div id="sugerencias" class="sugerencias"></div>
             </div>
         </div>
-        <div class="mode-switch">
-            <button class="tab-mode active" data-mode="horizontal">Senalizacion horizontal</button>
-            <button class="tab-mode" data-mode="vertical">Senalizacion vertical</button>
+        <div class="map-floating-row map-floating-actions" aria-label="Acciones">
+            <button id="btnMapVisualizacion" type="button" class="map-floating-btn map-floating-btn--dark">Visualizaci&oacute;n</button>
+            <button id="btnMapAgregar" type="button" class="map-floating-btn map-floating-btn--primary"><span class="plus">+</span> Agregar</button>
         </div>
-        <div class="top-actions">
-            <span class="rol-chip" id="chipRol">Rol: Municipal</span>
-            <button id="btnToggleRol" class="btnGhost">Cambiar a visitante</button>
-            <button id="btnLogout" class="btnGhost">Cerrar sesión</button>
-            <button id="btnToggleReportes" class="btnGhost">Ver reportes</button>
-            <div class="badge">Panel operativo</div>
+        <div id="visualizacionPanel" class="map-floating-panel hidden" aria-label="Opciones de visualizacion">
+            <div class="map-panel-section">
+                <label class="map-panel-check">
+                    <input id="chkLayerTransito" type="checkbox" checked>
+                    <span>Se&ntilde;ales tr&aacute;nsito</span>
+                </label>
+                <label class="map-panel-check">
+                    <input id="chkLayerMarcas" type="checkbox" checked>
+                    <span>Marcas viales</span>
+                </label>
+                <label class="map-panel-check">
+                    <input id="chkLayerMobiliario" type="checkbox" checked>
+                    <span>Mobiliario vial</span>
+                </label>
+                <label class="map-panel-check">
+                    <input id="chkLayerEventos" type="checkbox" checked>
+                    <span>Eventos</span>
+                </label>
+            </div>
+            <button id="btnVisualizacionAvanzada" type="button" class="map-panel-btn">Configuraci&oacute;n avanzada</button>
+            <div id="visualizacionAvanzada" class="map-panel-advanced hidden" aria-label="Configuracion avanzada">
+                <div class="map-panel-group">
+                    <div class="map-panel-title">Estado de conservaci&oacute;n:</div>
+                    <label class="map-panel-check"><input id="chkConsOperativos" type="checkbox" checked> <span>Operativos</span></label>
+                    <label class="map-panel-check"><input id="chkConsDeteriorados" type="checkbox" checked> <span>Deteriorados</span></label>
+                    <label class="map-panel-check"><input id="chkConsNoOperativos" type="checkbox" checked> <span>No operativos</span></label>
+                </div>
+                <div class="map-panel-group">
+                    <div class="map-panel-title">Verificaci&oacute;n de campo:</div>
+                    <label class="map-panel-check"><input id="chkFotoCon" type="checkbox" checked> <span>Con fotograf&iacute;a</span></label>
+                    <label class="map-panel-check"><input id="chkFotoSin" type="checkbox" checked> <span>Sin fotograf&iacute;a</span></label>
+                </div>
+                <div class="map-panel-group">
+                    <div class="map-panel-title">Filtro de tiempo:</div>
+                    <label class="map-panel-check"><input id="chkTiempoActivos" type="checkbox" checked> <span>Activos ahora</span></label>
+                    <label class="map-panel-check"><input id="chkTiempoProgramados" type="checkbox" checked> <span>Programados</span></label>
+                    <label class="map-panel-check"><input id="chkTiempoSinFinalizados" type="checkbox" checked> <span>Sin finalizados</span></label>
+                </div>
+                <button id="btnVisualizacionReset" type="button" class="map-panel-btn map-panel-btn--ghost">Restablecer</button>
+            </div>
         </div>
-    </header>
+    </div>
 
     <div id="mobileSearch" class="mobile-search">
         <input type="text" id="inputBuscarMobile" placeholder="Buscar direccion...">
@@ -387,13 +421,7 @@
         </div>
 
         <div class="sidebar-content">
-            <h2>Busqueda rapida</h2>
-            <div class="filtro-block desktop-search">
-                <input type="text" id="inputBuscar" placeholder="Buscar por tipo o distrito...">
-                <button id="btnBuscarDireccion" class="btnBuscar">Buscar direccion</button>
-                <div id="sugerencias" class="sugerencias"></div>
-            </div>
-
+            <h2>Filtros</h2>
             <div class="filtro-block">
                 <h3>Region y distrito</h3>
                 <select id="selectRegion"></select>
@@ -435,7 +463,7 @@
             <div class="sheet-handle"></div>
             <button id="btnCerrarReportes" class="close-reportes">Cerrar</button>
             <div class="reporte-card reporte-horizontal">
-                <h3>Reporte Senalizacion Horizontal</h3>
+                <h3>Reporte Marcas Viales</h3>
                 <table id="tablaHorizontal">
                     <thead>
                         <tr><th>ID</th><th>Tipo</th><th>Nombre</th><th>Estado</th><th>Fecha</th></tr>
@@ -444,7 +472,7 @@
                 </table>
             </div>
             <div class="reporte-card reporte-vertical">
-                <h3>Reporte Senalizacion Vertical</h3>
+                <h3>Reporte Se&ntilde;ales de Tr&aacute;nsito</h3>
                 <table id="tablaVertical">
                     <thead>
                         <tr><th>ID</th><th>Tipo</th><th>Nombre</th><th>Estado</th><th>Fecha</th></tr>
@@ -453,7 +481,7 @@
                 </table>
             </div>
             <div class="reporte-card reporte-avisos">
-                <h3>Avisos Ciudadanos</h3>
+                <h3>Eventos</h3>
                 <div class="reportes-toolbar">
                     <input id="filtroAvisoTexto" type="text" placeholder="Buscar aviso...">
                     <select id="filtroAvisoTipo">

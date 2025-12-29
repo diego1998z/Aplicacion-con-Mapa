@@ -43,6 +43,11 @@ body{
     z-index:1200;
 }
 
+/* Se reemplaza por controles flotantes sobre el mapa */
+.topbar{
+    display:none !important;
+}
+
 .brand{
     display:flex;
     align-items:center;

@@ -123,13 +123,100 @@ function precioSugeridoPorIcono(modo, iconId){
 window.precioSugeridoPorIcono = precioSugeridoPorIcono;
 
 let rolActual = "municipal"; // municipal o visitante
-let marcadores = [];
+let marcadores = []; // legacy (ya no se usa para render principal)
 let distritoLayer = null;
 let avisosMarkers = [];
 let pickingReporte = false;
 let puntoReporte = null;
 let marcadorReporte = null;
 let reabrirModalReporte = false;
+
+// Capas de visualizacion (marcas viales / senales transito / mobiliario / eventos)
+const layerMarcas = L.layerGroup().addTo(map);
+const layerTransito = L.layerGroup().addTo(map);
+const layerMobiliario = L.layerGroup();
+const layerEventos = L.layerGroup().addTo(map);
+
+const VISUALIZACION = {
+    capas: { transito:true, marcas:true, mobiliario:true, eventos:true },
+    conservacion: { operativos:true, deteriorados:true, no_operativos:true },
+    verificacion: { con_foto:true, sin_foto:true },
+    tiempo: { activos:true, programados:true, sin_finalizados:true }
+};
+window.URBBIS_VISUALIZACION = VISUALIZACION;
+
+function setCapaVisible(key, visible){
+    VISUALIZACION.capas[key] = !!visible;
+    const mapHas = (grp)=>{
+        try{ return map && grp && map.hasLayer(grp); }catch(e){ return false; }
+    };
+    const apply = (grp)=>{
+        if(!grp) return;
+        const should = !!visible;
+        if(should && !mapHas(grp)){
+            try{ grp.addTo(map); }catch(e){}
+        }
+        if(!should && mapHas(grp)){
+            try{ map.removeLayer(grp); }catch(e){}
+        }
+    };
+    if(key === "marcas") apply(layerMarcas);
+    if(key === "transito") apply(layerTransito);
+    if(key === "mobiliario") apply(layerMobiliario);
+    if(key === "eventos") apply(layerEventos);
+}
+window.setCapaVisible = setCapaVisible;
+
+function estadosSeleccionadosConservacion(){
+    const out = new Set();
+    if(VISUALIZACION.conservacion.operativos) out.add("nueva");
+    if(VISUALIZACION.conservacion.deteriorados) out.add("antigua");
+    if(VISUALIZACION.conservacion.no_operativos) out.add("sin_senal");
+    return out;
+}
+
+function filtrarAvisosPorVisualizacion(data){
+    let base = Array.isArray(data) ? data.slice() : [];
+
+    // Verificacion de campo (foto)
+    const conFoto = VISUALIZACION.verificacion.con_foto;
+    const sinFoto = VISUALIZACION.verificacion.sin_foto;
+    if(!(conFoto && sinFoto)){
+        base = base.filter(a=>{
+            const has = !!a.foto;
+            if(has && conFoto) return true;
+            if(!has && sinFoto) return true;
+            return false;
+        });
+    }
+
+    // Tiempo (interpretacion simple sobre estado del aviso)
+    const allowed = new Set();
+    if(VISUALIZACION.tiempo.activos){
+        allowed.add("pendiente");
+        allowed.add("atendido");
+    }
+    if(VISUALIZACION.tiempo.sin_finalizados){
+        allowed.add("pendiente");
+    }
+    // programados: aun no aplica (sin datos)
+    if(allowed.size){
+        base = base.filter(a=>allowed.has(a.estado || "pendiente"));
+    }
+
+    return base;
+}
+
+function iconoMobiliario(estado){
+    const color = colorPorEstado(estado);
+    return L.divIcon({
+        className:"estado-marker",
+        html:'<div class="marker-bubble" style="border-color:'+color+';background:#fff;"><div class="marker-img" style="background:'+color+';width:18px;height:18px;border-radius:6px;display:grid;place-items:center;color:#fff;font-weight:900;font-size:12px;">M</div></div>',
+        iconSize:[32,32],
+        iconAnchor:[16,28],
+        popupAnchor:[0,-20]
+    });
+}
 
 const AVISO_COLORES = {
     pendiente: "#f7a800",
@@ -147,6 +234,11 @@ function colorPorEstado(estado){
 
 function iconoDefault(){
     const lista = ICONOS[modoActual] || [];
+    return lista[0] ? lista[0].id : null;
+}
+
+function iconoDefaultPorModo(modo){
+    const lista = ICONOS[modo] || [];
     return lista[0] ? lista[0].id : null;
 }
 
@@ -244,13 +336,13 @@ function crearIcono(estado, iconoId, modo){
     });
 }
 
-function renderizarSenales(lista) {
-    marcadores.forEach(function(m){ map.removeLayer(m); });
-    marcadores = [];
+function renderizarSenalesModo(lista, modo, layerGroup) {
+    if(!layerGroup || typeof layerGroup.clearLayers !== "function") return;
+    layerGroup.clearLayers();
 
-    lista.forEach(function(s){
-        const icono = s.icono || iconoDefault();
-        const iconInfo = iconoPorId(icono, modoActual);
+    (lista || []).forEach(function(s){
+        const icono = s.icono || iconoDefaultPorModo(modo) || iconoDefault();
+        const iconInfo = iconoPorId(icono, modo);
         if(s.zona && (!s.region || s.region === "Sin region")){
             const reg = regionPorDistrito(s.zona);
             if(reg) s.region = reg;
@@ -270,10 +362,11 @@ function renderizarSenales(lista) {
                 + 'Icono: ' + (iconInfo ? iconInfo.label : icono) + '<br>'
                 + 'Precio: ' + precio;
         }
+
         const marker = L.marker([s.lat, s.lng], {
             draggable: rolActual === "municipal",
-            icon: crearIcono(s.estado, icono, modoActual)
-        }).addTo(map);
+            icon: crearIcono(s.estado, icono, modo)
+        }).addTo(layerGroup);
 
         marker.bindPopup(buildPopup());
         marker.on("popupopen", async function(){
@@ -299,14 +392,58 @@ function renderizarSenales(lista) {
             s.lng = nueva.lng;
             console.log('Senal ' + s.id + ' movida a:', nueva);
             alert('Se movio la senal ' + s.id + ' a nueva ubicacion.');
+            if(typeof updateReportes === "function"){ updateReportes(); }
         });
-
-        marcadores.push(marker);
     });
 }
 
+function renderizarMobiliario(lista, layerGroup){
+    if(!layerGroup || typeof layerGroup.clearLayers !== "function") return;
+    layerGroup.clearLayers();
+    (lista || []).forEach(function(s){
+        const marker = L.marker([s.lat, s.lng], {
+            draggable: rolActual === "municipal",
+            icon: iconoMobiliario(s.estado)
+        }).addTo(layerGroup);
+        marker.bindPopup('<strong>Mobiliario vial</strong><br>'
+            + 'Distrito: ' + (s.zona || "-") + '<br>'
+            + 'Region: ' + (s.region || regionPorDistrito(s.zona || "") || "-") + '<br>'
+            + 'Estado: ' + (s.estado || "-"));
+    });
+}
+
+function renderizarTodo(){
+    const allowed = estadosSeleccionadosConservacion();
+    function filtrarSenales(dataset){
+        let base = Array.isArray(dataset) ? dataset.slice() : [];
+        if(typeof filtroEstado !== "undefined" && filtroEstado){
+            base = base.filter(s => s.estado === filtroEstado);
+        } else if(allowed){
+            if(allowed.size === 0) return [];
+            base = base.filter(s => allowed.has(s.estado));
+        }
+        return base;
+    }
+
+    renderizarSenalesModo(filtrarSenales(senalesHorizontal), "horizontal", layerMarcas);
+    renderizarSenalesModo(filtrarSenales(senalesVertical), "vertical", layerTransito);
+    const mob = (typeof senalesMobiliario !== "undefined" && Array.isArray(senalesMobiliario)) ? senalesMobiliario : [];
+    renderizarMobiliario(filtrarSenales(mob), layerMobiliario);
+    renderAvisos();
+}
+window.renderizarTodo = renderizarTodo;
+
+// Compat: llamadas antiguas
+function renderizarSenales(){
+    renderizarTodo();
+}
+
 asegurarPreciosSenales();
-renderizarSenales(senales);
+setCapaVisible("marcas", VISUALIZACION.capas.marcas);
+setCapaVisible("transito", VISUALIZACION.capas.transito);
+setCapaVisible("mobiliario", VISUALIZACION.capas.mobiliario);
+setCapaVisible("eventos", VISUALIZACION.capas.eventos);
+renderizarTodo();
 if(typeof updateReportes === "function"){ updateReportes(); }
 
 // Popup para crear senal con pestanas estado/icono
@@ -709,7 +846,7 @@ async function zoomADistrito(nombre){
 
 function setRol(nuevo){
     rolActual = nuevo;
-    renderizarSenales(senales);
+    renderizarTodo();
     try{
         document.body.classList.toggle("role-municipal", rolActual === "municipal");
         document.body.classList.toggle("role-visitante", rolActual === "visitante");
@@ -794,10 +931,11 @@ function abrirPopupEstadoAviso(aviso, latlng){
 }
 
 function renderAvisos(){
-    avisosMarkers.forEach(function(m){ map.removeLayer(m); });
-    avisosMarkers = [];
-    avisos.forEach(function(a){
-        const m = L.marker([a.lat,a.lng],{icon: iconoAviso(a.estado)}).addTo(map);
+    if(!layerEventos || typeof layerEventos.clearLayers !== "function") return;
+    layerEventos.clearLayers();
+    const data = filtrarAvisosPorVisualizacion(avisos);
+    data.forEach(function(a){
+        const m = L.marker([a.lat,a.lng],{icon: iconoAviso(a.estado)}).addTo(layerEventos);
         const fotoThumb = a.foto ? '<div class="aviso-thumb"><img src="'+a.foto+'" alt="Foto aviso"></div><button class="btnVerFoto" data-img="'+a.foto+'">Ver detalles</button>' : '';
         const popupHtml = '<div class="aviso-popup"><strong>Aviso: '+(a.tipo || "-")+'</strong><br>'
             + (a.descripcion || "-") + '<br>'
@@ -818,8 +956,6 @@ function renderAvisos(){
             if(rolActual !== "municipal") return;
             abrirPopupEstadoAviso(a, ev.latlng);
         });
-
-        avisosMarkers.push(m);
     });
 }
 

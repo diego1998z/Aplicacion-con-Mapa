@@ -5,8 +5,173 @@
 }
 
 .leaflet-control-container .leaflet-top.leaflet-left{
-    margin-top:78px;
-    margin-left:320px;
+    margin-top:190px;
+    margin-left:12px;
+}
+
+.map-floating-controls{
+    position:fixed;
+    top:16px;
+    left:20px;
+    z-index:1600;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    pointer-events:auto;
+}
+.map-floating-controls{align-items:flex-start;}
+body.dash-shell .map-floating-controls{
+    left:300px;
+}
+.map-floating-row{
+    display:flex;
+    gap:10px;
+}
+.map-floating-search{
+    position:relative;
+    width:min(520px, calc(100vw - 40px));
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:10px 12px;
+    background:var(--panel-glass-strong);
+    border:1px solid var(--border);
+    border-radius:999px;
+    box-shadow:var(--shadow);
+    margin:0;
+}
+.map-floating-search input{
+    flex:1;
+    height:38px;
+    border:none;
+    outline:none;
+    background:transparent;
+    color:var(--text);
+    margin:0;
+    padding:0 6px;
+}
+.map-floating-search .btnBuscar{
+    width:auto !important;
+    margin:0 !important;
+    padding:10px 14px !important;
+    border-radius:999px !important;
+}
+.map-floating-search .sugerencias{
+    position:absolute;
+    top:calc(100% + 10px);
+    left:0;
+    right:0;
+    margin-top:0;
+}
+.map-floating-actions{
+    display:flex;
+    gap:10px;
+}
+.map-floating-btn{
+    padding:10px 14px;
+    border-radius:999px;
+    border:1px solid var(--border);
+    background:var(--panel-glass-strong);
+    color:var(--text);
+    font-weight:800;
+    cursor:pointer;
+    box-shadow:var(--shadow);
+}
+.map-floating-btn--dark{
+    background:#0c426a;
+    border-color:rgba(11,34,48,0.28);
+    color:#fff;
+}
+.map-floating-btn--dark:hover{filter:brightness(1.03);}
+.map-floating-btn--dark.active{
+    background:#0c426a;
+    color:#fff;
+    border-color:rgba(255,255,255,0.35);
+}
+.map-floating-btn:hover:not(.map-floating-btn--dark){
+    filter:brightness(1.02);
+}
+.map-floating-btn.active:not(.map-floating-btn--dark){
+    border-color:var(--primary);
+    color:var(--primary);
+    background:rgba(29,112,184,0.10);
+}
+
+.map-floating-panel{
+    width:280px;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:20px;
+    box-shadow:0 18px 46px rgba(0,0,0,0.18);
+    padding:12px 12px 14px;
+}
+.map-floating-panel.hidden{display:none;}
+.map-panel-section{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    padding:6px 4px 10px;
+}
+.map-panel-group{
+    margin-top:12px;
+    padding-top:10px;
+    border-top:1px solid var(--border);
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+.map-panel-title{
+    font-weight:900;
+    font-size:12px;
+    color:var(--muted);
+    margin-bottom:2px;
+}
+.map-panel-check{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-weight:800;
+    color:var(--text);
+    user-select:none;
+}
+.map-panel-check input{
+    width:16px;
+    height:16px;
+    accent-color:var(--primary);
+}
+.map-panel-btn{
+    width:100%;
+    padding:10px 12px;
+    border-radius:999px;
+    border:1px solid rgba(11,34,48,0.18);
+    background:#0c426a;
+    color:#fff;
+    font-weight:900;
+    cursor:pointer;
+    margin-top:8px;
+}
+.map-panel-btn:hover{filter:brightness(1.03);}
+.map-panel-btn--ghost{
+    background:var(--bg);
+    color:var(--primary-dark);
+    border-color:rgba(29,112,184,0.22);
+}
+.map-panel-advanced{
+    margin-top:6px;
+}
+.map-floating-btn--primary{
+    background:var(--panel);
+    border-color:rgba(29,112,184,0.22);
+    color:var(--primary-dark);
+}
+.map-floating-btn--primary .plus{
+    font-weight:900;
+    margin-right:6px;
+}
+
+/* Ya no usamos el buscador mobile (se reemplaza por el flotante) */
+#mobileSearch{
+    display:none !important;
 }
 
 .legend{
@@ -600,6 +765,7 @@
 @media (max-width: 900px){
     .leaflet-control-container .leaflet-top.leaflet-left{
         margin-left:12px;
+        margin-top:200px;
     }
     .legend{
         right:10px;
@@ -672,12 +838,34 @@
     }
     #map{
         position:fixed;
-        top:70px;
+        top:0;
         left:0;
         right:0;
         bottom:0;
         height:auto;
         margin-top:0;
+    }
+    .map-floating-controls{
+        left:12px;
+        right:12px;
+        top:12px;
+    }
+    body.dash-shell .map-floating-controls{
+        left:12px;
+        right:12px;
+    }
+    .map-floating-row{
+        width:100%;
+    }
+    .map-floating-actions{
+        width:100%;
+    }
+    .map-floating-btn{
+        flex:1;
+        text-align:center;
+    }
+    .map-floating-panel{
+        width:min(360px, calc(100vw - 24px));
     }
     .icon-grid{
         grid-template-columns:repeat(2,1fr);

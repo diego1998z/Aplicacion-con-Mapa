@@ -9,15 +9,19 @@ let selRegion = "";
 let selDistrito = "";
 
 function aplicarFiltros(){
-    let base = senales;
-    if(filtroEstado){
-        base = base.filter(s=>s.estado===filtroEstado);
+    if(typeof renderizarTodo === "function"){
+        renderizarTodo();
+    } else {
+        let base = senales;
+        if(filtroEstado){
+            base = base.filter(s=>s.estado===filtroEstado);
+        }
+        if(filtroTexto){
+            const t = filtroTexto.toLowerCase();
+            base = base.filter(s=>s.tipo.toLowerCase().includes(t) || s.zona.toLowerCase().includes(t));
+        }
+        renderizarSenales(base);
     }
-    if(filtroTexto){
-        const t = filtroTexto.toLowerCase();
-        base = base.filter(s=>s.tipo.toLowerCase().includes(t) || s.zona.toLowerCase().includes(t));
-    }
-    renderizarSenales(base);
     if(typeof updateReportes === "function"){ updateReportes(); }
 }
 

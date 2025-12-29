@@ -18,17 +18,4 @@ function cargarDistritos(region){
 cargarRegiones();
 cargarDistritos("");
 
-// Tabs de modo: horizontal / vertical
-document.querySelectorAll(".tab-mode").forEach(btn=>{
-    btn.addEventListener("click",()=>{
-        document.querySelectorAll(".tab-mode").forEach(b=>b.classList.remove("active"));
-        btn.classList.add("active");
-        modoActual = btn.dataset.mode;
-        if(modoActual==="horizontal"){
-            senales = senalesHorizontal;
-        } else {
-            senales = senalesVertical;
-        }
-        aplicarFiltros();
-    });
-});
+// Tabs de modo (legacy): se mantienen por compatibilidad (topbar oculto)

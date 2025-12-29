@@ -1,15 +1,20 @@
 #sidebar{
-    position:absolute;
-    top:90px;
+    position:fixed;
+    top:150px;
     left:20px;
     width:280px;
     background:var(--panel);
     padding:12px 12px 18px;
     border-radius:var(--radius);
     box-shadow:var(--shadow);
-    z-index:1100;
+    z-index:1700;
     border:1px solid var(--border);
-    animation:floatIn 240ms ease;
+    transform:translateX(calc(-100% - 24px));
+    transition:transform 200ms ease;
+    will-change:transform;
+}
+#sidebar.expanded{
+    transform:translateX(0);
 }
 
 #sidebar h2{

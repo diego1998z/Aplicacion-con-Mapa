@@ -92,6 +92,9 @@ const senalesVertical = [
   },
 ];
 
+// Mobiliario vial (aun sin iconos / datos)
+const senalesMobiliario = [];
+
 // Dataset actual (inicial horizontal)
 let senales = senalesHorizontal;
 let modoActual = "horizontal";
