@@ -209,8 +209,10 @@ body.dash-shell .registro-picker-card{
     max-height:calc(100vh - 220px);
 }
 .registro-panel .icon-grid{
-    max-height:none;
-    overflow-y:visible;
+    max-height:210px;
+    overflow-y:auto;
+    padding-right:6px;
+    scrollbar-width:thin;
 }
 .registro-field{
     display:flex;
@@ -391,6 +393,7 @@ body.dash-shell .registro-picker-card{
         max-height:78vh;
     }
     .registro-panel-body{max-height:calc(78vh - 54px);}
+    .registro-panel .icon-grid{max-height:300px;}
 }
 .map-floating-row{
     display:flex;
