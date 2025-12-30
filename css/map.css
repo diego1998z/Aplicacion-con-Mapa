@@ -208,6 +208,10 @@ body.dash-shell .registro-picker-card{
     overflow:auto;
     max-height:calc(100vh - 220px);
 }
+.registro-panel .icon-grid{
+    max-height:none;
+    overflow-y:visible;
+}
 .registro-field{
     display:flex;
     flex-direction:column;

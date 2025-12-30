@@ -1235,8 +1235,9 @@ function abrirRegistroPanel(tipo){
 
   function fieldIconos(modoLabel){
     const list = iconosParaRegistro(tipo);
-    const html = renderIconGridHtml(list, "");
-    const cats = (tipo === "transito")
+    const isTransito = (tipo === "transito");
+    const html = isTransito ? "" : renderIconGridHtml(list, "");
+    const cats = isTransito
       ? ''
         + '<div class="registro-cat-grid" id="regCats">'
         +   '<button type="button" class="registro-cat" data-cat="preventiva"><span class="registro-cat-icon registro-cat-icon--preventiva" aria-hidden="true"></span>Preventiva</button>'
@@ -1245,12 +1246,13 @@ function abrirRegistroPanel(tipo){
         + '</div>'
       : '';
 
+    const hiddenClass = isTransito ? " hidden" : "";
     return ''
       + '<div class="registro-field">'
       +   '<div class="registro-label">' + modoLabel + '</div>'
-      +   '<input id="regIconSearch" type="text" class="registro-input" placeholder="Buscar...">'
       +   cats
-      +   '<div class="icon-grid" id="regIconGrid">' + html + '</div>'
+      +   '<input id="regIconSearch" type="text" class="registro-input' + hiddenClass + '" placeholder="Buscar...">'
+      +   '<div class="icon-grid' + hiddenClass + '" id="regIconGrid">' + html + '</div>'
       + '</div>';
   }
 
@@ -1444,6 +1446,15 @@ function bindRegistroPanelInteractions(tipo){
       registroDraft.icono = "";
       cats.querySelectorAll(".registro-cat").forEach(x=>x.classList.remove("active"));
       b.classList.add("active");
+      if(inputSearch){
+        inputSearch.classList.remove("hidden");
+        inputSearch.value = "";
+        try{ inputSearch.focus(); }catch(err){}
+      }
+      if(grid){
+        grid.classList.remove("hidden");
+        try{ grid.scrollTop = 0; }catch(err){}
+      }
       actualizarIconGrid();
       actualizarEstadoSubmitRegistro();
     });

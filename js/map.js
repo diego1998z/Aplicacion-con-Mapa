@@ -42,6 +42,229 @@ const ESTADO_COLORES = {
     sin_senal: "#3f7ed9"
 };
 
+// Se¤ales de tr nsito (vertical) por categoria
+const VERTICAL_FILES_PREVENTIVA = [
+    "P-10A.png",
+    "P-10B.png",
+    "P-11.png",
+    "P-12.png",
+    "P-13A.png",
+    "P-13B.png",
+    "P-14A.png",
+    "P-14B.png",
+    "P-15.png",
+    "P-16A.png",
+    "P-16B.png",
+    "P-17.png",
+    "P-18.png",
+    "P-19.png",
+    "P-1A.png",
+    "P-1B.png",
+    "P-20.png",
+    "P-21.png",
+    "P-22.png",
+    "P-23.png",
+    "P-24.png",
+    "P-25.png",
+    "P-26.png",
+    "P-27.png",
+    "P-28.png",
+    "P-29.png",
+    "P-2A.png",
+    "P-2B.png",
+    "P-30.png",
+    "P-31.png",
+    "P-32.png",
+    "P-33.png",
+    "P-34.png",
+    "P-35.png",
+    "P-36.png",
+    "P-37.png",
+    "P-38.png",
+    "P-39.png",
+    "P-3A.png",
+    "P-3B.png",
+    "P-40.png",
+    "P-41.png",
+    "P-42.png",
+    "P-43.png",
+    "P-44.png",
+    "P-45.png",
+    "P-46.png",
+    "P-47.png",
+    "P-48.png",
+    "P-49.png",
+    "P-4A.png",
+    "P-4B.png",
+    "P-5-1.png",
+    "P-5-2A.png",
+    "P-5-2B.png",
+    "P-50.png",
+    "P-51.png",
+    "P-52.png",
+    "P-53.png",
+    "P-54.png",
+    "P-55.png",
+    "P-56.png",
+    "P-57.png",
+    "P-58.png",
+    "P-59.png",
+    "P-6.png",
+    "P-60.png",
+    "P-61.png",
+    "P-62-Peso-bruto-m\u00e1ximo-permitido.png",
+    "P-66-R\u00e1fagas-de-viento-lateral.png",
+    "P-66A-Zona-de-arenamiento-en-la-v\u00eda.png",
+    "P-7.png",
+    "P-8.png",
+    "P-9A.png",
+    "P-9B.png"
+];
+
+const VERTICAL_FILES_REGLAMENTARIA = [
+    "R-1.png",
+    "R-10.png",
+    "R-11.png",
+    "R-12.png",
+    "R-13.png",
+    "R-14A.png",
+    "R-14B.png",
+    "R-15.png",
+    "R-16.png",
+    "R-17.png",
+    "R-18-1.png",
+    "R-18-2.png",
+    "R-18.png",
+    "R-19.png",
+    "R-2.png",
+    "R-20.png",
+    "R-21.png",
+    "R-22.png",
+    "R-23.png",
+    "R-24.png",
+    "R-25.png",
+    "R-26.png",
+    "R-27.png",
+    "R-27A.png",
+    "R-28.png",
+    "R-29.png",
+    "R-3.png",
+    "R-30-1.png",
+    "R-30-2.png",
+    "R-30-3.png",
+    "R-30-4.png",
+    "R-30.png",
+    "R-31.png",
+    "R-32.png",
+    "R-33.png",
+    "R-34.png",
+    "R-35.png",
+    "R-36.png",
+    "R-37.png",
+    "R-38.png",
+    "R-39.png",
+    "R-4.png",
+    "R-40.png",
+    "R-41.png",
+    "R-42.png",
+    "R-44.png",
+    "R-45.png",
+    "R-46.png",
+    "R-5-1.png",
+    "R-5-2.png",
+    "R-5-3.png",
+    "R-5-4.png",
+    "R-5.png",
+    "R-6.png",
+    "R-7.png",
+    "R-8.png",
+    "R-9.png"
+];
+
+const VERTICAL_FILES_INFORMATIVA = [
+    "I-1A-Escudo-indicador-de-carretera-del-sistema.png",
+    "I-1B-S\u00edmbolo-que-identifica-la-red-vial.png",
+    "I-20-llanteria.png",
+    "I-21-personas-con-movilidad-reducida.png",
+    "I-22-Servicio-de-informacion.png",
+    "I-23-Servicios-higienicos.png",
+    "I-24-Transporte-ferroviario.png",
+    "I-25-transporte-masivo-de-conductores.png",
+    "I-26-zona-recreativa.png",
+    "I-27-Tsunami-ruta-de-evacuacion.png",
+    "I-28-Zona-de-riesgo-por-Tsunami.png",
+    "I-29-Punto-de-encuentro-por-Tsunami.png",
+    "I-31-Estacionamiento-para-emergencias.png",
+    "i-10-Iglesia.png",
+    "i-11-Aeropuerto.png",
+    "i-12-Hospedaje.png",
+    "i-13-primeros-auxilios.png",
+    "i-14-hospital.png",
+    "i-15-servicios-sanitarios.png",
+    "i-16-restaurante.png",
+    "i-17-telefono.png",
+    "i-18-servicio-mecanico.png",
+    "i-19-grifo.png",
+    "i-32-Extintor-contra-incendios.png",
+    "i-33-Hidrante-y-manguera-contra-incendios.png",
+    "i-34-Salida-de-emergencia.png",
+    "i-35-Ruta-de-emergencia.png",
+    "i-36-estacionamiento-de-casa-rodante.png",
+    "i-37-se\u00f1al-de-prese\u00f1alizacion.png",
+    "i-38-se\u00f1al-de-prese\u00f1alizacion.png",
+    "i-5-Sitio-de-parqueo.png",
+    "i-6-Paradero-de-buses.png",
+    "i-7-Estacionamiento_de_taxis.png",
+    "i-8-via-para-ciclistas.png",
+    "i-9-Zona-militar.png",
+    "informativas-con-salida.png",
+    "informativas.png",
+    "t-1-Zona-de-camping.png",
+    "t-2-Museo.png",
+    "t-3-Muelle.png",
+    "t-4-Servicio-de-informaci\u00f3n-tur\u00edstica.png"
+];
+
+function labelDesdeArchivoIcono(base){
+    const raw = String(base || "");
+    const clean = raw.replace(/_/g," ").trim();
+    const parts = clean.split("-").filter(Boolean);
+    if(parts.length < 3){
+        return clean;
+    }
+    // Si no es formato codificado (P- / R- / I-), mostrar el nombre completo
+    if(!/^[A-Za-z]$/.test(parts[0])){
+        return clean.replace(/-/g," ").replace(/\s+/g," ").trim();
+    }
+    const rest = parts.slice(2).join(" ").replace(/-/g," ").replace(/\s+/g," ").trim();
+    const norm = rest.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+    if(/[a-z]{2}/.test(norm)){
+        return rest;
+    }
+    return clean;
+}
+
+function buildIconosVertical(){
+    const out = [];
+    const groups = [
+        { categoria: "preventiva", folder: "Preventiva", files: VERTICAL_FILES_PREVENTIVA },
+        { categoria: "reglamentaria", folder: "Reglamentaria", files: VERTICAL_FILES_REGLAMENTARIA },
+        { categoria: "informativa", folder: "Informativa", files: VERTICAL_FILES_INFORMATIVA }
+    ];
+    groups.forEach(function(g){
+        (g.files || []).forEach(function(file){
+            const base = String(file || "").replace(/\.png$/i,"");
+            out.push({
+                id: base,
+                label: labelDesdeArchivoIcono(base),
+                categoria: g.categoria,
+                src: "src/vertical/" + g.folder + "/" + encodeURIComponent(file)
+            });
+        });
+    });
+    return out;
+}
+
 const ICONOS = {
     horizontal: [
         { id: "pista", label: "Pista", src: "src/horizontal/pista.png" },
@@ -71,12 +294,7 @@ const ICONOS = {
         { id: "vel_40", label: "Velocidad 40", src: "src/horizontal/ico_vel_40.png" },
         { id: "zona_escolar", label: "Zona escolar", src: "src/horizontal/ico_zona_escolar.png" }
     ],
-    vertical: [
-        { id: "stop", label: "PARE", categoria: "reglamentaria", src: "src/vertical/senal-de-stop.png" },
-        { id: "velocidad", label: "Velocidad 80", categoria: "reglamentaria", src: "src/vertical/limite-de-velocidad-80.png" },
-        { id: "bus", label: "Parada bus", categoria: "informativa", src: "src/vertical/estacion-de-autobuses.png" },
-        { id: "moto", label: "Moto", categoria: "preventiva", src: "src/vertical/moto.png" }
-    ]
+    vertical: buildIconosVertical()
 };
 
 function hashEntero(str){
