@@ -23,6 +23,371 @@
 body.dash-shell .map-floating-controls{
     left:300px;
 }
+
+/* Flujo Agregar / Registrar */
+.registro-hint{
+    position:fixed;
+    top:86px;
+    left:50%;
+    transform:translateX(-50%);
+    z-index:2600;
+    background:var(--panel-glass-strong);
+    border:1px solid var(--border);
+    border-radius:999px;
+    padding:10px 14px;
+    box-shadow:var(--shadow);
+    font-weight:800;
+    color:var(--text);
+    pointer-events:none;
+}
+body.dash-shell .registro-hint{
+    left:calc(50% + 140px);
+}
+.registro-hint.hidden{display:none;}
+
+.registro-picker{
+    position:fixed;
+    inset:0;
+    z-index:2600;
+    display:grid;
+    place-items:center;
+    pointer-events:auto;
+    background:rgba(15,23,42,0.06);
+}
+.registro-picker.hidden{display:none;}
+.registro-picker-card{
+    pointer-events:auto;
+    width:min(560px, calc(100vw - 24px));
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:22px;
+    box-shadow:0 26px 70px rgba(0,0,0,0.22);
+    padding:18px 18px 14px;
+}
+body.dash-shell .registro-picker-card{
+    margin-left:140px;
+}
+.registro-picker-title{
+    font-weight:900;
+    font-size:18px;
+    color:var(--text);
+    text-align:center;
+    margin:2px 0 14px;
+}
+.registro-picker-grid{
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:12px;
+}
+.registro-picker-option{
+    border:1px solid rgba(11,34,48,0.18);
+    background:#fff;
+    border-radius:16px;
+    padding:14px 10px;
+    display:grid;
+    justify-items:center;
+    gap:10px;
+    cursor:pointer;
+    transition:transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+    min-height:92px;
+}
+.registro-picker-option:hover{
+    transform:translateY(-1px);
+    box-shadow:0 10px 24px rgba(17,38,62,0.12);
+    border-color:rgba(29,112,184,0.35);
+}
+.registro-picker-option.active{
+    background:#0c426a;
+    border-color:#0c426a;
+    color:#fff;
+}
+.registro-opt-icon{
+    width:26px;
+    height:26px;
+    border-radius:12px;
+    background:#eef2f8;
+    border:1px solid rgba(11,34,48,0.10);
+    background-repeat:no-repeat;
+    background-position:center;
+    background-size:60%;
+}
+.registro-picker-option.active .registro-opt-icon{
+    background:rgba(255,255,255,0.14);
+    border-color:rgba(255,255,255,0.22);
+    filter:brightness(1.15);
+}
+.registro-opt-icon--transito{
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230c426a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 2l8 10-8 10L4 12 12 2z'/></svg>");
+}
+.registro-picker-option.active .registro-opt-icon--transito{
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 2l8 10-8 10L4 12 12 2z'/></svg>");
+}
+.registro-opt-icon--marcas{
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230c426a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M5 12h14'/></svg>");
+}
+.registro-picker-option.active .registro-opt-icon--marcas{
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M5 12h14'/></svg>");
+}
+.registro-opt-icon--mobiliario{
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230c426a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M7 10h10'/><path d='M8 10l-2 9'/><path d='M16 10l2 9'/><path d='M8 14h8'/></svg>");
+}
+.registro-picker-option.active .registro-opt-icon--mobiliario{
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M7 10h10'/><path d='M8 10l-2 9'/><path d='M16 10l2 9'/><path d='M8 14h8'/></svg>");
+}
+.registro-opt-icon--eventos{
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230c426a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 3l10 18H2L12 3z'/></svg>");
+}
+.registro-picker-option.active .registro-opt-icon--eventos{
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 3l10 18H2L12 3z'/></svg>");
+}
+.registro-opt-text{
+    font-weight:900;
+    font-size:13px;
+    line-height:1.1;
+    text-align:center;
+    color:inherit;
+}
+.registro-picker-cancel{
+    margin:14px auto 0;
+    display:block;
+    border:none;
+    background:transparent;
+    color:var(--muted);
+    font-weight:800;
+    cursor:pointer;
+    padding:8px 10px;
+}
+.registro-picker-cancel:hover{color:var(--text);}
+
+.registro-panel{
+    position:fixed;
+    top:120px;
+    right:22px;
+    width:360px;
+    max-height:calc(100vh - 160px);
+    overflow:hidden;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:22px;
+    box-shadow:0 24px 70px rgba(0,0,0,0.22);
+    z-index:2600;
+}
+.registro-panel.hidden{display:none;}
+.registro-panel-head{
+    background:#0c426a;
+    color:#fff;
+    padding:12px 14px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+}
+.registro-panel-title{
+    font-weight:900;
+    font-size:16px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+}
+.registro-panel-close{
+    border:none;
+    background:rgba(255,255,255,0.12);
+    color:#fff;
+    width:34px;
+    height:34px;
+    border-radius:10px;
+    cursor:pointer;
+    display:grid;
+    place-items:center;
+    font-size:18px;
+    line-height:1;
+}
+.registro-panel-close:hover{background:rgba(255,255,255,0.18);}
+.registro-panel-body{
+    padding:14px 14px 18px;
+    overflow:auto;
+    max-height:calc(100vh - 220px);
+}
+.registro-field{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    margin-bottom:12px;
+}
+.registro-label{
+    font-weight:900;
+    color:var(--text);
+}
+.registro-input{
+    width:100%;
+    padding:10px 12px;
+    border-radius:999px;
+    border:1px solid rgba(11,34,48,0.22);
+    background:#fff;
+    outline:none;
+}
+.registro-input:focus{
+    border-color:var(--primary);
+    box-shadow:0 0 0 3px rgba(29,112,184,0.14);
+}
+.registro-cat-grid{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:10px;
+    margin-top:10px;
+}
+.registro-cat{
+    border:1px solid rgba(11,34,48,0.22);
+    background:#fff;
+    border-radius:14px;
+    padding:10px 10px;
+    display:grid;
+    justify-items:center;
+    gap:6px;
+    cursor:pointer;
+    font-weight:900;
+    font-size:12px;
+    color:var(--text);
+}
+.registro-cat.active{
+    border-color:var(--primary);
+    box-shadow:0 10px 22px rgba(29,112,184,0.16);
+}
+.registro-cat-icon{
+    width:34px;
+    height:34px;
+    border-radius:12px;
+    background:#eef2f8;
+    border:1px solid rgba(11,34,48,0.10);
+    background-repeat:no-repeat;
+    background-position:center;
+    background-size:64%;
+}
+.registro-cat-icon--preventiva{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23f7a800'><path d='M12 2l8 10-8 10L4 12 12 2z'/></svg>");}
+.registro-cat-icon--reglamentaria{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23d93f3f'><circle cx='12' cy='12' r='9'/></svg>");}
+.registro-cat-icon--informativa{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%232fa84f'><rect x='5' y='5' width='14' height='14' rx='3'/></svg>");}
+
+.registro-dim-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+}
+.registro-dim-row .registro-input{
+    border-radius:999px;
+}
+.registro-dim-x{
+    font-weight:900;
+    color:var(--muted);
+}
+.registro-pill-row{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:center;
+}
+.registro-pill{
+    border:1px solid rgba(11,34,48,0.22);
+    background:#fff;
+    border-radius:999px;
+    padding:8px 12px;
+    font-weight:900;
+    cursor:pointer;
+    color:var(--text);
+}
+.registro-pill.active{
+    border-color:var(--primary);
+    color:var(--primary);
+    background:rgba(29,112,184,0.10);
+}
+.registro-pill--ok.active{background:#2fa84f;color:#053019;border-color:#2fa84f;}
+.registro-pill--warn.active{background:#d93f3f;color:#fff;border-color:#d93f3f;}
+.registro-pill--bad.active{background:#3f7ed9;color:#fff;border-color:#3f7ed9;}
+.registro-pill-sub{
+    display:block;
+    font-size:10px;
+    opacity:0.85;
+    font-weight:800;
+}
+.registro-upload{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+}
+.registro-upload-btn{
+    display:inline-flex;
+    align-items:center;
+    gap:10px;
+    padding:10px 12px;
+    border-radius:12px;
+    border:1px solid rgba(11,34,48,0.22);
+    background:#eef2f8;
+    cursor:pointer;
+    font-weight:900;
+    color:#0c426a;
+}
+.registro-upload-btn svg{width:18px;height:18px;}
+.registro-help{
+    margin-top:2px;
+    font-size:12px;
+    color:var(--muted);
+}
+.registro-submit{
+    width:100%;
+    margin-top:10px;
+    border:1px solid rgba(11,34,48,0.22);
+    background:#e6f6fb;
+    color:#0c426a;
+    padding:12px 14px;
+    border-radius:999px;
+    font-weight:900;
+    cursor:pointer;
+}
+.registro-submit:hover{filter:brightness(1.03);}
+.registro-submit:disabled{
+    opacity:0.55;
+    cursor:not-allowed;
+}
+
+/* Pin temporal de registro */
+.registro-pin-icon{
+    width:22px;
+    height:22px;
+    border-radius:50%;
+    background:#21c8d4;
+    border:3px solid #ffffff;
+    box-shadow:0 14px 26px rgba(0,0,0,0.22);
+    position:relative;
+}
+.registro-pin-icon:after{
+    content:"";
+    position:absolute;
+    left:50%;
+    bottom:-10px;
+    width:0;
+    height:0;
+    transform:translateX(-50%);
+    border-left:7px solid transparent;
+    border-right:7px solid transparent;
+    border-top:12px solid #21c8d4;
+    filter:drop-shadow(0 6px 10px rgba(0,0,0,0.18));
+}
+
+@media (max-width: 900px){
+    body.dash-shell .registro-picker-card{margin-left:0;}
+    body.dash-shell .registro-hint{left:50%;}
+}
+@media (max-width: 600px){
+    .registro-picker-grid{grid-template-columns:repeat(2, 1fr);}
+    .registro-panel{
+        left:12px;
+        right:12px;
+        top:auto;
+        bottom:12px;
+        width:auto;
+        max-height:78vh;
+    }
+    .registro-panel-body{max-height:calc(78vh - 54px);}
+}
 .map-floating-row{
     display:flex;
     gap:10px;

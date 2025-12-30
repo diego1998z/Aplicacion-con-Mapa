@@ -363,8 +363,8 @@
             </div>
         </div>
         <div class="map-floating-row map-floating-actions" aria-label="Acciones">
-            <button id="btnMapVisualizacion" type="button" class="map-floating-btn map-floating-btn--dark">Visualizaci&oacute;n</button>
-            <button id="btnMapAgregar" type="button" class="map-floating-btn map-floating-btn--primary"><span class="plus">+</span> Agregar</button>
+            <button id="btnMapVisualizacion" type="button" class="map-floating-btn">Visualizaci&oacute;n</button>
+            <button id="btnMapAgregar" type="button" class="map-floating-btn map-floating-btn--dark"><span class="plus">+</span> Agregar</button>
         </div>
         <div id="visualizacionPanel" class="map-floating-panel hidden" aria-label="Opciones de visualizacion">
             <div class="map-panel-section">
@@ -408,6 +408,35 @@
             </div>
         </div>
     </div>
+
+    <div id="registroHint" class="registro-hint hidden" aria-hidden="true">Haz click en el mapa para colocar la ubicaci&oacute;n.</div>
+
+    <div id="registroPicker" class="registro-picker hidden" aria-hidden="true">
+        <div class="registro-picker-card" role="dialog" aria-modal="true" aria-label="Seleccion de registro">
+            <div class="registro-picker-title">&iquest;Qu&eacute; deseas registrar?</div>
+            <div class="registro-picker-grid" role="list">
+                <button type="button" class="registro-picker-option" data-registro-tipo="transito" role="listitem">
+                    <span class="registro-opt-icon registro-opt-icon--transito" aria-hidden="true"></span>
+                    <span class="registro-opt-text">Se&ntilde;ales<br>de tr&aacute;nsito</span>
+                </button>
+                <button type="button" class="registro-picker-option" data-registro-tipo="marcas" role="listitem">
+                    <span class="registro-opt-icon registro-opt-icon--marcas" aria-hidden="true"></span>
+                    <span class="registro-opt-text">Marcas<br>viales</span>
+                </button>
+                <button type="button" class="registro-picker-option" data-registro-tipo="mobiliario" role="listitem">
+                    <span class="registro-opt-icon registro-opt-icon--mobiliario" aria-hidden="true"></span>
+                    <span class="registro-opt-text">Mobiliario<br>vial</span>
+                </button>
+                <button type="button" class="registro-picker-option" data-registro-tipo="eventos" role="listitem">
+                    <span class="registro-opt-icon registro-opt-icon--eventos" aria-hidden="true"></span>
+                    <span class="registro-opt-text">Eventos</span>
+                </button>
+            </div>
+            <button type="button" id="btnRegistroCancelar" class="registro-picker-cancel">Cancelar</button>
+        </div>
+    </div>
+
+    <aside id="registroPanel" class="registro-panel hidden" aria-hidden="true" aria-label="Panel de registro"></aside>
 
     <div id="mobileSearch" class="mobile-search">
         <input type="text" id="inputBuscarMobile" placeholder="Buscar direccion...">

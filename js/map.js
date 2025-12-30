@@ -72,10 +72,10 @@ const ICONOS = {
         { id: "zona_escolar", label: "Zona escolar", src: "src/horizontal/ico_zona_escolar.png" }
     ],
     vertical: [
-        { id: "stop", label: "PARE", src: "src/vertical/senal-de-stop.png" },
-        { id: "velocidad", label: "Velocidad 80", src: "src/vertical/limite-de-velocidad-80.png" },
-        { id: "bus", label: "Parada bus", src: "src/vertical/estacion-de-autobuses.png" },
-        { id: "moto", label: "Moto", src: "src/vertical/moto.png" }
+        { id: "stop", label: "PARE", categoria: "reglamentaria", src: "src/vertical/senal-de-stop.png" },
+        { id: "velocidad", label: "Velocidad 80", categoria: "reglamentaria", src: "src/vertical/limite-de-velocidad-80.png" },
+        { id: "bus", label: "Parada bus", categoria: "informativa", src: "src/vertical/estacion-de-autobuses.png" },
+        { id: "moto", label: "Moto", categoria: "preventiva", src: "src/vertical/moto.png" }
     ]
 };
 
@@ -754,7 +754,7 @@ map.on("click", function(e){
     }
 });
 
-function crearSenal(lat, lng, estado, icono, fecha, precio){
+function crearSenal(lat, lng, estado, icono, fecha, precio, extra){
     const datasetActual = modoActual === "horizontal" ? senalesHorizontal : senalesVertical;
     senales = datasetActual; // referencia activa
     const nextId = datasetActual.reduce(function(max, s){ return Math.max(max, s.id); },0) + 1;
@@ -793,6 +793,12 @@ function crearSenal(lat, lng, estado, icono, fecha, precio){
         fecha_colocacion: estado === "sin_senal" ? "" : (fecha || new Date().toISOString().slice(0,10))
     };
 
+    if(extra && typeof extra === "object"){
+        try{
+            Object.assign(nueva, extra);
+        }catch(e){}
+    }
+
     datasetActual.push(nueva);
     renderizarSenales(datasetActual);
     if(typeof updateReportes === "function"){ updateReportes(); }
@@ -809,6 +815,8 @@ function crearSenal(lat, lng, estado, icono, fecha, precio){
         renderizarSenales(datasetActual);
         if(typeof updateReportes === "function"){ updateReportes(); }
     });
+
+    return nueva;
 }
 
 async function zoomADistrito(nombre){

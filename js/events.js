@@ -45,6 +45,10 @@ const btnCerrarReportes = document.getElementById("btnCerrarReportes");
 const reportesSheet = reportesPanel ? reportesPanel.querySelector(".reportes-sheet") : null;
 const mapContainer = document.getElementById("map");
 const mapFloatingControls = document.getElementById("mapFloatingControls");
+const registroPicker = document.getElementById("registroPicker");
+const registroPanel = document.getElementById("registroPanel");
+const registroHint = document.getElementById("registroHint");
+const btnRegistroCancelar = document.getElementById("btnRegistroCancelar");
 const dashboardOverlay = document.getElementById("dashboardOverlay");
 const btnDashLogout = document.getElementById("btnDashLogout");
 const dashUserName = document.getElementById("dashUserName");
@@ -71,6 +75,123 @@ const btnCfgExportar = document.getElementById("btnCfgExportar");
 const cfgImportar = document.getElementById("cfgImportar");
 const bboxLima = "-77.2,-11.7,-76.8,-12.3"; // Lima Metropolitana aprox
 let overlayFoto = null;
+
+// Flujo de registro desde "Agregar"
+let registroTipo = "";
+let pickingRegistro = false;
+let registroLatLng = null;
+let registroMarker = null;
+let registroDraft = null;
+
+function mostrarRegistroHint(texto){
+  if(!registroHint) return;
+  if(!texto){
+    registroHint.classList.add("hidden");
+    registroHint.setAttribute("aria-hidden","true");
+    return;
+  }
+  registroHint.textContent = texto;
+  registroHint.classList.remove("hidden");
+  registroHint.setAttribute("aria-hidden","false");
+}
+
+function cerrarRegistroPanel(){
+  if(registroPanel){
+    registroPanel.classList.add("hidden");
+    registroPanel.setAttribute("aria-hidden","true");
+    registroPanel.innerHTML = "";
+  }
+  mostrarRegistroHint("");
+  registroTipo = "";
+  registroDraft = null;
+  pickingRegistro = false;
+  registroLatLng = null;
+  try{
+    if(registroMarker && typeof map !== "undefined" && map){
+      map.removeLayer(registroMarker);
+    }
+  }catch(e){}
+  registroMarker = null;
+}
+
+function abrirRegistroPicker(){
+  if(!registroPicker) return;
+  cerrarRegistroPanel();
+  registroPicker.classList.remove("hidden");
+  registroPicker.setAttribute("aria-hidden","false");
+}
+
+function cerrarRegistroPicker(){
+  if(!registroPicker) return;
+  registroPicker.classList.add("hidden");
+  registroPicker.setAttribute("aria-hidden","true");
+}
+
+function iconoRegistroTemporal(){
+  try{
+    return L.divIcon({
+      className:"registro-pin",
+      html:'<div class="registro-pin-icon"></div>',
+      iconSize:[22, 34],
+      iconAnchor:[11, 30]
+    });
+  }catch(e){
+    return null;
+  }
+}
+
+function colocarRegistroMarker(latlng){
+  try{
+    if(registroMarker && typeof map !== "undefined" && map){
+      map.removeLayer(registroMarker);
+      registroMarker = null;
+    }
+  }catch(e){}
+  try{
+    if(typeof map === "undefined" || !map || !latlng) return;
+    const icon = iconoRegistroTemporal();
+    registroMarker = L.marker(latlng, { draggable:true, icon: icon || undefined }).addTo(map);
+    registroMarker.on("dragend", ()=>{
+      try{ registroLatLng = registroMarker.getLatLng(); }catch(e){}
+    });
+  }catch(e){}
+}
+
+function iniciarSeleccionUbicacion(tipo){
+  registroTipo = tipo;
+  registroLatLng = null;
+  registroDraft = null;
+  pickingRegistro = true;
+  mostrarRegistroHint("Haz click en el mapa para colocar la ubicaci\u00F3n.");
+  cerrarRegistroPicker();
+  try{
+    if(visualizacionPanel) visualizacionPanel.classList.add("hidden");
+    if(btnMapVisualizacion) btnMapVisualizacion.classList.remove("active");
+    if(visualizacionAvanzada) visualizacionAvanzada.classList.add("hidden");
+  }catch(e){}
+
+  // Asegurar que la capa elegida sea visible
+  try{
+    if(tipo === "transito" && chkLayerTransito){
+      chkLayerTransito.checked = true;
+      window.setCapaVisible && window.setCapaVisible("transito", true);
+      setModoCreacion("vertical");
+    }
+    if(tipo === "marcas" && chkLayerMarcas){
+      chkLayerMarcas.checked = true;
+      window.setCapaVisible && window.setCapaVisible("marcas", true);
+      setModoCreacion("horizontal");
+    }
+    if(tipo === "mobiliario" && chkLayerMobiliario){
+      chkLayerMobiliario.checked = true;
+      window.setCapaVisible && window.setCapaVisible("mobiliario", true);
+    }
+    if(tipo === "eventos" && chkLayerEventos){
+      chkLayerEventos.checked = true;
+      window.setCapaVisible && window.setCapaVisible("eventos", true);
+    }
+  }catch(e){}
+}
 
 function loadUrbbisConfig(){
   try{
@@ -931,9 +1052,558 @@ if(btnMapAgregar){
       try{ abrirModalReporte(); }catch(e){}
       return;
     }
-    alert("Para agregar una señal: haz click derecho en el mapa.");
+    abrirRegistroPicker();
   });
 }
+
+// Picker "¿Qué deseas registrar?"
+if(registroPicker){
+  try{
+    const opciones = registroPicker.querySelectorAll(".registro-picker-option");
+    opciones.forEach((btn)=>{
+      btn.addEventListener("click", ()=>{
+        const tipo = btn.getAttribute("data-registro-tipo") || "";
+        if(!tipo) return;
+        iniciarSeleccionUbicacion(tipo);
+      });
+    });
+    registroPicker.addEventListener("click", (e)=>{
+      if(e && e.target === registroPicker){
+        cerrarRegistroPicker();
+        mostrarRegistroHint("");
+      }
+    });
+  }catch(e){}
+}
+if(btnRegistroCancelar){
+  btnRegistroCancelar.addEventListener("click", ()=>{
+    cerrarRegistroPicker();
+    mostrarRegistroHint("");
+  });
+}
+
+function hoyISO(){
+  try{ return new Date().toISOString().slice(0,10); }catch(e){ return ""; }
+}
+
+function capitalizar(str){
+  const s = String(str || "");
+  if(!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function estadoFisicoAEstado(valor){
+  if(valor === "deteriorada") return "antigua";
+  if(valor === "no_operativa") return "sin_senal";
+  return "nueva";
+}
+
+function iconosParaRegistro(tipo){
+  try{
+    if(typeof ICONOS === "undefined" || !ICONOS) return [];
+    if(tipo === "transito") return ICONOS.vertical || [];
+    if(tipo === "marcas") return ICONOS.horizontal || [];
+  }catch(e){}
+  return [];
+}
+
+function filtrarIconos(list, query, categoria){
+  let base = Array.isArray(list) ? list.slice() : [];
+  const q = normalizarTexto(query || "");
+  const cat = String(categoria || "");
+  if(cat){
+    base = base.filter(i => String((i && i.categoria) ? i.categoria : "") === cat);
+  }
+  if(q){
+    base = base.filter(i=>{
+      const hay = normalizarTexto((i && i.label ? i.label : "") + " " + (i && i.id ? i.id : ""));
+      return hay.includes(q);
+    });
+  }
+  return base;
+}
+
+function renderIconGridHtml(list, selectedId){
+  return (list || []).map(function(i){
+    const active = selectedId && i.id === selectedId ? " active" : "";
+    return ''
+      + '<button type="button" class="icon-option' + active + '" data-icon="' + i.id + '">'
+      +   '<span class="icon-thumb" style="background-image:url(\'' + i.src + '\')"></span>'
+      +   '<small>' + (i.label || i.id) + '</small>'
+      + '</button>';
+  }).join("");
+}
+
+function abrirRegistroPanel(tipo){
+  if(!registroPanel) return;
+
+  const fecha = hoyISO();
+  registroDraft = {
+    tipo,
+    fecha,
+    estadoFisico: "operativa",
+    categoria: "",
+    icono: "",
+    ancho: "",
+    largo: "",
+    lamina: "I",
+    soporte: "si",
+    inspeccionFoto: null,
+    nombre: "",
+    descripcion: "",
+    eventoTipo: "falta"
+  };
+
+  const titleMap = {
+    transito: "Se&ntilde;ales de tr&aacute;nsito",
+    marcas: "Marcas viales",
+    mobiliario: "Mobiliario vial",
+    eventos: "Eventos"
+  };
+  const iconClassMap = {
+    transito: "registro-opt-icon--transito",
+    marcas: "registro-opt-icon--marcas",
+    mobiliario: "registro-opt-icon--mobiliario",
+    eventos: "registro-opt-icon--eventos"
+  };
+  const titleHtml = titleMap[tipo] || "Registro";
+  const iconClass = iconClassMap[tipo] || "registro-opt-icon--eventos";
+
+  function fieldFecha(label){
+    return ''
+      + '<div class="registro-field">'
+      +   '<div class="registro-label">' + label + '</div>'
+      +   '<input id="regFecha" type="date" class="registro-input" value="' + fecha + '">'
+      + '</div>';
+  }
+
+  function fieldEstadoFisico(){
+    return ''
+      + '<div class="registro-field">'
+      +   '<div class="registro-label">Estado f&iacute;sico</div>'
+      +   '<div class="registro-pill-row" id="regEstadoFisico">'
+      +     '<button type="button" class="registro-pill registro-pill--ok active" data-estado-fisico="operativa">Operativa</button>'
+      +     '<button type="button" class="registro-pill registro-pill--warn" data-estado-fisico="deteriorada">Deteriorada</button>'
+      +     '<button type="button" class="registro-pill registro-pill--bad" data-estado-fisico="no_operativa">No operativa <span class="registro-pill-sub">(Ausente)</span></button>'
+      +   '</div>'
+      + '</div>';
+  }
+
+  function fieldInspeccion(label){
+    return ''
+      + '<div class="registro-field registro-upload">'
+      +   '<div class="registro-label">' + label + '</div>'
+      +   '<label class="registro-upload-btn">'
+      +     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%230c426a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>'
+      +     '<span id="regUploadLabel">Seleccionar imagen</span>'
+      +     '<input id="regFoto" type="file" accept="image/*" style="display:none">'
+      +   '</label>'
+      +   '<div class="registro-help">Si no se adjunta imagen, quedar&aacute; como no verificada.</div>'
+      + '</div>';
+  }
+
+  function fieldDimensiones(){
+    return ''
+      + '<div class="registro-field">'
+      +   '<div class="registro-label">Dimensiones (cm)</div>'
+      +   '<div class="registro-dim-row">'
+      +     '<input id="regAncho" type="number" class="registro-input" placeholder="Ancho" min="0" step="1">'
+      +     '<div class="registro-dim-x">x</div>'
+      +     '<input id="regLargo" type="number" class="registro-input" placeholder="Largo" min="0" step="1">'
+      +   '</div>'
+      + '</div>';
+  }
+
+  function fieldLaminaSoporte(){
+    return ''
+      + '<div class="registro-field">'
+      +   '<div class="registro-pill-row">'
+      +     '<div class="registro-label" style="min-width:140px">Tipo de l&aacute;mina</div>'
+      +     '<button type="button" class="registro-pill active" data-lamina="I">I</button>'
+      +     '<button type="button" class="registro-pill" data-lamina="IV">IV</button>'
+      +     '<button type="button" class="registro-pill" data-lamina="XI">XI</button>'
+      +   '</div>'
+      + '</div>'
+      + '<div class="registro-field">'
+      +   '<div class="registro-pill-row">'
+      +     '<div class="registro-label" style="min-width:140px">Soporte</div>'
+      +     '<button type="button" class="registro-pill active" data-soporte="si">S&iacute;</button>'
+      +     '<button type="button" class="registro-pill" data-soporte="no">No</button>'
+      +   '</div>'
+      + '</div>';
+  }
+
+  function fieldIconos(modoLabel){
+    const list = iconosParaRegistro(tipo);
+    const html = renderIconGridHtml(list, "");
+    const cats = (tipo === "transito")
+      ? ''
+        + '<div class="registro-cat-grid" id="regCats">'
+        +   '<button type="button" class="registro-cat" data-cat="preventiva"><span class="registro-cat-icon registro-cat-icon--preventiva" aria-hidden="true"></span>Preventiva</button>'
+        +   '<button type="button" class="registro-cat" data-cat="reglamentaria"><span class="registro-cat-icon registro-cat-icon--reglamentaria" aria-hidden="true"></span>Reglamentaria</button>'
+        +   '<button type="button" class="registro-cat" data-cat="informativa"><span class="registro-cat-icon registro-cat-icon--informativa" aria-hidden="true"></span>Informativa</button>'
+        + '</div>'
+      : '';
+
+    return ''
+      + '<div class="registro-field">'
+      +   '<div class="registro-label">' + modoLabel + '</div>'
+      +   '<input id="regIconSearch" type="text" class="registro-input" placeholder="Buscar...">'
+      +   cats
+      +   '<div class="icon-grid" id="regIconGrid">' + html + '</div>'
+      + '</div>';
+  }
+
+  function fieldEvento(){
+    return ''
+      + '<div class="registro-field">'
+      +   '<div class="registro-label">Tipo de evento</div>'
+      +   '<select id="regEventoTipo" class="registro-input">'
+      +     '<option value="falta">Falta de se&ntilde;al</option>'
+      +     '<option value="danada">Se&ntilde;al da&ntilde;ada</option>'
+      +     '<option value="otro">Otro</option>'
+      +   '</select>'
+      + '</div>'
+      + '<div class="registro-field">'
+      +   '<div class="registro-label">Descripci&oacute;n</div>'
+      +   '<input id="regEventoDesc" type="text" class="registro-input" placeholder="Describe el problema...">'
+      + '</div>'
+      + fieldInspeccion("Imagen");
+  }
+
+  function fieldNombreMobiliario(){
+    return ''
+      + '<div class="registro-field">'
+      +   '<div class="registro-label">Nombre / tipo</div>'
+      +   '<input id="regNombre" type="text" class="registro-input" placeholder="Ej: Bolardo, sem&aacute;foro, etc.">'
+      + '</div>';
+  }
+
+  let bodyHtml = "";
+  if(tipo === "transito"){
+    bodyHtml = fieldFecha("Fecha de instalaci&oacute;n")
+      + fieldIconos("Tipo de se&ntilde;al")
+      + fieldDimensiones()
+      + fieldLaminaSoporte()
+      + fieldEstadoFisico()
+      + fieldInspeccion("Inspecci&oacute;n");
+  } else if(tipo === "marcas"){
+    bodyHtml = fieldFecha("Fecha de instalaci&oacute;n")
+      + fieldIconos("Tipo de marca")
+      + fieldEstadoFisico()
+      + fieldInspeccion("Inspecci&oacute;n");
+  } else if(tipo === "mobiliario"){
+    bodyHtml = fieldFecha("Fecha de instalaci&oacute;n")
+      + fieldNombreMobiliario()
+      + fieldEstadoFisico()
+      + fieldInspeccion("Inspecci&oacute;n");
+  } else if(tipo === "eventos"){
+    bodyHtml = fieldFecha("Fecha")
+      + fieldEvento();
+  }
+
+  registroPanel.innerHTML = ''
+    + '<div class="registro-panel-head">'
+    +   '<div class="registro-panel-title"><span class="registro-opt-icon ' + iconClass + '" aria-hidden="true"></span>' + titleHtml + '</div>'
+    +   '<button type="button" class="registro-panel-close" id="btnRegistroPanelClose">&times;</button>'
+    + '</div>'
+    + '<div class="registro-panel-body">'
+    +   bodyHtml
+    +   '<button type="button" class="registro-submit" id="btnRegistroSubmit" disabled>Registrar</button>'
+    + '</div>';
+
+  registroPanel.classList.remove("hidden");
+  registroPanel.setAttribute("aria-hidden","false");
+  mostrarRegistroHint("");
+
+  bindRegistroPanelInteractions(tipo);
+}
+
+function actualizarEstadoSubmitRegistro(){
+  const btn = registroPanel ? registroPanel.querySelector("#btnRegistroSubmit") : null;
+  if(!btn) return;
+  if(!registroDraft || !registroLatLng){
+    btn.disabled = true;
+    return;
+  }
+  if(registroDraft.tipo === "eventos"){
+    btn.disabled = false;
+    return;
+  }
+  if(registroDraft.tipo === "mobiliario"){
+    btn.disabled = !registroDraft.nombre;
+    return;
+  }
+  // transito / marcas
+  btn.disabled = !registroDraft.icono;
+}
+
+function bindRegistroPanelInteractions(tipo){
+  if(!registroPanel) return;
+
+  const btnClose = registroPanel.querySelector("#btnRegistroPanelClose");
+  if(btnClose){
+    btnClose.addEventListener("click", cerrarRegistroPanel);
+  }
+
+  const inFecha = registroPanel.querySelector("#regFecha");
+  if(inFecha){
+    inFecha.addEventListener("change", ()=>{ if(registroDraft) registroDraft.fecha = inFecha.value || ""; });
+  }
+
+  const inNombre = registroPanel.querySelector("#regNombre");
+  if(inNombre){
+    inNombre.addEventListener("input", ()=>{
+      if(registroDraft) registroDraft.nombre = (inNombre.value || "").trim();
+      actualizarEstadoSubmitRegistro();
+    });
+  }
+
+  const inDesc = registroPanel.querySelector("#regEventoDesc");
+  if(inDesc){
+    inDesc.addEventListener("input", ()=>{ if(registroDraft) registroDraft.descripcion = (inDesc.value || "").trim(); });
+  }
+
+  const selEvento = registroPanel.querySelector("#regEventoTipo");
+  if(selEvento){
+    selEvento.addEventListener("change", ()=>{ if(registroDraft) registroDraft.eventoTipo = selEvento.value || "falta"; });
+  }
+
+  // Estado f¡sico
+  const estadoWrap = registroPanel.querySelector("#regEstadoFisico");
+  if(estadoWrap){
+    estadoWrap.addEventListener("click", (e)=>{
+      const b = e.target && e.target.closest ? e.target.closest("[data-estado-fisico]") : null;
+      if(!b || !registroDraft) return;
+      const val = b.getAttribute("data-estado-fisico") || "operativa";
+      registroDraft.estadoFisico = val;
+      estadoWrap.querySelectorAll(".registro-pill").forEach(p=>p.classList.remove("active"));
+      b.classList.add("active");
+    });
+  }
+
+  // Lamina / soporte
+  registroPanel.addEventListener("click", (e)=>{
+    if(!registroDraft) return;
+    const lam = e.target && e.target.closest ? e.target.closest("[data-lamina]") : null;
+    if(lam){
+      registroDraft.lamina = lam.getAttribute("data-lamina") || "I";
+      const row = lam.parentElement;
+      if(row) row.querySelectorAll("[data-lamina]").forEach(p=>p.classList.remove("active"));
+      lam.classList.add("active");
+      return;
+    }
+    const sop = e.target && e.target.closest ? e.target.closest("[data-soporte]") : null;
+    if(sop){
+      registroDraft.soporte = sop.getAttribute("data-soporte") || "si";
+      const row = sop.parentElement;
+      if(row) row.querySelectorAll("[data-soporte]").forEach(p=>p.classList.remove("active"));
+      sop.classList.add("active");
+      return;
+    }
+  });
+
+  // Dimensiones
+  const inAncho = registroPanel.querySelector("#regAncho");
+  const inLargo = registroPanel.querySelector("#regLargo");
+  if(inAncho){
+    inAncho.addEventListener("input", ()=>{ if(registroDraft) registroDraft.ancho = inAncho.value || ""; });
+  }
+  if(inLargo){
+    inLargo.addEventListener("input", ()=>{ if(registroDraft) registroDraft.largo = inLargo.value || ""; });
+  }
+
+  // Foto
+  const inFoto = registroPanel.querySelector("#regFoto");
+  const label = registroPanel.querySelector("#regUploadLabel");
+  if(inFoto){
+    inFoto.addEventListener("change", ()=>{
+      if(!registroDraft) return;
+      if(inFoto.files && inFoto.files[0]){
+        const file = inFoto.files[0];
+        if(label) label.textContent = file.name.length > 22 ? (file.name.slice(0,19) + "...") : file.name;
+        const reader = new FileReader();
+        reader.onload = function(ev){
+          registroDraft.inspeccionFoto = ev.target && ev.target.result ? ev.target.result : null;
+        };
+        reader.readAsDataURL(file);
+      } else {
+        registroDraft.inspeccionFoto = null;
+        if(label) label.textContent = "Seleccionar imagen";
+      }
+    });
+  }
+
+  // Categor¡as (transito)
+  const cats = registroPanel.querySelector("#regCats");
+  if(cats){
+    cats.addEventListener("click",(e)=>{
+      const b = e.target && e.target.closest ? e.target.closest("[data-cat]") : null;
+      if(!b || !registroDraft) return;
+      registroDraft.categoria = b.getAttribute("data-cat") || "";
+      registroDraft.icono = "";
+      cats.querySelectorAll(".registro-cat").forEach(x=>x.classList.remove("active"));
+      b.classList.add("active");
+      actualizarIconGrid();
+      actualizarEstadoSubmitRegistro();
+    });
+  }
+
+  // Iconos + buscador
+  const inputSearch = registroPanel.querySelector("#regIconSearch");
+  const grid = registroPanel.querySelector("#regIconGrid");
+  function actualizarIconGrid(){
+    if(!grid) return;
+    const all = iconosParaRegistro(tipo);
+    const filtered = filtrarIconos(all, inputSearch ? inputSearch.value : "", registroDraft ? registroDraft.categoria : "");
+    grid.innerHTML = renderIconGridHtml(filtered, registroDraft ? registroDraft.icono : "");
+  }
+  if(inputSearch){
+    inputSearch.addEventListener("input", actualizarIconGrid);
+  }
+  if(grid){
+    grid.addEventListener("click",(e)=>{
+      const btn = e.target && e.target.closest ? e.target.closest(".icon-option") : null;
+      if(!btn || !registroDraft) return;
+      const id = btn.getAttribute("data-icon") || "";
+      registroDraft.icono = id;
+      grid.querySelectorAll(".icon-option").forEach(b=>b.classList.remove("active"));
+      btn.classList.add("active");
+      actualizarEstadoSubmitRegistro();
+    });
+  }
+
+  // Submit
+  const btnSubmit = registroPanel.querySelector("#btnRegistroSubmit");
+  if(btnSubmit){
+    btnSubmit.addEventListener("click", registrarRegistroDraft);
+  }
+
+  actualizarEstadoSubmitRegistro();
+}
+
+async function registrarRegistroDraft(){
+  if(!registroDraft || !registroLatLng) return;
+  const tipo = registroDraft.tipo;
+
+  try{
+    // Eventos
+    if(tipo === "eventos"){
+      const nextAvisoId = (Array.isArray(avisos) ? avisos.reduce((m,a)=> Math.max(m, a.id || 0), 0) : 0) + 1;
+      const fecha = registroDraft.fecha || hoyISO();
+      const distrito = (typeof inferirDistritoPorLatLng === "function")
+        ? (await inferirDistritoPorLatLng(registroLatLng.lat, registroLatLng.lng))
+        : "";
+      const region = (typeof regionPorDistrito === "function") ? (regionPorDistrito(distrito || "") || "") : "";
+      const aviso = {
+        id: nextAvisoId,
+        tipo: registroDraft.eventoTipo || "otro",
+        descripcion: registroDraft.descripcion || "Sin descripcion",
+        estado: "pendiente",
+        fecha,
+        lat: registroLatLng.lat,
+        lng: registroLatLng.lng,
+        foto: registroDraft.inspeccionFoto || null,
+        region: region || "",
+        distrito: distrito || "",
+        usuario: "municipal",
+        usuarioEmail: "",
+        usuarioNombre: "Municipalidad",
+        usuarioDni: ""
+      };
+      if(typeof agregarAviso === "function"){ agregarAviso(aviso); }
+      cerrarRegistroPanel();
+      return;
+    }
+
+    // Mobiliario vial (dataset propio)
+    if(tipo === "mobiliario"){
+      const mob = (typeof senalesMobiliario !== "undefined" && Array.isArray(senalesMobiliario)) ? senalesMobiliario : [];
+      const nextId = mob.reduce((m,s)=> Math.max(m, s.id || 0), 0) + 1;
+      const fecha = registroDraft.fecha || hoyISO();
+      const estado = estadoFisicoAEstado(registroDraft.estadoFisico);
+      const distrito = (typeof inferirDistritoPorLatLng === "function")
+        ? (await inferirDistritoPorLatLng(registroLatLng.lat, registroLatLng.lng))
+        : "Sin distrito";
+      const region = (typeof regionPorDistrito === "function") ? (regionPorDistrito(distrito || "") || "Sin region") : "Sin region";
+      mob.push({
+        id: nextId,
+        tipo: "MOBILIARIO",
+        nombre: registroDraft.nombre || "Mobiliario",
+        estado,
+        region,
+        zona: distrito,
+        lat: registroLatLng.lat,
+        lng: registroLatLng.lng,
+        icono: "mobiliario",
+        fecha_colocacion: fecha,
+        inspeccionFoto: registroDraft.inspeccionFoto || null
+      });
+      if(typeof renderizarTodo === "function"){ renderizarTodo(); }
+      if(typeof updateReportes === "function"){ updateReportes(); }
+      cerrarRegistroPanel();
+      return;
+    }
+
+    // Se¤ales / Marcas -> reusa crearSenal
+    const modo = (tipo === "transito") ? "vertical" : "horizontal";
+    setModoCreacion(modo);
+    const estado = estadoFisicoAEstado(registroDraft.estadoFisico);
+    const fecha = registroDraft.fecha || hoyISO();
+    const icono = registroDraft.icono || "";
+
+    if(typeof crearSenal === "function"){
+      const nueva = crearSenal(registroLatLng.lat, registroLatLng.lng, estado, icono, fecha, undefined, {
+        tipo: registroDraft.categoria ? capitalizar(registroDraft.categoria) : (tipo === "transito" ? "Senal" : "Marca"),
+        nombre: (function(){
+          try{
+            const list = (modo === "vertical" ? (ICONOS.vertical || []) : (ICONOS.horizontal || []));
+            const found = (list || []).find(i => i.id === icono);
+            return found && found.label ? found.label : (icono || "Registro");
+          }catch(e){
+            return icono || "Registro";
+          }
+        })(),
+        dimensiones: {
+          ancho: registroDraft.ancho ? Number(registroDraft.ancho) : null,
+          largo: registroDraft.largo ? Number(registroDraft.largo) : null
+        },
+        lamina: registroDraft.lamina || "",
+        soporte: registroDraft.soporte || "",
+        inspeccionFoto: registroDraft.inspeccionFoto || null
+      });
+      // Asegurar refresco tras el registro
+      try{
+        if(nueva && typeof updateReportes === "function"){ updateReportes(); }
+      }catch(e){}
+    }
+
+    cerrarRegistroPanel();
+  }catch(err){
+    alert("No se pudo registrar. Revisa los datos.");
+    console.warn(err);
+  }
+}
+
+// Capturar ubicacion en el mapa para el flujo de registro
+try{
+  if(typeof map !== "undefined" && map && typeof map.on === "function"){
+    map.on("click", (e)=>{
+      if(!pickingRegistro) return;
+      if(!registroTipo) return;
+      if(!e || !e.latlng) return;
+      pickingRegistro = false;
+      registroLatLng = e.latlng;
+      colocarRegistroMarker(registroLatLng);
+      abrirRegistroPanel(registroTipo);
+      try{
+        if(map && typeof map.panTo === "function"){
+          map.panTo(registroLatLng, {animate:true, duration:0.6});
+        }
+      }catch(err){}
+    });
+  }
+}catch(e){}
 
 function setModoCreacion(modo){
   try{
