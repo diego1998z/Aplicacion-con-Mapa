@@ -1617,6 +1617,17 @@ try{
 }catch(e){}
 
 function setModoCreacion(modo){
+  // `modoActual` y `senales` estan declarados como variables globales (no como props de `window`)
+  // y se consumen desde `js/map.js`. Por eso aqui debemos asignar directamente a esos bindings.
+  try{
+    if(typeof modoActual !== "undefined") modoActual = modo;
+    if(typeof senales !== "undefined"){
+      if(modo === "horizontal" && typeof senalesHorizontal !== "undefined") senales = senalesHorizontal;
+      if(modo === "vertical" && typeof senalesVertical !== "undefined") senales = senalesVertical;
+    }
+  }catch(e){}
+
+  // Mantener tambien las props por si algun codigo externo las usa (debug / consola).
   try{
     window.modoActual = modo;
     if(modo === "horizontal") window.senales = window.senalesHorizontal;
