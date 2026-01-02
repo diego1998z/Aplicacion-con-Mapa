@@ -364,6 +364,7 @@
         </div>
         <div class="map-floating-row map-floating-actions" aria-label="Acciones">
             <button id="btnMapVisualizacion" type="button" class="map-floating-btn">Visualizaci&oacute;n</button>
+            <button id="btnMapMetrado" type="button" class="map-floating-btn">Metrado</button>
             <button id="btnMapAgregar" type="button" class="map-floating-btn map-floating-btn--dark"><span class="plus">+</span> Agregar</button>
         </div>
         <div id="visualizacionPanel" class="map-floating-panel hidden" aria-label="Opciones de visualizacion">
@@ -405,6 +406,46 @@
                     <label class="map-panel-check"><input id="chkTiempoSinFinalizados" type="checkbox" checked> <span>Sin finalizados</span></label>
                 </div>
                 <button id="btnVisualizacionReset" type="button" class="map-panel-btn map-panel-btn--ghost">Restablecer</button>
+            </div>
+        </div>
+        <div id="metradoPanel" class="map-floating-panel hidden" aria-label="Metrado de pintura">
+            <div class="map-panel-section metrado-panel">
+                <div class="map-panel-title" style="margin-top:2px">Metrado de pintura</div>
+                <div id="metradoStatus" class="metrado-status">Inicia el trazado y marca puntos sobre la pista.</div>
+                <div class="metrado-actions">
+                    <button id="btnMetradoInicio" type="button" class="map-panel-btn map-panel-btn--ghost">Iniciar trazado</button>
+                    <button id="btnMetradoFin" type="button" class="map-panel-btn map-panel-btn--ghost" disabled>Finalizar</button>
+                </div>
+                <div class="metrado-actions metrado-actions--secondary">
+                    <button id="btnMetradoUndo" type="button" class="map-panel-btn map-panel-btn--ghost" disabled>Deshacer</button>
+                </div>
+                <div class="metrado-options">
+                    <div class="metrado-field">
+                        <div class="map-panel-title">Color de l&iacute;nea</div>
+                        <select id="metradoColor" class="registro-input">
+                            <option value="amarillo">Amarilla</option>
+                            <option value="blanco">Blanca</option>
+                        </select>
+                    </div>
+                    <div class="metrado-field">
+                        <div class="map-panel-title">Cantidad de l&iacute;neas</div>
+                        <select id="metradoLineas" class="registro-input">
+                            <option value="1">1 l&iacute;nea</option>
+                            <option value="2">2 l&iacute;neas</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="metrado-results" aria-label="Resultados">
+                    <div class="metrado-kpi">
+                        <span>Distancia</span>
+                        <strong id="metradoDistancia">-</strong>
+                    </div>
+                    <div class="metrado-kpi">
+                        <span>Metrado</span>
+                        <strong id="metradoMetrado">-</strong>
+                    </div>
+                </div>
+                <button id="btnMetradoLimpiar" type="button" class="map-panel-btn map-panel-btn--ghost">Limpiar</button>
             </div>
         </div>
     </div>

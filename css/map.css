@@ -394,6 +394,7 @@ body.dash-shell .registro-picker-card{
     }
     .registro-panel-body{max-height:calc(78vh - 54px);}
     .registro-panel .icon-grid{max-height:300px;}
+    .metrado-panel .metrado-results{grid-template-columns:1fr;}
 }
 .map-floating-row{
     display:flex;
@@ -530,6 +531,117 @@ body.dash-shell .registro-picker-card{
 }
 .map-panel-advanced{
     margin-top:6px;
+}
+
+/* Metrado (manual) */
+.metrado-panel .metrado-status{
+    margin:4px 2px 10px;
+    font-size:12px;
+    font-weight:800;
+    color:var(--muted);
+}
+.metrado-panel .metrado-actions{
+    display:flex;
+    gap:10px;
+}
+.metrado-panel .metrado-actions .map-panel-btn{
+    flex:1;
+    margin-top:0;
+}
+.metrado-panel .metrado-actions--secondary{
+    margin-top:10px;
+}
+.metrado-panel .metrado-actions--secondary .map-panel-btn{
+    width:100%;
+}
+.metrado-panel .metrado-options{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    margin-top:10px;
+}
+.metrado-panel .metrado-results{
+    margin-top:12px;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+}
+.metrado-panel .metrado-kpi{
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:10px 12px;
+    background:var(--bg);
+}
+.metrado-panel .metrado-kpi span{
+    display:block;
+    font-size:11px;
+    font-weight:900;
+    color:var(--muted);
+}
+.metrado-panel .metrado-kpi strong{
+    display:block;
+    margin-top:4px;
+    font-size:16px;
+    font-weight:900;
+    color:var(--text);
+}
+
+.metrado-route-line{
+    filter:drop-shadow(0 12px 18px rgba(0,0,0,0.10));
+}
+.metrado-route-flow{
+    stroke-dashoffset:0;
+    animation:metradoFlow 0.9s linear infinite;
+}
+.metrado-route-preview{
+    stroke-dashoffset:0;
+    animation:metradoFlow 0.75s linear infinite;
+    opacity:0.55;
+}
+@keyframes metradoFlow{
+    to{ stroke-dashoffset:-26; }
+}
+
+.metrado-cursor{
+    background:transparent;
+    border:none;
+}
+.metrado-cursor-dot{
+    width:14px;
+    height:14px;
+    border-radius:50%;
+    border:2px solid rgba(255,255,255,0.95);
+    box-shadow:0 12px 26px rgba(0,0,0,0.22);
+    transform:translateZ(0);
+    animation:metradoPulse 1.1s ease-in-out infinite;
+}
+@keyframes metradoPulse{
+    0%,100%{ transform:scale(1); opacity:0.92; }
+    50%{ transform:scale(1.45); opacity:0.35; }
+}
+
+.metrado-pin{
+    background:transparent;
+    border:none;
+}
+.metrado-pin-icon{
+    width:28px;
+    height:28px;
+    border-radius:50%;
+    display:grid;
+    place-items:center;
+    font-weight:900;
+    font-size:12px;
+    border:3px solid #fff;
+    box-shadow:0 12px 26px rgba(0,0,0,0.22);
+}
+.metrado-pin-icon--inicio{
+    background:#0c426a;
+    color:#fff;
+}
+.metrado-pin-icon--fin{
+    background:#f7a800;
+    color:#0b2230;
 }
 .map-floating-btn--primary{
     background:var(--panel);

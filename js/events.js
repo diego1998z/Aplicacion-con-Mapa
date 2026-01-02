@@ -23,8 +23,19 @@ const btnFloatingFilters = document.getElementById("btnFloatingFilters");
 const btnFloatingReport = document.getElementById("btnFloatingReport");
 const btnFloatingLogout = document.getElementById("btnFloatingLogout");
 const btnMapVisualizacion = document.getElementById("btnMapVisualizacion");
+const btnMapMetrado = document.getElementById("btnMapMetrado");
 const btnMapAgregar = document.getElementById("btnMapAgregar");
 const visualizacionPanel = document.getElementById("visualizacionPanel");
+const metradoPanel = document.getElementById("metradoPanel");
+const metradoStatus = document.getElementById("metradoStatus");
+const btnMetradoInicio = document.getElementById("btnMetradoInicio");
+const btnMetradoFin = document.getElementById("btnMetradoFin");
+const btnMetradoUndo = document.getElementById("btnMetradoUndo");
+const btnMetradoLimpiar = document.getElementById("btnMetradoLimpiar");
+const metradoColor = document.getElementById("metradoColor");
+const metradoLineas = document.getElementById("metradoLineas");
+const metradoDistancia = document.getElementById("metradoDistancia");
+const metradoMetrado = document.getElementById("metradoMetrado");
 const btnVisualizacionAvanzada = document.getElementById("btnVisualizacionAvanzada");
 const visualizacionAvanzada = document.getElementById("visualizacionAvanzada");
 const btnVisualizacionReset = document.getElementById("btnVisualizacionReset");
@@ -83,6 +94,22 @@ let registroLatLng = null;
 let registroMarker = null;
 let registroDraft = null;
 
+// Metrado de pintura (trazado manual)
+let metradoPicking = ""; // "draw"
+let metradoPuntos = [];
+let metradoInicioLatLng = null;
+let metradoFinLatLng = null;
+let metradoDistanciaM = 0;
+let metradoLayer = null;
+let metradoMarkerInicio = null;
+let metradoMarkerFin = null;
+let metradoRouteOutline = null;
+let metradoRouteLine = null;
+let metradoRouteFlow = null;
+let metradoPreviewLine = null;
+let metradoCursorMarker = null;
+let metradoLoading = false;
+
 function mostrarRegistroHint(texto){
   if(!registroHint) return;
   if(!texto){
@@ -112,6 +139,316 @@ function cerrarRegistroPanel(){
     }
   }catch(e){}
   registroMarker = null;
+}
+
+function asegurarMetradoLayer(){
+  try{
+    if(metradoLayer) return metradoLayer;
+    if(typeof L === "undefined") return null;
+    if(typeof map === "undefined" || !map) return null;
+    metradoLayer = L.layerGroup().addTo(map);
+    return metradoLayer;
+  }catch(e){
+    return null;
+  }
+}
+
+function iconoMetrado(letra, tipo){
+  try{
+    if(typeof L === "undefined") return null;
+    const cls = tipo === "fin" ? "metrado-pin-icon metrado-pin-icon--fin" : "metrado-pin-icon metrado-pin-icon--inicio";
+    return L.divIcon({
+      className:"metrado-pin",
+      html:'<div class="' + cls + '">' + (letra || "") + '</div>',
+      iconSize:[28,28],
+      iconAnchor:[14,14]
+    });
+  }catch(e){
+    return null;
+  }
+}
+
+function iconoMetradoCursor(){
+  try{
+    if(typeof L === "undefined") return null;
+    const color = colorLineaMetrado();
+    return L.divIcon({
+      className:"metrado-cursor",
+      html:'<div class="metrado-cursor-dot" style="background:' + color + '"></div>',
+      iconSize:[18,18],
+      iconAnchor:[9,9]
+    });
+  }catch(e){
+    return null;
+  }
+}
+
+function asegurarMetradoCursor(){
+  const layer = asegurarMetradoLayer();
+  if(!layer) return;
+  if(metradoCursorMarker) return;
+  try{
+    metradoCursorMarker = L.marker([0,0], {
+      interactive:false,
+      keyboard:false,
+      icon: iconoMetradoCursor() || undefined
+    }).addTo(layer);
+  }catch(e){
+    metradoCursorMarker = null;
+  }
+}
+
+function asegurarMetradoPreview(){
+  const layer = asegurarMetradoLayer();
+  if(!layer) return;
+  if(metradoPreviewLine) return;
+  try{
+    metradoPreviewLine = L.polyline([], {
+      color: colorLineaMetrado(),
+      weight: 7,
+      opacity: 0.55,
+      dashArray: "10 12",
+      lineCap: "round",
+      lineJoin: "round",
+      className: "metrado-route-preview"
+    }).addTo(layer);
+  }catch(e){
+    metradoPreviewLine = null;
+  }
+}
+
+function ocultarMetradoPreview(){
+  const layer = asegurarMetradoLayer();
+  if(layer){
+    try{
+      if(metradoPreviewLine) layer.removeLayer(metradoPreviewLine);
+      if(metradoCursorMarker) layer.removeLayer(metradoCursorMarker);
+    }catch(e){}
+  }
+  metradoPreviewLine = null;
+  metradoCursorMarker = null;
+}
+
+function setMetradoStatus(texto){
+  if(!metradoStatus) return;
+  metradoStatus.textContent = texto || "";
+}
+
+function formatoMetros(m){
+  const n = (typeof m === "number" && isFinite(m)) ? Math.max(0, m) : 0;
+  const v = Math.round(n);
+  try{
+    return v.toLocaleString("es-PE") + " m";
+  }catch(e){
+    return String(v) + " m";
+  }
+}
+
+function colorLineaMetrado(){
+  const c = metradoColor ? String(metradoColor.value || "") : "amarillo";
+  if(c === "blanco") return "#ffffff";
+  return "#f7d21e";
+}
+
+function actualizarResultadosMetrado(){
+  const lineas = metradoLineas ? parseInt(metradoLineas.value, 10) : 1;
+  const nLineas = (Number.isFinite(lineas) && lineas > 0) ? lineas : 1;
+  if(metradoDistancia){
+    metradoDistancia.textContent = metradoDistanciaM ? formatoMetros(metradoDistanciaM) : "-";
+  }
+  if(metradoMetrado){
+    const total = metradoDistanciaM ? (metradoDistanciaM * nLineas) : 0;
+    metradoMetrado.textContent = metradoDistanciaM ? formatoMetros(total) : "-";
+  }
+}
+
+function aplicarEstiloRutaMetrado(){
+  const color = colorLineaMetrado();
+  try{
+    if(metradoRouteLine && typeof metradoRouteLine.setStyle === "function"){
+      metradoRouteLine.setStyle({ color: color });
+    }
+    if(metradoRouteFlow && typeof metradoRouteFlow.setStyle === "function"){
+      const flowColor = (color === "#ffffff") ? "rgba(12,66,106,0.70)" : "rgba(255,255,255,0.70)";
+      metradoRouteFlow.setStyle({ color: flowColor });
+    }
+    if(metradoPreviewLine && typeof metradoPreviewLine.setStyle === "function"){
+      metradoPreviewLine.setStyle({ color: color });
+    }
+    if(metradoCursorMarker && typeof metradoCursorMarker.setIcon === "function"){
+      metradoCursorMarker.setIcon(iconoMetradoCursor() || undefined);
+    }
+  }catch(e){}
+}
+
+function limpiarRutaMetrado(){
+  const layer = asegurarMetradoLayer();
+  if(layer){
+    try{
+      if(metradoMarkerInicio) layer.removeLayer(metradoMarkerInicio);
+      if(metradoMarkerFin) layer.removeLayer(metradoMarkerFin);
+      if(metradoRouteOutline) layer.removeLayer(metradoRouteOutline);
+      if(metradoRouteLine) layer.removeLayer(metradoRouteLine);
+      if(metradoRouteFlow) layer.removeLayer(metradoRouteFlow);
+    }catch(e){}
+  }
+  ocultarMetradoPreview();
+  metradoMarkerInicio = null;
+  metradoMarkerFin = null;
+  metradoRouteOutline = null;
+  metradoRouteLine = null;
+  metradoRouteFlow = null;
+  metradoPuntos = [];
+  metradoInicioLatLng = null;
+  metradoFinLatLng = null;
+  metradoDistanciaM = 0;
+  metradoPicking = "";
+  metradoLoading = false;
+  if(btnMetradoFin) btnMetradoFin.disabled = true;
+  if(btnMetradoUndo) btnMetradoUndo.disabled = true;
+  setMetradoStatus("Inicia el trazado y marca puntos sobre la pista.");
+  actualizarResultadosMetrado();
+  mostrarRegistroHint("");
+}
+
+function distanciaPolylineMetrado(puntos){
+  try{
+    if(typeof map === "undefined" || !map || typeof map.distance !== "function") return 0;
+    const arr = Array.isArray(puntos) ? puntos : [];
+    let total = 0;
+    for(let i = 1; i < arr.length; i++){
+      total += map.distance(arr[i - 1], arr[i]);
+    }
+    return total;
+  }catch(e){
+    return 0;
+  }
+}
+
+function dibujarRutaMetrado(latlngs){
+  const layer = asegurarMetradoLayer();
+  if(!layer) return;
+  const puntos = Array.isArray(latlngs) ? latlngs : [];
+  if(puntos.length < 2){
+    try{
+      if(metradoRouteOutline) layer.removeLayer(metradoRouteOutline);
+      if(metradoRouteLine) layer.removeLayer(metradoRouteLine);
+      if(metradoRouteFlow) layer.removeLayer(metradoRouteFlow);
+    }catch(e){}
+    metradoRouteOutline = null;
+    metradoRouteLine = null;
+    metradoRouteFlow = null;
+    return;
+  }
+
+  const color = colorLineaMetrado();
+  const weight = 8;
+  if(!metradoRouteOutline){
+    metradoRouteOutline = L.polyline(puntos, {
+      color: "#0b2230",
+      weight: weight + 4,
+      opacity: 0.22,
+      lineCap: "round",
+      lineJoin: "round",
+      className: "metrado-route-outline"
+    }).addTo(layer);
+  } else {
+    metradoRouteOutline.setLatLngs(puntos);
+  }
+  if(!metradoRouteLine){
+    metradoRouteLine = L.polyline(puntos, {
+      color: color,
+      weight: weight,
+      opacity: 0.88,
+      lineCap: "round",
+      lineJoin: "round",
+      className: "metrado-route-line"
+    }).addTo(layer);
+  } else {
+    metradoRouteLine.setLatLngs(puntos);
+  }
+
+  const flowColor = (color === "#ffffff") ? "rgba(12,66,106,0.70)" : "rgba(255,255,255,0.70)";
+  if(!metradoRouteFlow){
+    metradoRouteFlow = L.polyline(puntos, {
+      color: flowColor,
+      weight: Math.max(3, weight - 3),
+      opacity: 0.70,
+      dashArray: "10 16",
+      lineCap: "round",
+      lineJoin: "round",
+      className: "metrado-route-flow"
+    }).addTo(layer);
+  } else {
+    metradoRouteFlow.setLatLngs(puntos);
+    if(typeof metradoRouteFlow.setStyle === "function"){
+      metradoRouteFlow.setStyle({ color: flowColor });
+    }
+  }
+  aplicarEstiloRutaMetrado();
+}
+
+function actualizarTrazadoMetrado(){
+  const layer = asegurarMetradoLayer();
+  if(!layer) return;
+
+  metradoInicioLatLng = metradoPuntos.length ? metradoPuntos[0] : null;
+  metradoFinLatLng = metradoPuntos.length ? metradoPuntos[metradoPuntos.length - 1] : null;
+
+  // Marcadores A/B
+  try{
+    if(metradoInicioLatLng){
+      if(!metradoMarkerInicio){
+        metradoMarkerInicio = L.marker(metradoInicioLatLng, { icon: iconoMetrado("A", "inicio") || undefined }).addTo(layer);
+      } else {
+        metradoMarkerInicio.setLatLng(metradoInicioLatLng);
+      }
+    } else if(metradoMarkerInicio){
+      layer.removeLayer(metradoMarkerInicio);
+      metradoMarkerInicio = null;
+    }
+
+    if(metradoFinLatLng && metradoPuntos.length >= 2){
+      if(!metradoMarkerFin){
+        metradoMarkerFin = L.marker(metradoFinLatLng, { icon: iconoMetrado("B", "fin") || undefined }).addTo(layer);
+      } else {
+        metradoMarkerFin.setLatLng(metradoFinLatLng);
+      }
+    } else if(metradoMarkerFin){
+      layer.removeLayer(metradoMarkerFin);
+      metradoMarkerFin = null;
+    }
+  }catch(e){}
+
+  dibujarRutaMetrado(metradoPuntos);
+  metradoDistanciaM = distanciaPolylineMetrado(metradoPuntos);
+  actualizarResultadosMetrado();
+
+  if(btnMetradoUndo) btnMetradoUndo.disabled = metradoPuntos.length === 0;
+}
+
+function agregarPuntoMetrado(rawLatLng){
+  if(!rawLatLng) return false;
+  const latlng = rawLatLng;
+  try{
+    const last = metradoPuntos.length ? metradoPuntos[metradoPuntos.length - 1] : null;
+    if(last && typeof map !== "undefined" && map && typeof map.distance === "function"){
+      const d = map.distance(last, latlng);
+      if(d < 1.5) return false;
+    }
+  }catch(e){}
+  metradoPuntos.push(latlng);
+  actualizarTrazadoMetrado();
+  return true;
+}
+
+function deshacerPuntoMetrado(){
+  if(!metradoPuntos.length) return;
+  metradoPuntos.pop();
+  actualizarTrazadoMetrado();
+  if(!metradoPuntos.length){
+    setMetradoStatus("Inicia el trazado y marca puntos sobre la pista.");
+  }
 }
 
 function abrirRegistroPicker(){
@@ -1039,10 +1376,32 @@ if(btnMapVisualizacion){
     if(open){
       visualizacionPanel.classList.remove("hidden");
       btnMapVisualizacion.classList.add("active");
+      if(metradoPanel) metradoPanel.classList.add("hidden");
+      if(btnMapMetrado) btnMapMetrado.classList.remove("active");
     } else {
       visualizacionPanel.classList.add("hidden");
       btnMapVisualizacion.classList.remove("active");
       if(visualizacionAvanzada) visualizacionAvanzada.classList.add("hidden");
+    }
+  });
+}
+if(btnMapMetrado){
+  btnMapMetrado.addEventListener("click", ()=>{
+    if(!metradoPanel) return;
+    const open = metradoPanel.classList.contains("hidden");
+    if(open){
+      metradoPanel.classList.remove("hidden");
+      btnMapMetrado.classList.add("active");
+      if(visualizacionPanel) visualizacionPanel.classList.add("hidden");
+      if(btnMapVisualizacion) btnMapVisualizacion.classList.remove("active");
+      if(visualizacionAvanzada) visualizacionAvanzada.classList.add("hidden");
+      actualizarResultadosMetrado();
+    } else {
+      metradoPanel.classList.add("hidden");
+      btnMapMetrado.classList.remove("active");
+      metradoPicking = "";
+      mostrarRegistroHint("");
+      ocultarMetradoPreview();
     }
   });
 }
@@ -1052,6 +1411,9 @@ if(btnMapAgregar){
       try{ abrirModalReporte(); }catch(e){}
       return;
     }
+    if(metradoPanel) metradoPanel.classList.add("hidden");
+    if(btnMapMetrado) btnMapMetrado.classList.remove("active");
+    metradoPicking = "";
     abrirRegistroPicker();
   });
 }
@@ -1738,6 +2100,118 @@ function initVisualizacionUI(){
   syncVisualizacionToMap();
 }
 initVisualizacionUI();
+
+// Metrado UI
+if(btnMetradoInicio){
+  btnMetradoInicio.addEventListener("click", ()=>{
+    if(rolActual !== "municipal"){
+      setMetradoStatus("Disponible solo para municipalidad.");
+      return;
+    }
+    cerrarRegistroPicker();
+    cerrarRegistroPanel();
+    limpiarRutaMetrado();
+    metradoPicking = "draw";
+    if(btnMetradoFin) btnMetradoFin.disabled = false;
+    setMetradoStatus("Modo trazado: haz click para agregar puntos sobre la pista.");
+    mostrarRegistroHint("Click en el mapa para agregar puntos del trazado.");
+    try{
+      if(typeof map !== "undefined" && map && typeof map.getCenter === "function"){
+        asegurarMetradoCursor();
+        asegurarMetradoPreview();
+        const c = map.getCenter();
+        if(metradoCursorMarker) metradoCursorMarker.setLatLng(c);
+        if(metradoPreviewLine) metradoPreviewLine.setLatLngs([]);
+        aplicarEstiloRutaMetrado();
+      }
+    }catch(e){}
+  });
+}
+if(btnMetradoFin){
+  btnMetradoFin.addEventListener("click", ()=>{
+    if(rolActual !== "municipal"){
+      setMetradoStatus("Disponible solo para municipalidad.");
+      return;
+    }
+    metradoPicking = "";
+    if(btnMetradoFin) btnMetradoFin.disabled = true;
+    mostrarRegistroHint("");
+    ocultarMetradoPreview();
+    if(metradoPuntos.length < 2){
+      setMetradoStatus("Trazado finalizado. Agrega mas puntos si necesitas distancia.");
+    } else {
+      setMetradoStatus("Trazado finalizado.");
+    }
+  });
+}
+if(btnMetradoUndo){
+  btnMetradoUndo.addEventListener("click", deshacerPuntoMetrado);
+}
+if(btnMetradoLimpiar){
+  btnMetradoLimpiar.addEventListener("click", limpiarRutaMetrado);
+}
+if(metradoColor){
+  metradoColor.addEventListener("change", ()=>{
+    aplicarEstiloRutaMetrado();
+  });
+}
+if(metradoLineas){
+  metradoLineas.addEventListener("change", ()=>{
+    actualizarResultadosMetrado();
+  });
+}
+
+// Capturar puntos de metrado en el mapa
+try{
+  if(typeof map !== "undefined" && map && typeof map.on === "function"){
+    map.on("click", (e)=>{
+      if(metradoPicking !== "draw") return;
+      if(!e || !e.latlng) return;
+      if(metradoLoading) return;
+
+      const ok = agregarPuntoMetrado(e.latlng);
+      if(!ok) return;
+
+      if(metradoPuntos.length === 1){
+        setMetradoStatus("Inicio listo. Sigue marcando puntos sobre la pista y finaliza.");
+      } else {
+        setMetradoStatus("Puntos: " + metradoPuntos.length + " \u00B7 Distancia: " + formatoMetros(metradoDistanciaM));
+      }
+    });
+
+    map.on("mousemove", (e)=>{
+      if(metradoPicking !== "draw") return;
+      if(!e || !e.latlng) return;
+      asegurarMetradoCursor();
+      asegurarMetradoPreview();
+      try{
+        if(metradoCursorMarker) metradoCursorMarker.setLatLng(e.latlng);
+        if(metradoPreviewLine){
+          if(metradoPuntos.length){
+            const last = metradoPuntos[metradoPuntos.length - 1];
+            metradoPreviewLine.setLatLngs([last, e.latlng]);
+          } else {
+            metradoPreviewLine.setLatLngs([]);
+          }
+        }
+      }catch(err){}
+    });
+  }
+}catch(e){}
+
+// Click fuera para cerrar metrado
+document.addEventListener("click", (e)=>{
+  if(!metradoPanel || metradoPanel.classList.contains("hidden")) return;
+  const target = e.target;
+  if(metradoPicking) return;
+  if(btnMapMetrado && (target === btnMapMetrado || btnMapMetrado.contains(target))) return;
+  if(metradoPanel.contains(target)) return;
+  if(mapContainer && mapContainer.contains(target)) return;
+  metradoPanel.classList.add("hidden");
+  if(btnMapMetrado) btnMapMetrado.classList.remove("active");
+  metradoPicking = "";
+  mostrarRegistroHint("");
+});
 
 // Toggle sidebar en mobile
 if(btnMenu && sidebar){
