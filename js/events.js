@@ -1304,7 +1304,8 @@ if(btnCfgExportar){
       config: loadUrbbisConfig(),
       senalesHorizontal: typeof senalesHorizontal !== "undefined" ? senalesHorizontal : [],
       senalesVertical: typeof senalesVertical !== "undefined" ? senalesVertical : [],
-      avisos: typeof avisos !== "undefined" ? avisos : []
+      avisos: typeof avisos !== "undefined" ? avisos : [],
+      historialSenales: (typeof historialSenales !== "undefined" && Array.isArray(historialSenales)) ? historialSenales : []
     };
     descargarJSON("urbbis-datos-" + stamp + ".json", payload);
   });
@@ -1324,6 +1325,7 @@ if(cfgImportar){
         const h = Array.isArray(parsed.senalesHorizontal) ? parsed.senalesHorizontal : null;
         const v = Array.isArray(parsed.senalesVertical) ? parsed.senalesVertical : null;
         const a = Array.isArray(parsed.avisos) ? parsed.avisos : null;
+        const hist = Array.isArray(parsed.historialSenales) ? parsed.historialSenales : null;
 
         if(h && typeof senalesHorizontal !== "undefined"){
           senalesHorizontal.splice(0, senalesHorizontal.length, ...h);
@@ -1335,6 +1337,16 @@ if(cfgImportar){
           avisos = a;
           try{
             if(typeof renderAvisos === "function"){ renderAvisos(); }
+          }catch(e){}
+        }
+
+        if(hist && typeof historialSenales !== "undefined" && Array.isArray(historialSenales)){
+          historialSenales.splice(0, historialSenales.length, ...hist);
+          try{
+            const maxId = historialSenales.reduce((m,it)=> Math.max(m, Number(it && it.id) || 0), 0);
+            if(typeof historialSenalesSeq !== "undefined"){
+              historialSenalesSeq = Math.max(historialSenalesSeq || 1, maxId + 1);
+            }
           }catch(e){}
         }
 

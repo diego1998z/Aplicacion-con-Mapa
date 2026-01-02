@@ -713,6 +713,139 @@ body.dash-shell .registro-picker-card{
     background-repeat:no-repeat;
 }
 
+/* Popup info de señales (ver/editar) */
+.senal-popup{
+    min-width:280px;
+    font-size:13px;
+    color:var(--text);
+}
+.senal-popup-head{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:10px;
+}
+.senal-popup-title{
+    font-weight:800;
+    font-size:14px;
+    line-height:1.2;
+}
+.senal-popup-sub{
+    margin-top:2px;
+    font-size:11px;
+    font-weight:700;
+    color:var(--muted);
+}
+.senal-popup-actions{
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+.senal-action-btn{
+    width:34px;
+    height:34px;
+    border-radius:12px;
+    border:1px solid var(--border);
+    background:var(--field-bg);
+    color:var(--text);
+    display:grid;
+    place-items:center;
+    cursor:pointer;
+    transition:transform 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+.senal-action-btn:hover{
+    transform:translateY(-1px);
+    background:#fff;
+    border-color:rgba(29,112,184,0.4);
+}
+.senal-action-btn.danger{
+    color:#d93f3f;
+}
+.senal-action-btn.danger:hover{
+    border-color:rgba(217,63,63,0.45);
+}
+.senal-popup-meta{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+}
+.senal-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+}
+.senal-row span{
+    color:var(--muted);
+    font-weight:700;
+    font-size:12px;
+}
+.estado-pill{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:999px;
+    border:1px solid var(--border);
+    padding:4px 10px;
+    font-weight:900;
+    font-size:12px;
+    letter-spacing:0.2px;
+}
+
+.senal-popup--edit .senal-edit-body{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+.senal-field{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    font-weight:800;
+    font-size:12px;
+    color:var(--muted);
+}
+.senal-field input{
+    padding:10px 12px;
+    border-radius:12px;
+    border:1px solid var(--border);
+    background:var(--field-bg);
+    color:var(--text);
+    font-weight:700;
+    outline:none;
+}
+.senal-field input:focus{
+    background:var(--field-bg-focus);
+    border-color:rgba(29,112,184,0.45);
+    box-shadow:0 10px 20px rgba(29,112,184,0.12);
+}
+.senal-edit-actions{
+    display:flex;
+    gap:10px;
+    margin-top:12px;
+}
+.senal-edit-btn{
+    flex:1;
+    padding:10px 12px;
+    border-radius:12px;
+    border:1px solid var(--border);
+    font-weight:800;
+    cursor:pointer;
+}
+.senal-edit-btn.ghost{
+    background:var(--field-bg);
+    color:var(--text);
+}
+.senal-edit-btn.primary{
+    background:var(--primary);
+    color:#fff;
+    border-color:var(--primary);
+}
+.senal-edit-btn.primary:hover{
+    background:var(--primary-dark);
+}
+
 .popup-crear{
     min-width:300px;
     font-size:13px;
@@ -972,7 +1105,8 @@ body.dash-shell .registro-picker-card{
 
 /* Vista visitante: solo Avisos */
 .role-visitante .reporte-horizontal,
-.role-visitante .reporte-vertical{
+.role-visitante .reporte-vertical,
+.role-visitante .reporte-historial{
     display:none;
 }
 .reporte-card th,

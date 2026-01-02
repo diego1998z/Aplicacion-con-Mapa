@@ -101,3 +101,7 @@ let modoActual = "horizontal";
 
 // Avisos ciudadanos
 let avisos = [];
+
+// Historial de cambios de se¤ales (creadas / editadas / eliminadas / cambios de estado)
+let historialSenales = [];
+let historialSenalesSeq = 1;

@@ -42,6 +42,20 @@ const ESTADO_COLORES = {
     sin_senal: "#3f7ed9"
 };
 
+function escapeHtml(value){
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+function labelEstado(estado){
+    const map = { nueva:"Nueva", antigua:"Antigua", sin_senal:"Sin senal" };
+    return map[estado] || (estado || "-");
+}
+
 // Se¤ales de tr nsito (vertical) por categoria
 const VERTICAL_FILES_PREVENTIVA = [
     "P-10A.png",
@@ -559,49 +573,391 @@ function renderizarSenalesModo(lista, modo, layerGroup) {
     layerGroup.clearLayers();
 
     (lista || []).forEach(function(s){
-        const icono = s.icono || iconoDefaultPorModo(modo) || iconoDefault();
-        const iconInfo = iconoPorId(icono, modo);
+        const iconoInicial = s.icono || iconoDefaultPorModo(modo) || iconoDefault();
         if(s.zona && (!s.region || s.region === "Sin region")){
             const reg = regionPorDistrito(s.zona);
             if(reg) s.region = reg;
         }
 
-        function buildPopup(){
+        const svgEdit = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+            + '<path d="M12 20h9"></path>'
+            + '<path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>'
+            + '</svg>';
+        const svgTrash = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+            + '<polyline points="3 6 5 6 21 6"></polyline>'
+            + '<path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>'
+            + '<path d="M10 11v6"></path>'
+            + '<path d="M14 11v6"></path>'
+            + '<path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>'
+            + '</svg>';
+
+        function precioSeguro(){
+            const p = (typeof s.precio === "number" && isFinite(s.precio) && s.precio > 0) ? s.precio : 0;
+            return p ? ("S/ " + Math.round(p).toLocaleString("es-PE")) : "-";
+        }
+
+        function fechaSeguro(){
+            const f = String(s.fecha_colocacion || "").trim();
+            return f ? f : "-";
+        }
+
+        function buildPopupView(){
             const distrito = (s.zona && s.zona !== "Sin zona" && s.zona !== "Sin distrito") ? s.zona : "-";
             const region = regionPorDistrito(distrito) || (s.region && s.region !== "Sin region" ? s.region : "-");
-            const precio = (typeof s.precio === "number" && isFinite(s.precio) && s.precio > 0)
-                ? ("S/ " + Math.round(s.precio).toLocaleString("es-PE"))
-                : "-";
+            const precio = precioSeguro();
+            const iconId = s.icono || iconoInicial;
+            const iconInfo = iconoPorId(iconId, modo);
+            const actions = (rolActual === "municipal")
+                ? ('<div class="senal-popup-actions">'
+                    + '<button type="button" class="senal-action-btn js-senal-edit" title="Editar">' + svgEdit + '</button>'
+                    + '<button type="button" class="senal-action-btn danger js-senal-delete" title="Eliminar">' + svgTrash + '</button>'
+                   + '</div>')
+                : '';
+
+            const estadoColor = colorPorEstado(s.estado);
             return ''
-                + '<strong>' + s.tipo + '</strong><br>'
-                + 'Distrito: ' + distrito + '<br>'
-                + 'Region: ' + region + '<br>'
-                + 'Estado: ' + s.estado + '<br>'
-                + 'Icono: ' + (iconInfo ? iconInfo.label : icono) + '<br>'
-                + 'Precio: ' + precio;
+                + '<div class="senal-popup" data-modo="' + modo + '" data-id="' + String(s.id || "") + '">'
+                +   '<div class="senal-popup-head">'
+                +     '<div class="senal-popup-title-wrap">'
+                +       '<div class="senal-popup-title">' + escapeHtml(s.tipo || "Senal") + '</div>'
+                +       '<div class="senal-popup-sub">' + (modo === "horizontal" ? "Marcas viales" : "Senales de transito") + '</div>'
+                +     '</div>'
+                +     actions
+                +   '</div>'
+                +   '<div class="senal-popup-meta">'
+                +     '<div class="senal-row"><span>Distrito</span><strong>' + escapeHtml(distrito) + '</strong></div>'
+                +     '<div class="senal-row"><span>Region</span><strong>' + escapeHtml(region) + '</strong></div>'
+                +     '<div class="senal-row"><span>Estado</span><span class="estado-pill" style="background:' + estadoColor + '22;border-color:' + estadoColor + '55;color:' + estadoColor + '">' + escapeHtml(labelEstado(s.estado)) + '</span></div>'
+                +     '<div class="senal-row"><span>Senal</span><strong>' + escapeHtml(iconInfo ? iconInfo.label : iconId) + '</strong></div>'
+                +     '<div class="senal-row"><span>Fecha</span><strong>' + escapeHtml(fechaSeguro()) + '</strong></div>'
+                +     '<div class="senal-row"><span>Precio</span><strong>' + escapeHtml(precio) + '</strong></div>'
+                +   '</div>'
+                + '</div>';
+        }
+
+        function buildPopupEdit(){
+            const iconId = s.icono || iconoInicial || iconoDefaultPorModo(modo) || iconoDefault();
+            const precioVal = (typeof s.precio === "number" && isFinite(s.precio) && s.precio > 0)
+                ? String(Math.round(s.precio))
+                : String(precioSugeridoPorIcono(modo, iconId));
+
+            const fechaVal = (s.estado === "sin_senal") ? "" : (String(s.fecha_colocacion || "").trim() || new Date().toISOString().slice(0,10));
+            const fechaHidden = (s.estado === "sin_senal") ? " hidden" : "";
+
+            const iconsList = (ICONOS && ICONOS[modo] ? ICONOS[modo] : []).map(function(i){
+                const active = i.id === iconId ? " active" : "";
+                return ''
+                + '<button type="button" class="icon-option' + active + '" data-icon="' + escapeHtml(i.id) + '">'
+                    + '<span class="icon-thumb" style="background-image:url(\'' + i.src + '\')"></span>'
+                    + '<small>' + escapeHtml(i.label) + '</small>'
+                + '</button>';
+            }).join("");
+
+            return ''
+                + '<form class="senal-popup senal-popup--edit js-senal-edit-form" data-modo="' + modo + '" data-id="' + String(s.id || "") + '">'
+                +   '<div class="senal-popup-head">'
+                +     '<div class="senal-popup-title-wrap">'
+                +       '<div class="senal-popup-title">Editar senal</div>'
+                +       '<div class="senal-popup-sub">Actualiza estado, icono o precio</div>'
+                +     '</div>'
+                +   '</div>'
+                +   '<div class="senal-edit-body">'
+                +     '<label class="senal-field">'
+                +       '<span>Tipo</span>'
+                +       '<input type="text" class="js-senal-tipo" value="' + escapeHtml(s.tipo || "") + '" placeholder="Tipo de senal">'
+                +     '</label>'
+                +     '<div class="senal-field">'
+                +       '<span>Estado</span>'
+                +       '<div class="estado-grid">'
+                +           '<button type="button" class="estado-option' + (s.estado === "nueva" ? " active" : "") + '" data-estado="nueva">Nueva</button>'
+                +           '<button type="button" class="estado-option' + (s.estado === "antigua" ? " active" : "") + '" data-estado="antigua">Antigua</button>'
+                +           '<button type="button" class="estado-option' + (s.estado === "sin_senal" ? " active" : "") + '" data-estado="sin_senal">Sin senal</button>'
+                +       '</div>'
+                +     '</div>'
+                +     '<div class="fecha-row js-senal-fecha-row' + fechaHidden + '">'
+                +       '<label>Fecha de colocacion</label>'
+                +       '<input type="date" class="js-senal-fecha" value="' + escapeHtml(fechaVal) + '">'
+                +     '</div>'
+                +     '<div class="precio-row">'
+                +       '<label>Precio (S/)</label>'
+                +       '<div class="precio-input"><span>S/</span><input type="number" class="js-senal-precio" min="0" step="50" value="' + escapeHtml(precioVal) + '"></div>'
+                +     '</div>'
+                +     '<div class="senal-field">'
+                +       '<span>Icono</span>'
+                +       '<input type="text" class="icon-search js-senal-icon-search" placeholder="Buscar icono...">'
+                +       '<div class="icon-grid js-senal-icon-grid">' + iconsList + '</div>'
+                +     '</div>'
+                +   '</div>'
+                +   '<div class="senal-edit-actions">'
+                +     '<button type="button" class="senal-edit-btn ghost js-senal-cancel">Cancelar</button>'
+                +     '<button type="submit" class="senal-edit-btn primary">Guardar</button>'
+                +   '</div>'
+                + '</form>';
         }
 
         const marker = L.marker([s.lat, s.lng], {
             draggable: rolActual === "municipal",
-            icon: crearIcono(s.estado, icono, modo)
+            icon: crearIcono(s.estado, iconoInicial, modo)
         }).addTo(layerGroup);
 
-        marker.bindPopup(buildPopup());
+        let uiMode = "view"; // view | edit
+        marker.bindPopup(buildPopupView());
+
+        function abrirVista(){
+            uiMode = "view";
+            try{ marker.setPopupContent(buildPopupView()); }catch(e){}
+            requestAnimationFrame(enlazarAccionesVista);
+        }
+
+        function abrirEdicion(){
+            if(rolActual !== "municipal") return;
+            uiMode = "edit";
+            try{ marker.setPopupContent(buildPopupEdit()); }catch(e){}
+            requestAnimationFrame(enlazarAccionesEdicion);
+        }
+
+        function pasaFiltroEstado(obj){
+            try{
+                if(typeof filtroEstado !== "undefined" && filtroEstado){
+                    return obj.estado === filtroEstado;
+                }
+            }catch(e){}
+            try{
+                const allowed = estadosSeleccionadosConservacion();
+                if(allowed && allowed.size){
+                    return allowed.has(obj.estado);
+                }
+            }catch(e){}
+            return true;
+        }
+
+        function eliminarSenal(){
+            if(rolActual !== "municipal") return;
+            if(!confirm("¿Eliminar esta senal? Esta accion no se puede deshacer.")) return;
+            try{
+                const dataset = (modo === "horizontal") ? senalesHorizontal : senalesVertical;
+                const idx = Array.isArray(dataset) ? dataset.findIndex(x => x && x.id === s.id) : -1;
+                const snapshot = Object.assign({}, s);
+                if(typeof registrarHistorialSenal === "function"){
+                    registrarHistorialSenal({ accion:"ELIMINADA", modo, before:snapshot });
+                }
+                if(idx >= 0){
+                    dataset.splice(idx, 1);
+                }
+                try{ layerGroup.removeLayer(marker); }catch(e){}
+                try{ marker.closePopup(); }catch(e){}
+                if(typeof updateReportes === "function"){ updateReportes(); }
+            }catch(e){
+                alert("No se pudo eliminar la senal.");
+            }
+        }
+
+        function enlazarAccionesVista(){
+            if(rolActual !== "municipal") return;
+            const popup = marker.getPopup();
+            const el = popup && typeof popup.getElement === "function" ? popup.getElement() : null;
+            if(!el) return;
+            const btnEdit = el.querySelector(".js-senal-edit");
+            const btnDel = el.querySelector(".js-senal-delete");
+            if(btnEdit) btnEdit.addEventListener("click", function(ev){
+                ev.preventDefault();
+                ev.stopPropagation();
+                abrirEdicion();
+            });
+            if(btnDel) btnDel.addEventListener("click", function(ev){
+                ev.preventDefault();
+                ev.stopPropagation();
+                eliminarSenal();
+            });
+        }
+
+        function enlazarAccionesEdicion(){
+            const popup = marker.getPopup();
+            const el = popup && typeof popup.getElement === "function" ? popup.getElement() : null;
+            if(!el) return;
+            const form = el.querySelector(".js-senal-edit-form");
+            if(!form) return;
+
+            let estadoSel = s.estado || "nueva";
+            let iconSel = s.icono || iconoInicial || iconoDefaultPorModo(modo) || iconoDefault();
+
+            const btnCancel = el.querySelector(".js-senal-cancel");
+            const inputTipo = el.querySelector(".js-senal-tipo");
+            const inputFecha = el.querySelector(".js-senal-fecha");
+            const fechaRow = el.querySelector(".js-senal-fecha-row");
+            const inputPrecio = el.querySelector(".js-senal-precio");
+            const iconSearch = el.querySelector(".js-senal-icon-search");
+            const iconGrid = el.querySelector(".js-senal-icon-grid");
+
+            const hoy = new Date().toISOString().slice(0,10);
+
+            function toggleFecha(){
+                if(!fechaRow || !inputFecha) return;
+                const needs = (estadoSel === "nueva" || estadoSel === "antigua");
+                fechaRow.classList.toggle("hidden", !needs);
+                if(needs && !inputFecha.value){
+                    inputFecha.value = String(s.fecha_colocacion || "").trim() || hoy;
+                }
+                if(!needs){
+                    inputFecha.value = "";
+                }
+            }
+
+            toggleFecha();
+
+            el.querySelectorAll(".estado-option").forEach(function(btn){
+                btn.addEventListener("click", function(ev){
+                    ev.preventDefault();
+                    estadoSel = btn.getAttribute("data-estado") || estadoSel;
+                    el.querySelectorAll(".estado-option").forEach(b=>b.classList.remove("active"));
+                    btn.classList.add("active");
+                    toggleFecha();
+                });
+            });
+
+            el.querySelectorAll(".icon-option").forEach(function(btn){
+                btn.addEventListener("click", function(ev){
+                    ev.preventDefault();
+                    iconSel = btn.getAttribute("data-icon") || iconSel;
+                    el.querySelectorAll(".icon-option").forEach(b=>b.classList.remove("active"));
+                    btn.classList.add("active");
+                    // Si el precio estaba vacio, sugerir segun el icono
+                    try{
+                        const current = inputPrecio ? Number(inputPrecio.value) : 0;
+                        if(inputPrecio && (!Number.isFinite(current) || current <= 0)){
+                            inputPrecio.value = String(precioSugeridoPorIcono(modo, iconSel));
+                        }
+                    }catch(e){}
+                });
+            });
+
+            function norm(str){
+                return String(str || "")
+                    .toLowerCase()
+                    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+                    .trim();
+            }
+
+            function filtrarIconos(q){
+                if(!iconGrid) return;
+                const query = norm(q);
+                iconGrid.querySelectorAll(".icon-option").forEach(function(btn){
+                    const id = btn.getAttribute("data-icon") || "";
+                    const label = (btn.querySelector("small") ? btn.querySelector("small").textContent : "");
+                    const hay = norm(id + " " + label);
+                    btn.style.display = (!query || hay.includes(query)) ? "" : "none";
+                });
+            }
+
+            if(iconSearch){
+                iconSearch.addEventListener("input", function(){
+                    filtrarIconos(iconSearch.value);
+                });
+            }
+
+            if(btnCancel){
+                btnCancel.addEventListener("click", function(ev){
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    abrirVista();
+                });
+            }
+
+            form.addEventListener("submit", function(ev){
+                ev.preventDefault();
+                ev.stopPropagation();
+
+                const before = {
+                    tipo: s.tipo,
+                    estado: s.estado,
+                    fecha_colocacion: s.fecha_colocacion || "",
+                    precio: s.precio,
+                    icono: s.icono
+                };
+
+                const tipoNuevo = inputTipo ? String(inputTipo.value || "").trim() : "";
+                const fechaNueva = (estadoSel === "sin_senal") ? "" : (inputFecha ? String(inputFecha.value || "").trim() : "");
+                const precioNuevo = inputPrecio ? Number(inputPrecio.value) : 0;
+
+                if(!iconSel){
+                    alert("Selecciona un icono.");
+                    return;
+                }
+                if(!Number.isFinite(precioNuevo) || precioNuevo <= 0){
+                    alert("Ingresa un precio valido (mayor a 0).");
+                    return;
+                }
+                if(estadoSel !== "sin_senal" && !fechaNueva){
+                    alert("Selecciona una fecha de colocacion.");
+                    return;
+                }
+
+                if(tipoNuevo){
+                    s.tipo = tipoNuevo;
+                }
+                s.estado = estadoSel;
+                s.fecha_colocacion = fechaNueva;
+                s.icono = iconSel;
+                s.precio = precioNuevo;
+
+                try{
+                    marker.setIcon(crearIcono(s.estado, s.icono, modo));
+                }catch(e){}
+
+                const after = {
+                    tipo: s.tipo,
+                    estado: s.estado,
+                    fecha_colocacion: s.fecha_colocacion || "",
+                    precio: s.precio,
+                    icono: s.icono
+                };
+
+                if(typeof registrarHistorialSenal === "function"){
+                    registrarHistorialSenal({ accion:"EDITADA", modo, before, after, senal:s });
+                }
+
+                if(typeof updateReportes === "function"){ updateReportes(); }
+
+                // Si con el nuevo estado ya no pasa filtro, se oculta
+                if(!pasaFiltroEstado(s)){
+                    try{ layerGroup.removeLayer(marker); }catch(e){}
+                    try{ marker.closePopup(); }catch(e){}
+                    return;
+                }
+
+                abrirVista();
+            });
+        }
+
         marker.on("popupopen", async function(){
             const needsDistrito = !s.zona || s.zona === "Sin zona" || s.zona === "Sin distrito";
             const needsRegion = !s.region || s.region === "Sin region" || !regionPorDistrito(s.zona || "");
-            if(s.__geoResolving) return;
-            if(!needsDistrito && !needsRegion) return;
-            s.__geoResolving = true;
-            if(needsDistrito){
-                const d = await inferirDistritoPorLatLng(s.lat, s.lng);
-                if(d) s.zona = d;
+            const needGeo = needsDistrito || needsRegion;
+
+            if(needGeo && !s.__geoResolving){
+                s.__geoResolving = true;
+                try{
+                    if(needsDistrito){
+                        const d = await inferirDistritoPorLatLng(s.lat, s.lng);
+                        if(d) s.zona = d;
+                    }
+                    const reg = regionPorDistrito(s.zona || "");
+                    if(reg) s.region = reg;
+                    try{
+                        marker.setPopupContent(uiMode === "edit" ? buildPopupEdit() : buildPopupView());
+                    }catch(e){}
+                    if(typeof updateReportes === "function"){ updateReportes(); }
+                }catch(e){
+                    console.warn("No se pudo resolver distrito/region:", e);
+                }finally{
+                    s.__geoResolving = false;
+                }
             }
-            const reg = regionPorDistrito(s.zona || "");
-            if(reg) s.region = reg;
-            marker.setPopupContent(buildPopup());
-            if(typeof updateReportes === "function"){ updateReportes(); }
-            s.__geoResolving = false;
+
+            requestAnimationFrame(function(){
+                if(uiMode === "edit") enlazarAccionesEdicion();
+                else enlazarAccionesVista();
+            });
         });
 
         marker.on("dragend", function (e) {
@@ -612,6 +968,7 @@ function renderizarSenalesModo(lista, modo, layerGroup) {
             alert('Se movio la senal ' + s.id + ' a nueva ubicacion.');
             if(typeof updateReportes === "function"){ updateReportes(); }
         });
+
     });
 }
 
@@ -972,6 +1329,143 @@ map.on("click", function(e){
     }
 });
 
+function fmtPrecioHistorial(value){
+    const n = Number(value);
+    if(!Number.isFinite(n) || n <= 0) return "-";
+    return "S/ " + Math.round(n).toLocaleString("es-PE");
+}
+
+function labelIconoHistorial(modo, iconId){
+    if(!iconId) return "-";
+    try{
+        const info = iconoPorId(iconId, modo);
+        if(info && info.label) return info.label;
+    }catch(e){}
+    return iconId;
+}
+
+function detectarCambiosSenal(modo, before, after){
+    const cambios = [];
+    if(!before || !after) return cambios;
+    const bTipo = before.tipo || "";
+    const aTipo = after.tipo || "";
+    if(bTipo !== aTipo){
+        cambios.push({ key:"tipo", label:"Tipo", from:bTipo || "-", to:aTipo || "-" });
+    }
+
+    const bEstado = before.estado || "";
+    const aEstado = after.estado || "";
+    if(bEstado !== aEstado){
+        cambios.push({ key:"estado", label:"Estado", from:labelEstado(bEstado), to:labelEstado(aEstado) });
+    }
+
+    const bFecha = String(before.fecha_colocacion || "").trim();
+    const aFecha = String(after.fecha_colocacion || "").trim();
+    if(bFecha !== aFecha){
+        cambios.push({ key:"fecha", label:"Fecha", from:bFecha || "-", to:aFecha || "-" });
+    }
+
+    const bPrecio = fmtPrecioHistorial(before.precio);
+    const aPrecio = fmtPrecioHistorial(after.precio);
+    if(bPrecio !== aPrecio){
+        cambios.push({ key:"precio", label:"Precio", from:bPrecio, to:aPrecio });
+    }
+
+    const bIcon = before.icono || "";
+    const aIcon = after.icono || "";
+    if(bIcon !== aIcon){
+        cambios.push({ key:"icono", label:"Icono", from:labelIconoHistorial(modo, bIcon), to:labelIconoHistorial(modo, aIcon) });
+    }
+
+    return cambios;
+}
+
+function idParaHistorial(modo, senalLike){
+    const prefix = (modo === "vertical") ? "SV" : "SH";
+    try{
+        if(typeof idFormateado === "function" && typeof construirIndicePorZona === "function"){
+            const dataset = (modo === "vertical") ? (typeof senalesVertical !== "undefined" ? senalesVertical : []) : (typeof senalesHorizontal !== "undefined" ? senalesHorizontal : []);
+            const idxByZone = construirIndicePorZona(dataset);
+            return idFormateado(prefix, senalLike, idxByZone);
+        }
+    }catch(e){}
+    const base = (senalLike && (senalLike.id || senalLike.id === 0)) ? String(senalLike.id) : "";
+    return "URB-" + prefix + "-" + base.padStart(4,"0");
+}
+
+function registrarHistorialSenal(input){
+    try{
+        if(typeof historialSenales === "undefined" || !Array.isArray(historialSenales)) return null;
+    }catch(e){
+        return null;
+    }
+
+    const accionIn = input && input.accion ? String(input.accion) : "EDITADA";
+    const modo = (input && input.modo) ? String(input.modo) : "horizontal";
+    const senal = input && input.senal ? input.senal : null;
+    const before = input && input.before ? input.before : null;
+    const after = input && input.after ? input.after : null;
+
+    const base = senal || after || before || {};
+    const distrito = (base && base.zona) ? base.zona : (base && base.distrito ? base.distrito : "");
+    const region = regionPorDistrito(distrito || "") || (base && base.region ? base.region : "");
+
+    const cambios = detectarCambiosSenal(modo, before, after);
+    let accion = accionIn.toUpperCase();
+    if(accion === "EDITADA" && cambios.length){
+        const keys = cambios.map(c=>c.key);
+        const hasEstado = keys.includes("estado");
+        const onlyEstadoFecha = keys.every(k => (k === "estado" || k === "fecha"));
+        if(hasEstado && onlyEstadoFecha){
+            accion = "ESTADO";
+        } else if(hasEstado){
+            accion = "ACTUALIZADA";
+        }
+    }
+
+    let detalle = "";
+    if(accion === "CREADA"){
+        detalle = "Se registro una senal.";
+    } else if(accion === "ELIMINADA"){
+        detalle = "Se elimino la senal.";
+    } else if(cambios.length){
+        detalle = cambios.map(c => c.label + ": " + c.from + " → " + c.to).join(" | ");
+    } else {
+        detalle = "Sin cambios.";
+    }
+
+    let idSeq = Date.now();
+    try{
+        if(typeof historialSenalesSeq !== "undefined"){
+            idSeq = historialSenalesSeq;
+            historialSenalesSeq += 1;
+        }
+    }catch(e){}
+
+    const item = {
+        id: idSeq,
+        ts: new Date().toISOString(),
+        accion,
+        modo,
+        urbId: idParaHistorial(modo, base),
+        senalId: base && (base.id || base.id === 0) ? base.id : null,
+        tipo: base && base.tipo ? base.tipo : "",
+        distrito: distrito || "",
+        region: region || "",
+        detalle
+    };
+
+    try{
+        historialSenales.unshift(item);
+        if(historialSenales.length > 500){
+            historialSenales.length = 500;
+        }
+    }catch(e){}
+
+    return item;
+}
+window.registrarHistorialSenal = registrarHistorialSenal;
+
 function crearSenal(lat, lng, estado, icono, fecha, precio, extra){
     const datasetActual = modoActual === "horizontal" ? senalesHorizontal : senalesVertical;
     senales = datasetActual; // referencia activa
@@ -1018,6 +1512,9 @@ function crearSenal(lat, lng, estado, icono, fecha, precio, extra){
     }
 
     datasetActual.push(nueva);
+    try{
+        registrarHistorialSenal({ accion:"CREADA", modo: modoActual, senal: nueva });
+    }catch(e){}
     renderizarSenales(datasetActual);
     if(typeof updateReportes === "function"){ updateReportes(); }
     // Siempre intentar inferir distrito/region por coordenadas para evitar errores

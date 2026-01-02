@@ -163,6 +163,81 @@ function renderTabla(idTabla, data, prefix, idxByZone, modoIconos){
     tbody.innerHTML = rows;
 }
 
+function escapeHtmlReporte(value){
+    if(typeof escapeHtml === "function") return escapeHtml(value);
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+function fmtFechaHistorial(ts){
+    if(!ts) return "-";
+    try{
+        return new Date(ts).toLocaleString("es-PE");
+    }catch(e){
+        return String(ts);
+    }
+}
+
+function labelAccionHistorial(a){
+    const map = {
+        CREADA: "Creada",
+        ELIMINADA: "Eliminada",
+        ESTADO: "Cambio de estado",
+        ACTUALIZADA: "Actualizada",
+        EDITADA: "Editada"
+    };
+    const key = String(a || "").toUpperCase();
+    return map[key] || (a || "-");
+}
+
+function renderTablaHistorial(){
+    const tbody = document.querySelector("#tablaHistorial tbody");
+    if(!tbody) return;
+
+    let data = (typeof historialSenales !== "undefined" && Array.isArray(historialSenales))
+        ? historialSenales.slice()
+        : [];
+
+    // Filtrar por region/distrito seleccionado en filtros principales
+    if(typeof filtroRegion !== "undefined" && filtroRegion){
+        data = data.filter(h => (h.region || "") === filtroRegion);
+    }
+    if(typeof filtroDistrito !== "undefined" && filtroDistrito){
+        data = data.filter(h => (h.distrito || "") === filtroDistrito);
+    }
+
+    data.sort((a,b)=> String(b.ts || "").localeCompare(String(a.ts || "")));
+
+    if(!data.length){
+        tbody.innerHTML = '<tr><td colspan="6" class="empty">Sin cambios para esta seleccion</td></tr>';
+        return;
+    }
+
+    const rows = data.map(function(h){
+        const fecha = fmtFechaHistorial(h.ts);
+        const accion = labelAccionHistorial(h.accion);
+        const id = h.urbId || (h.senalId ? String(h.senalId) : "-");
+        const tipo = h.tipo || "-";
+        const distrito = h.distrito || "-";
+        const detalle = h.detalle || "-";
+        return ''
+            + '<tr>'
+            +   '<td>' + escapeHtmlReporte(fecha) + '</td>'
+            +   '<td>' + escapeHtmlReporte(accion) + '</td>'
+            +   '<td>' + escapeHtmlReporte(id) + '</td>'
+            +   '<td>' + escapeHtmlReporte(tipo) + '</td>'
+            +   '<td>' + escapeHtmlReporte(distrito) + '</td>'
+            +   '<td>' + escapeHtmlReporte(detalle) + '</td>'
+            + '</tr>';
+    }).join("");
+
+    tbody.innerHTML = rows;
+}
+
 function updateReportes(){
     const horiz = filtrarRegionDistrito(senalesHorizontal, filtroRegion, filtroDistrito);
     const vert = filtrarRegionDistrito(senalesVertical, filtroRegion, filtroDistrito);
@@ -172,6 +247,7 @@ function updateReportes(){
     renderTabla("#tablaVertical", vert, "SV", idxV, "vertical");
     renderTablaAvisos();
     renderTablaAvisosTareas();
+    renderTablaHistorial();
     if(typeof updateDashboard === "function"){ updateDashboard(); }
 }
 
