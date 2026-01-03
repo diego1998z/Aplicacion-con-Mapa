@@ -1157,6 +1157,62 @@ function detectarRolPorCorreo(correo){
   return "visitante";
 }
 
+const MUNICIPAL_ACCOUNTS = [
+  { email: "sanisidro@muni.gob.pe", pass: "Muni123!", distrito: "San Isidro" },
+  { email: "miraflores@muni.gob.pe", pass: "Muni123!", distrito: "Miraflores" },
+  { email: "jesusmaria@muni.gob.pe", pass: "Muni123!", distrito: "Jesus Maria" },
+  // Municipalidad metropolitana (sin alcance fijo)
+  { email: "muni@muni.gob.pe", pass: "Muni123!", distrito: "" }
+];
+
+const VISITANTE_ACCOUNT = { email:"visitante@correo.com", pass:"Visitante123" };
+
+const LS_SCOPE_REGION = "urbbisScopeRegion";
+const LS_SCOPE_DISTRITO = "urbbisScopeDistrito";
+
+function normalizarCorreo(correo){
+  return String(correo || "").trim().toLowerCase();
+}
+
+function buscarCuentaMunicipal(correo){
+  const low = normalizarCorreo(correo);
+  return MUNICIPAL_ACCOUNTS.find(a => normalizarCorreo(a.email) === low) || null;
+}
+
+function obtenerScopePorCorreo(correo){
+  const acc = buscarCuentaMunicipal(correo);
+  if(acc && acc.distrito){
+    const region = (typeof regionPorDistrito === "function") ? (regionPorDistrito(acc.distrito) || "") : "";
+    return { region, distrito: acc.distrito };
+  }
+  return { region:"", distrito:"" };
+}
+
+function guardarSesionScope(region, distrito){
+  try{
+    localStorage.setItem(LS_SCOPE_REGION, region || "");
+    localStorage.setItem(LS_SCOPE_DISTRITO, distrito || "");
+  }catch(e){}
+}
+
+function cargarSesionScope(){
+  try{
+    return {
+      region: localStorage.getItem(LS_SCOPE_REGION) || "",
+      distrito: localStorage.getItem(LS_SCOPE_DISTRITO) || ""
+    };
+  }catch(e){
+    return { region:"", distrito:"" };
+  }
+}
+
+function limpiarSesionScope(){
+  try{
+    localStorage.removeItem(LS_SCOPE_REGION);
+    localStorage.removeItem(LS_SCOPE_DISTRITO);
+  }catch(e){}
+}
+
 function guardarSesionRol(rol){
   try{
     localStorage.setItem("rolActual", rol);
@@ -1171,6 +1227,14 @@ function cargarSesionRol(){
     if(correo && inputCorreo) inputCorreo.value = correo;
     if(rol){
       setRol(rol);
+      // Aplicar alcance guardado o inferido por correo (para cuentas municipales por distrito)
+      try{
+        const scopeSaved = cargarSesionScope();
+        const scope = (scopeSaved && (scopeSaved.region || scopeSaved.distrito)) ? scopeSaved : obtenerScopePorCorreo(correo || "");
+        if(typeof setScopeGeografico === "function"){
+          setScopeGeografico(scope.region || "", scope.distrito || "");
+        }
+      }catch(e){}
       updateMobileBanner();
       if(loginOverlay) loginOverlay.classList.add("hidden");
       try{ document.body.classList.add("dash-shell"); }catch(e){}
@@ -1187,21 +1251,46 @@ if(formLogin){
     const clave = inputClave ? inputClave.value : "";
     if(!correo || !clave) return;
 
-    // credenciales de ejemplo
-    const credMunicipal = { email:"muni@muni.gob.pe", pass:"Muni123!" };
-    const credVisitante = { email:"visitante@correo.com", pass:"Visitante123" };
+    const low = normalizarCorreo(correo);
+    const cuentaMunicipal = buscarCuentaMunicipal(low);
+    const esVisitanteDemo = (low === normalizarCorreo(VISITANTE_ACCOUNT.email));
 
     let rol = null;
-    if(correo.toLowerCase() === credMunicipal.email && clave === credMunicipal.pass){
+    let scope = { region:"", distrito:"" };
+
+    // Si el correo corresponde a una cuenta demo, validar clave
+    if(cuentaMunicipal){
+      if(clave !== cuentaMunicipal.pass){
+        alert("Contraseña incorrecta.");
+        return;
+      }
       rol = "municipal";
-    } else if(correo.toLowerCase() === credVisitante.email && clave === credVisitante.pass){
+      if(cuentaMunicipal.distrito){
+        scope = obtenerScopePorCorreo(correo);
+      }
+    } else if(esVisitanteDemo){
+      if(clave !== VISITANTE_ACCOUNT.pass){
+        alert("Contraseña incorrecta.");
+        return;
+      }
       rol = "visitante";
     } else {
+      // Modo demo: permitir acceso, rol inferido por correo
       rol = detectarRolPorCorreo(correo);
+      // Si cae en municipal y el correo coincide con una cuenta por distrito, aplicar scope
+      if(rol === "municipal"){
+        scope = obtenerScopePorCorreo(correo);
+      }
     }
 
     setRol(rol);
     guardarSesionRol(rol);
+    guardarSesionScope(scope.region || "", scope.distrito || "");
+    try{
+      if(typeof setScopeGeografico === "function"){
+        setScopeGeografico(scope.region || "", scope.distrito || "");
+      }
+    }catch(e){}
     if(loginOverlay) loginOverlay.classList.add("hidden");
     updateMobileBanner();
     try{ document.body.classList.add("dash-shell"); }catch(e){}
@@ -1217,6 +1306,12 @@ function ejecutarLogout(){
   try{
     localStorage.removeItem("rolActual");
     localStorage.removeItem("correoActual");
+    limpiarSesionScope();
+  }catch(e){}
+  try{
+    if(typeof setScopeGeografico === "function"){
+      setScopeGeografico("", "");
+    }
   }catch(e){}
   setRol("visitante");
   updateMobileBanner();

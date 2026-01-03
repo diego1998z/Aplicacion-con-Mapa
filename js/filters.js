@@ -8,6 +8,48 @@ let filtroTexto = "";
 let selRegion = "";
 let selDistrito = "";
 
+// Alcance fijo (por usuario municipal). Si est  seteado, region/distrito quedan bloqueados.
+let scopeRegion = "";
+let scopeDistrito = "";
+
+function setScopeGeografico(region, distrito){
+    scopeRegion = region || "";
+    scopeDistrito = distrito || "";
+
+    // Forzar valores si hay alcance
+    if(scopeRegion || scopeDistrito){
+        selRegion = scopeRegion;
+        selDistrito = scopeDistrito;
+        filtroRegion = scopeRegion;
+        filtroDistrito = scopeDistrito;
+
+        try{
+            if(selectRegion) selectRegion.value = scopeRegion;
+            if(typeof cargarDistritos === "function") cargarDistritos(scopeRegion);
+            if(selectDistrito) selectDistrito.value = scopeDistrito;
+        }catch(e){}
+
+        try{
+            if(selectRegion) selectRegion.disabled = true;
+            if(selectDistrito) selectDistrito.disabled = true;
+            const btnAplicar = document.getElementById("btnAplicarFiltros");
+            if(btnAplicar) btnAplicar.disabled = true;
+        }catch(e){}
+
+        aplicarFiltros();
+        try{ if(scopeDistrito && typeof zoomADistrito === "function") zoomADistrito(scopeDistrito); }catch(e){}
+        return;
+    }
+
+    // Sin alcance: desbloquear
+    try{
+        if(selectRegion) selectRegion.disabled = false;
+        if(selectDistrito) selectDistrito.disabled = !selRegion;
+        const btnAplicar = document.getElementById("btnAplicarFiltros");
+        if(btnAplicar) btnAplicar.disabled = false;
+    }catch(e){}
+}
+
 function aplicarFiltros(){
     if(typeof renderizarTodo === "function"){
         renderizarTodo();
@@ -30,6 +72,11 @@ document.getElementById("inputBuscar").addEventListener("input",e=>{
 });
 
 selectRegion.addEventListener("change",function(){
+    if(scopeRegion || scopeDistrito){
+        // Bloqueado por alcance de usuario
+        this.value = scopeRegion || "";
+        return;
+    }
     selRegion = this.value;
     selDistrito = "";
     cargarDistritos(selRegion);
@@ -37,6 +84,10 @@ selectRegion.addEventListener("change",function(){
 });
 
 selectDistrito.addEventListener("change",function(){
+    if(scopeDistrito){
+        this.value = scopeDistrito;
+        return;
+    }
     selDistrito = this.value;
 });
 
@@ -52,18 +103,42 @@ document.querySelectorAll(".btnFiltro").forEach((btn) => {
 document
   .getElementById("btnMostrarTodas")
   .addEventListener("click", () => {
-    filtroEstado=""; filtroTexto=""; filtroRegion=""; filtroDistrito="";
-    selRegion=""; selDistrito="";
-    selectRegion.value=""; cargarDistritos(""); selectDistrito.disabled=true;
+    filtroEstado=""; filtroTexto="";
+
+    if(scopeRegion || scopeDistrito){
+        filtroRegion = scopeRegion;
+        filtroDistrito = scopeDistrito;
+        selRegion = scopeRegion;
+        selDistrito = scopeDistrito;
+        try{
+            if(selectRegion) selectRegion.value = scopeRegion || "";
+            if(typeof cargarDistritos === "function") cargarDistritos(scopeRegion || "");
+            if(selectDistrito) selectDistrito.value = scopeDistrito || "";
+        }catch(e){}
+    } else {
+        filtroRegion=""; filtroDistrito="";
+        selRegion=""; selDistrito="";
+        selectRegion.value=""; cargarDistritos(""); selectDistrito.disabled=true;
+    }
+
     document.getElementById("inputBuscar").value="";
     document.querySelectorAll(".btnFiltro").forEach(b=>b.classList.remove("active"));
     aplicarFiltros(); // muestra todo
+    try{
+        if(scopeDistrito && typeof zoomADistrito === "function") zoomADistrito(scopeDistrito);
+    }catch(e){}
   });
 
 // Confirmar selección de filtros
 document.getElementById("btnAplicarFiltros").addEventListener("click",()=>{
-    filtroRegion = selRegion;
-    filtroDistrito = selDistrito;
+    if(scopeRegion || scopeDistrito){
+        // bloqueado: mantener scope
+        filtroRegion = scopeRegion;
+        filtroDistrito = scopeDistrito;
+    } else {
+        filtroRegion = selRegion;
+        filtroDistrito = selDistrito;
+    }
     aplicarFiltros();
     if(filtroDistrito){
         zoomADistrito(filtroDistrito);
