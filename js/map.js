@@ -604,7 +604,6 @@ function renderizarSenalesModo(lista, modo, layerGroup) {
         function buildPopupView(){
             const distrito = (s.zona && s.zona !== "Sin zona" && s.zona !== "Sin distrito") ? s.zona : "-";
             const region = regionPorDistrito(distrito) || (s.region && s.region !== "Sin region" ? s.region : "-");
-            const precio = precioSeguro();
             const iconId = s.icono || iconoInicial;
             const iconInfo = iconoPorId(iconId, modo);
             const actions = (rolActual === "municipal")
@@ -630,7 +629,6 @@ function renderizarSenalesModo(lista, modo, layerGroup) {
                 +     '<div class="senal-row"><span>Estado</span><span class="estado-pill" style="background:' + estadoColor + '22;border-color:' + estadoColor + '55;color:' + estadoColor + '">' + escapeHtml(labelEstado(s.estado)) + '</span></div>'
                 +     '<div class="senal-row"><span>Senal</span><strong>' + escapeHtml(iconInfo ? iconInfo.label : iconId) + '</strong></div>'
                 +     '<div class="senal-row"><span>Fecha</span><strong>' + escapeHtml(fechaSeguro()) + '</strong></div>'
-                +     '<div class="senal-row"><span>Precio</span><strong>' + escapeHtml(precio) + '</strong></div>'
                 +   '</div>'
                 + '</div>';
         }
