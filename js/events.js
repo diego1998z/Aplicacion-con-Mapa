@@ -1828,8 +1828,12 @@ function abrirRegistroPanel(tipo){
   function fieldNombreMobiliario(){
     return ''
       + '<div class="registro-field">'
-      +   '<div class="registro-label">Nombre / tipo</div>'
-      +   '<input id="regNombre" type="text" class="registro-input" placeholder="Ej: Bolardo, sem&aacute;foro, etc.">'
+      +   '<div class="registro-label">Tipo</div>'
+      +   '<div class="registro-pill-row" id="regTipoMobiliario">'
+      +     '<button type="button" class="registro-pill" data-mob-type="Bolardo">Bolardo</button>'
+      +     '<button type="button" class="registro-pill" data-mob-type="Tachas">Tachas</button>'
+      +     '<button type="button" class="registro-pill" data-mob-type="Tachon">Tachon</button>'
+      +   '</div>'
       + '</div>';
   }
 
@@ -1940,6 +1944,15 @@ function bindRegistroPanelInteractions(tipo){
   // Lamina / soporte
   registroPanel.addEventListener("click", (e)=>{
     if(!registroDraft) return;
+    const mob = e.target && e.target.closest ? e.target.closest("[data-mob-type]") : null;
+    if(mob){
+      registroDraft.nombre = mob.getAttribute("data-mob-type") || "";
+      const row = mob.parentElement;
+      if(row) row.querySelectorAll("[data-mob-type]").forEach(p=>p.classList.remove("active"));
+      mob.classList.add("active");
+      actualizarEstadoSubmitRegistro();
+      return;
+    }
     const lam = e.target && e.target.closest ? e.target.closest("[data-lamina]") : null;
     if(lam){
       registroDraft.lamina = lam.getAttribute("data-lamina") || "I";
