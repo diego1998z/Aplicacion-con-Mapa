@@ -364,7 +364,6 @@
         </div>
         <div class="map-floating-row map-floating-actions" aria-label="Acciones">
             <button id="btnMapVisualizacion" type="button" class="map-floating-btn">Visualizaci&oacute;n</button>
-            <button id="btnMapMetrado" type="button" class="map-floating-btn">Metrado</button>
             <button id="btnMapAgregar" type="button" class="map-floating-btn map-floating-btn--dark"><span class="plus">+</span> Agregar</button>
         </div>
         <div id="visualizacionPanel" class="map-floating-panel hidden" aria-label="Opciones de visualizacion">
@@ -454,8 +453,12 @@
 
     <div id="registroPicker" class="registro-picker hidden" aria-hidden="true">
         <div class="registro-picker-card" role="dialog" aria-modal="true" aria-label="Seleccion de registro">
-            <div class="registro-picker-title">&iquest;Qu&eacute; deseas registrar?</div>
-            <div class="registro-picker-grid" role="list">
+            <div class="registro-picker-header">
+                <button type="button" id="btnRegistroBack" class="registro-picker-back hidden" aria-label="Volver">Volver</button>
+                <div class="registro-picker-title" id="registroPickerTitle">&iquest;Qu&eacute; deseas registrar?</div>
+            </div>
+
+            <div class="registro-picker-grid" id="registroPickerGridMain" role="list">
                 <button type="button" class="registro-picker-option" data-registro-tipo="transito" role="listitem">
                     <span class="registro-opt-icon registro-opt-icon--transito" aria-hidden="true"></span>
                     <span class="registro-opt-text">Se&ntilde;ales<br>de tr&aacute;nsito</span>
@@ -473,6 +476,18 @@
                     <span class="registro-opt-text">Eventos</span>
                 </button>
             </div>
+
+            <div class="registro-picker-grid registro-picker-grid--sub hidden" id="registroPickerGridMarcas" role="list" aria-label="Opciones de marcas viales">
+                <button type="button" class="registro-picker-option" data-registro-marcas="pintado" role="listitem">
+                    <span class="registro-opt-icon registro-opt-icon--pintado" aria-hidden="true"></span>
+                    <span class="registro-opt-text">Pintado<br>vial</span>
+                </button>
+                <button type="button" class="registro-picker-option" data-registro-marcas="senalizacion" role="listitem">
+                    <span class="registro-opt-icon registro-opt-icon--senalizacion" aria-hidden="true"></span>
+                    <span class="registro-opt-text">Se&ntilde;alizaci&oacute;n<br>vial</span>
+                </button>
+            </div>
+
             <button type="button" id="btnRegistroCancelar" class="registro-picker-cancel">Cancelar</button>
         </div>
     </div>

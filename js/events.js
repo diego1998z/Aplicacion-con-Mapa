@@ -60,6 +60,10 @@ const registroPicker = document.getElementById("registroPicker");
 const registroPanel = document.getElementById("registroPanel");
 const registroHint = document.getElementById("registroHint");
 const btnRegistroCancelar = document.getElementById("btnRegistroCancelar");
+const btnRegistroBack = document.getElementById("btnRegistroBack");
+const registroPickerTitle = document.getElementById("registroPickerTitle");
+const registroPickerGridMain = document.getElementById("registroPickerGridMain");
+const registroPickerGridMarcas = document.getElementById("registroPickerGridMarcas");
 const dashboardOverlay = document.getElementById("dashboardOverlay");
 const btnDashLogout = document.getElementById("btnDashLogout");
 const dashUserName = document.getElementById("dashUserName");
@@ -454,6 +458,7 @@ function deshacerPuntoMetrado(){
 function abrirRegistroPicker(){
   if(!registroPicker) return;
   cerrarRegistroPanel();
+  setRegistroPickerStep("main");
   registroPicker.classList.remove("hidden");
   registroPicker.setAttribute("aria-hidden","false");
 }
@@ -462,6 +467,41 @@ function cerrarRegistroPicker(){
   if(!registroPicker) return;
   registroPicker.classList.add("hidden");
   registroPicker.setAttribute("aria-hidden","true");
+}
+
+let registroPickerStep = "main"; // main | marcas
+function setRegistroPickerStep(step){
+  registroPickerStep = step === "marcas" ? "marcas" : "main";
+  const isMarcas = registroPickerStep === "marcas";
+  try{
+    if(registroPickerTitle){
+      registroPickerTitle.textContent = isMarcas ? "Marcas viales" : "¿Qué deseas registrar?";
+    }
+    if(registroPickerGridMain){
+      registroPickerGridMain.classList.toggle("hidden", isMarcas);
+      registroPickerGridMain.setAttribute("aria-hidden", String(isMarcas));
+    }
+    if(registroPickerGridMarcas){
+      registroPickerGridMarcas.classList.toggle("hidden", !isMarcas);
+      registroPickerGridMarcas.setAttribute("aria-hidden", String(!isMarcas));
+    }
+    if(btnRegistroBack){
+      btnRegistroBack.classList.toggle("hidden", !isMarcas);
+      btnRegistroBack.setAttribute("aria-hidden", String(!isMarcas));
+    }
+  }catch(e){}
+}
+
+function abrirMetradoPanel(){
+  if(!metradoPanel) return;
+  cerrarRegistroPicker();
+  cerrarRegistroPanel();
+  metradoPanel.classList.remove("hidden");
+  if(btnMapMetrado) btnMapMetrado.classList.add("active");
+  if(visualizacionPanel) visualizacionPanel.classList.add("hidden");
+  if(btnMapVisualizacion) btnMapVisualizacion.classList.remove("active");
+  if(visualizacionAvanzada) visualizacionAvanzada.classList.add("hidden");
+  try{ actualizarResultadosMetrado(); }catch(e){}
 }
 
 function iconoRegistroTemporal(){
@@ -1433,14 +1473,36 @@ if(btnMapAgregar){
 // Picker "¿Qué deseas registrar?"
 if(registroPicker){
   try{
-    const opciones = registroPicker.querySelectorAll(".registro-picker-option");
+    const opciones = registroPicker.querySelectorAll(".registro-picker-option[data-registro-tipo]");
     opciones.forEach((btn)=>{
       btn.addEventListener("click", ()=>{
         const tipo = btn.getAttribute("data-registro-tipo") || "";
         if(!tipo) return;
+        if(tipo === "marcas"){
+          setRegistroPickerStep("marcas");
+          return;
+        }
         iniciarSeleccionUbicacion(tipo);
       });
     });
+
+    const opcionesMarcas = registroPicker.querySelectorAll(".registro-picker-option[data-registro-marcas]");
+    opcionesMarcas.forEach((btn)=>{
+      btn.addEventListener("click", (e)=>{
+        try{ e.preventDefault(); }catch(err){}
+        try{ e.stopPropagation(); }catch(err){}
+        const sub = btn.getAttribute("data-registro-marcas") || "";
+        if(sub === "pintado"){
+          abrirMetradoPanel();
+          return;
+        }
+        if(sub === "senalizacion"){
+          iniciarSeleccionUbicacion("marcas");
+          return;
+        }
+      });
+    });
+
     registroPicker.addEventListener("click", (e)=>{
       if(e && e.target === registroPicker){
         cerrarRegistroPicker();
@@ -1453,6 +1515,11 @@ if(btnRegistroCancelar){
   btnRegistroCancelar.addEventListener("click", ()=>{
     cerrarRegistroPicker();
     mostrarRegistroHint("");
+  });
+}
+if(btnRegistroBack){
+  btnRegistroBack.addEventListener("click", ()=>{
+    setRegistroPickerStep("main");
   });
 }
 
