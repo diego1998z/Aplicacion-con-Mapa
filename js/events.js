@@ -1750,6 +1750,22 @@ function abrirRegistroPanel(tipo){
       + '</div>';
   }
 
+  function fieldDimensionesM2(){
+    return ''
+      + '<div class="registro-field">'
+      +   '<div class="registro-label">Dimensiones (m)</div>'
+      +   '<div class="registro-dim-row">'
+      +     '<input id="regAncho" type="number" class="registro-input" placeholder="Ancho" min="0" step="0.01" inputmode="decimal">'
+      +     '<div class="registro-dim-x">x</div>'
+      +     '<input id="regLargo" type="number" class="registro-input" placeholder="Alto" min="0" step="0.01" inputmode="decimal">'
+      +   '</div>'
+      +   '<div class="registro-area-row">'
+      +     '<span>&Aacute;rea</span>'
+      +     '<strong id="regAreaM2">-</strong>'
+      +   '</div>'
+      + '</div>';
+  }
+
   function fieldLaminaSoporte(){
     return ''
       + '<div class="registro-field">'
@@ -1828,6 +1844,7 @@ function abrirRegistroPanel(tipo){
   } else if(tipo === "marcas"){
     bodyHtml = fieldFecha("Fecha de instalaci&oacute;n")
       + fieldIconos("Tipo de marca")
+      + fieldDimensionesM2()
       + fieldEstadoFisico()
       + fieldInspeccion("Inspecci&oacute;n");
   } else if(tipo === "mobiliario"){
@@ -1944,12 +1961,33 @@ function bindRegistroPanelInteractions(tipo){
   // Dimensiones
   const inAncho = registroPanel.querySelector("#regAncho");
   const inLargo = registroPanel.querySelector("#regLargo");
+  const outArea = registroPanel.querySelector("#regAreaM2");
+  function actualizarAreaM2(){
+    if(!outArea) return;
+    const a = inAncho ? Number(inAncho.value) : NaN;
+    const b = inLargo ? Number(inLargo.value) : NaN;
+    if(!Number.isFinite(a) || !Number.isFinite(b) || a <= 0 || b <= 0){
+      outArea.textContent = "-";
+      if(registroDraft) registroDraft.area_m2 = null;
+      return;
+    }
+    const area = a * b;
+    outArea.textContent = area.toFixed(2) + " m\u00B2";
+    if(registroDraft) registroDraft.area_m2 = area;
+  }
   if(inAncho){
-    inAncho.addEventListener("input", ()=>{ if(registroDraft) registroDraft.ancho = inAncho.value || ""; });
+    inAncho.addEventListener("input", ()=>{
+      if(registroDraft) registroDraft.ancho = inAncho.value || "";
+      actualizarAreaM2();
+    });
   }
   if(inLargo){
-    inLargo.addEventListener("input", ()=>{ if(registroDraft) registroDraft.largo = inLargo.value || ""; });
+    inLargo.addEventListener("input", ()=>{
+      if(registroDraft) registroDraft.largo = inLargo.value || "";
+      actualizarAreaM2();
+    });
   }
+  actualizarAreaM2();
 
   // Foto
   const inFoto = registroPanel.querySelector("#regFoto");
@@ -2115,6 +2153,9 @@ async function registrarRegistroDraft(){
           ancho: registroDraft.ancho ? Number(registroDraft.ancho) : null,
           largo: registroDraft.largo ? Number(registroDraft.largo) : null
         },
+        area_m2: (tipo === "marcas" && typeof registroDraft.area_m2 === "number" && isFinite(registroDraft.area_m2))
+          ? registroDraft.area_m2
+          : null,
         lamina: registroDraft.lamina || "",
         soporte: registroDraft.soporte || "",
         inspeccionFoto: registroDraft.inspeccionFoto || null
