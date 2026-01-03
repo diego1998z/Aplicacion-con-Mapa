@@ -2166,6 +2166,7 @@ async function registrarRegistroDraft(){
           ancho: registroDraft.ancho ? Number(registroDraft.ancho) : null,
           largo: registroDraft.largo ? Number(registroDraft.largo) : null
         },
+        estado_fisico: registroDraft.estadoFisico || "",
         area_m2: (tipo === "marcas" && typeof registroDraft.area_m2 === "number" && isFinite(registroDraft.area_m2))
           ? registroDraft.area_m2
           : null,

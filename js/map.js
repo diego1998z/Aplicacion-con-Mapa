@@ -56,6 +56,32 @@ function labelEstado(estado){
     return map[estado] || (estado || "-");
 }
 
+function estadoFisicoValorDesdeEstado(estado){
+    if(estado === "antigua") return "deteriorada";
+    if(estado === "sin_senal") return "no_operativa";
+    if(estado === "nueva") return "operativa";
+    return "";
+}
+
+function labelEstadoFisico(valor, estado){
+    const map = {
+        operativa: "Operativa",
+        deteriorada: "Deteriorada",
+        no_operativa: "No operativa (Ausente)"
+    };
+    const raw = String(valor || "").toLowerCase().trim();
+    if(raw && map[raw]) return map[raw];
+    const fromEstado = estadoFisicoValorDesdeEstado(estado);
+    return fromEstado && map[fromEstado] ? map[fromEstado] : "-";
+}
+
+function labelSiNo(valor){
+    const raw = String(valor || "").toLowerCase().trim();
+    if(raw === "si" || raw === "sí") return "Sí";
+    if(raw === "no") return "No";
+    return valor ? String(valor) : "-";
+}
+
 // Se¤ales de tr nsito (vertical) por categoria
 const VERTICAL_FILES_PREVENTIVA = [
     "P-10A.png",
@@ -614,6 +640,21 @@ function renderizarSenalesModo(lista, modo, layerGroup) {
                 : '';
 
             const estadoColor = colorPorEstado(s.estado);
+            const extraVertical = (modo === "vertical") ? (function(){
+                const lamina = s.lamina ? String(s.lamina) : "-";
+                const soporte = labelSiNo(s.soporte);
+                const estadoFisico = labelEstadoFisico(s.estado_fisico || s.estadoFisico, s.estado);
+                const verificado = !!(s.inspeccionFoto);
+                const verifLabel = verificado ? "Verificado" : "No verificado";
+                const verifColor = verificado ? "#2fa84f" : "#6b778c";
+                return ''
+                    + '<div class="senal-row"><span>Tipo de l&aacute;mina</span><strong>' + escapeHtml(lamina) + '</strong></div>'
+                    + '<div class="senal-row"><span>Soporte</span><strong>' + escapeHtml(soporte) + '</strong></div>'
+                    + '<div class="senal-row"><span>Estado f&iacute;sico</span><strong>' + escapeHtml(estadoFisico) + '</strong></div>'
+                    + '<div class="senal-row"><span>Verificaci&oacute;n</span>'
+                    +   '<span class="estado-pill" style="background:' + verifColor + '22;border-color:' + verifColor + '55;color:' + verifColor + '">' + escapeHtml(verifLabel) + '</span>'
+                    + '</div>';
+            })() : '';
             return ''
                 + '<div class="senal-popup" data-modo="' + modo + '" data-id="' + String(s.id || "") + '">'
                 +   '<div class="senal-popup-head">'
@@ -629,6 +670,7 @@ function renderizarSenalesModo(lista, modo, layerGroup) {
                 +     '<div class="senal-row"><span>Estado</span><span class="estado-pill" style="background:' + estadoColor + '22;border-color:' + estadoColor + '55;color:' + estadoColor + '">' + escapeHtml(labelEstado(s.estado)) + '</span></div>'
                 +     '<div class="senal-row"><span>Senal</span><strong>' + escapeHtml(iconInfo ? iconInfo.label : iconId) + '</strong></div>'
                 +     '<div class="senal-row"><span>Fecha</span><strong>' + escapeHtml(fechaSeguro()) + '</strong></div>'
+                +     extraVertical
                 +   '</div>'
                 + '</div>';
         }
@@ -868,6 +910,7 @@ function renderizarSenalesModo(lista, modo, layerGroup) {
                 const before = {
                     tipo: s.tipo,
                     estado: s.estado,
+                    estado_fisico: s.estado_fisico || s.estadoFisico || "",
                     fecha_colocacion: s.fecha_colocacion || "",
                     precio: s.precio,
                     icono: s.icono
@@ -894,6 +937,9 @@ function renderizarSenalesModo(lista, modo, layerGroup) {
                     s.tipo = tipoNuevo;
                 }
                 s.estado = estadoSel;
+                try{
+                    s.estado_fisico = estadoFisicoValorDesdeEstado(estadoSel);
+                }catch(e){}
                 s.fecha_colocacion = fechaNueva;
                 s.icono = iconSel;
                 s.precio = precioNuevo;
@@ -905,6 +951,7 @@ function renderizarSenalesModo(lista, modo, layerGroup) {
                 const after = {
                     tipo: s.tipo,
                     estado: s.estado,
+                    estado_fisico: s.estado_fisico || s.estadoFisico || "",
                     fecha_colocacion: s.fecha_colocacion || "",
                     precio: s.precio,
                     icono: s.icono
@@ -1493,6 +1540,7 @@ function crearSenal(lat, lng, estado, icono, fecha, precio, extra){
         id: nextId,
         tipo: "SENAL",
         estado: estado,
+        estado_fisico: estadoFisicoValorDesdeEstado(estado),
         zona: distritoInfer,
         lat: parseFloat(lat),
         lng: parseFloat(lng),
