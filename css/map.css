@@ -610,12 +610,74 @@ body.dash-shell .registro-picker-card{
 .metrado-panel .metrado-actions--secondary .map-panel-btn{
     width:100%;
 }
+.metrado-panel .metrado-options-details{
+    margin-top:10px;
+}
+.metrado-panel .metrado-options-summary{
+    list-style:none;
+    cursor:pointer;
+    user-select:none;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding:8px 12px;
+    border-radius:999px;
+    border:1px solid var(--border);
+    background:var(--bg);
+    color:var(--text);
+    font-weight:900;
+    font-size:12px;
+    transition:box-shadow 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+.metrado-panel .metrado-options-summary:hover{
+    border-color:rgba(29,112,184,0.35);
+    box-shadow:0 10px 22px rgba(17,38,62,0.10);
+}
+.metrado-panel .metrado-options-summary::-webkit-details-marker{display:none;}
+.metrado-panel .metrado-options-summary::marker{content:"";}
+.metrado-panel .metrado-options-chev{
+    width:26px;
+    height:26px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:999px;
+    background:var(--panel);
+    border:1px solid var(--border);
+    color:var(--primary-dark);
+    font-size:18px;
+    line-height:1;
+    transform:rotate(0deg);
+    transition:transform 160ms ease;
+}
+.metrado-panel .metrado-options-details[open] .metrado-options-chev{
+    transform:rotate(90deg);
+}
 .metrado-panel .metrado-options{
     display:flex;
     flex-direction:column;
     gap:10px;
-    margin-top:10px;
+    margin-top:8px;
 }
+.metrado-panel .metrado-check-row{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    flex-wrap:wrap;
+}
+.metrado-panel .metrado-check-col{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+}
+.metrado-panel .metrado-help{
+    margin-top:6px;
+    font-size:11px;
+    font-weight:800;
+    color:var(--muted);
+}
+.metrado-panel .metrado-urban-extra.hidden{display:none;}
 .metrado-panel .metrado-results{
     margin-top:12px;
     display:grid;
@@ -641,6 +703,59 @@ body.dash-shell .registro-picker-card{
     font-weight:900;
     color:var(--text);
 }
+.metrado-panel .metrado-breakdown{
+    margin-top:10px;
+    padding-top:10px;
+    border-top:1px solid var(--border);
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+}
+.metrado-panel .metrado-line{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding:9px 10px;
+    border:1px solid var(--border);
+    border-radius:14px;
+    background:var(--field-bg);
+}
+.metrado-panel .metrado-line span{
+    font-size:12px;
+    font-weight:900;
+    color:var(--text);
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+.metrado-panel .metrado-line span::before{
+    content:"";
+    width:10px;
+    height:10px;
+    border-radius:999px;
+    background:#d1d6df;
+    border:1px solid var(--border);
+    flex:0 0 auto;
+}
+.metrado-panel .metrado-line strong{
+    font-size:12px;
+    font-weight:900;
+    color:var(--primary-dark);
+}
+.metrado-panel .metrado-line.is-zero{
+    opacity:0.62;
+}
+.metrado-panel .metrado-line.is-zero strong{
+    color:var(--muted);
+}
+.metrado-panel .metrado-line--yellow span::before{background:#f7d21e;}
+.metrado-panel .metrado-line--yellow strong{color:#9a6b00;}
+.metrado-panel .metrado-line--white span::before{background:#ffffff;}
+.metrado-panel .metrado-line--white span::before{box-shadow:0 0 0 1px rgba(11,34,48,0.16) inset;}
+.metrado-panel .metrado-line--white strong{color:#0c426a;}
+.metrado-panel .metrado-line--area span::before{background:var(--surface);}
+.metrado-panel .metrado-line--area strong{color:var(--muted);}
 
 .metrado-route-line{
     filter:drop-shadow(0 12px 18px rgba(0,0,0,0.10));

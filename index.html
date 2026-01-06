@@ -418,30 +418,73 @@
                 <div class="metrado-actions metrado-actions--secondary">
                     <button id="btnMetradoUndo" type="button" class="map-panel-btn map-panel-btn--ghost" disabled>Deshacer</button>
                 </div>
-                <div class="metrado-options">
+                <details id="metradoOptionsDetails" class="metrado-options-details" open>
+                    <summary class="metrado-options-summary" aria-controls="metradoOptions">
+                        <span>Opciones</span>
+                        <span class="metrado-options-chev" aria-hidden="true">›</span>
+                    </summary>
+                    <div id="metradoOptions" class="metrado-options">
                     <div class="metrado-field">
-                        <div class="map-panel-title">Color de l&iacute;nea</div>
-                        <select id="metradoColor" class="registro-input">
-                            <option value="amarillo">Amarilla</option>
-                            <option value="blanco">Blanca</option>
-                        </select>
+                        <div class="map-panel-title">Ancho de l&iacute;nea</div>
+                        <div class="metrado-check-row" id="metradoAncho">
+                            <label class="map-panel-check"><input type="radio" name="metradoAncho" value="0.10" checked> <span>10 cm</span></label>
+                            <label class="map-panel-check"><input type="radio" name="metradoAncho" value="0.15"> <span>15 cm</span></label>
+                        </div>
                     </div>
                     <div class="metrado-field">
-                        <div class="map-panel-title">Cantidad de l&iacute;neas</div>
-                        <select id="metradoLineas" class="registro-input">
-                            <option value="1">1 l&iacute;nea</option>
-                            <option value="2">2 l&iacute;neas</option>
-                        </select>
+                        <div class="map-panel-title">Tipo de v&iacute;a</div>
+                        <div class="metrado-check-col" id="metradoTipoVia">
+                            <label class="map-panel-check"><input type="radio" name="metradoVia" value="urbana" checked> <span>Calle urbana</span></label>
+                            <label class="map-panel-check"><input type="radio" name="metradoVia" value="autopista"> <span>Autopista</span></label>
+                            <label class="map-panel-check"><input type="radio" name="metradoVia" value="carretera"> <span>Carretera</span></label>
+                        </div>
                     </div>
-                </div>
+                    <div id="metradoUrbanExtra" class="metrado-urban-extra">
+                        <div class="metrado-field">
+                            <div class="map-panel-title">&iquest;Tiene separador central f&iacute;sico?</div>
+                            <div class="metrado-check-row" id="metradoSeparador">
+                                <label class="map-panel-check"><input type="radio" name="metradoSep" value="si" checked> <span>S&iacute;</span></label>
+                                <label class="map-panel-check"><input type="radio" name="metradoSep" value="no"> <span>No</span></label>
+                            </div>
+                            <div class="metrado-help">S&iacute; en avenidas, No en calles locales.</div>
+                        </div>
+                        <div class="metrado-field">
+                            <div class="map-panel-title">Sentido de la v&iacute;a</div>
+                            <div class="metrado-check-row" id="metradoSentido">
+                                <label class="map-panel-check"><input type="radio" name="metradoSentido" value="unico" checked> <span>Un solo sentido</span></label>
+                                <label class="map-panel-check"><input type="radio" name="metradoSentido" value="doble"> <span>Doble sentido</span></label>
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+                </details>
+                <button id="btnMetradoCalcular" type="button" class="map-panel-btn">Calcular l&iacute;neas</button>
                 <div class="metrado-results" aria-label="Resultados">
                     <div class="metrado-kpi">
-                        <span>Distancia</span>
+                        <span>Longitud</span>
                         <strong id="metradoDistancia">-</strong>
                     </div>
                     <div class="metrado-kpi">
-                        <span>Metrado</span>
+                        <span>Total l&iacute;neas</span>
                         <strong id="metradoMetrado">-</strong>
+                    </div>
+                </div>
+                <div class="metrado-breakdown" aria-label="Detalle de l&iacute;neas">
+                    <div class="metrado-line metrado-line--yellow">
+                        <span>Eje central (amarillo)</span>
+                        <strong id="metradoEje">-</strong>
+                    </div>
+                    <div class="metrado-line metrado-line--white">
+                        <span>L&iacute;neas laterales (blancas)</span>
+                        <strong id="metradoLaterales">-</strong>
+                    </div>
+                    <div class="metrado-line metrado-line--white">
+                        <span>L&iacute;neas internas (blancas)</span>
+                        <strong id="metradoInternas">-</strong>
+                    </div>
+                    <div class="metrado-line metrado-line--area">
+                        <span>&Aacute;rea estimada (m&sup2;)</span>
+                        <strong id="metradoArea">-</strong>
                     </div>
                 </div>
                 <button id="btnMetradoLimpiar" type="button" class="map-panel-btn map-panel-btn--ghost">Limpiar</button>
