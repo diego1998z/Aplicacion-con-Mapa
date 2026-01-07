@@ -2984,16 +2984,6 @@ if(btnInspeccionFinalizar){
     cerrarModalInspeccion();
   });
 }
-if(modalInspeccion){
-  modalInspeccion.addEventListener("click", (e)=>{
-    if(e.target === modalInspeccion) cerrarModalInspeccion();
-  });
-}
-if(modalInspeccionListado){
-  modalInspeccionListado.addEventListener("click", (e)=>{
-    if(e.target === modalInspeccionListado) cerrarModalInspeccionListado();
-  });
-}
 if(inspeccionList){
   inspeccionList.addEventListener("click", async (e)=>{
     const target = e.target;
