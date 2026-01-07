@@ -33,6 +33,8 @@ const btnMetradoInicio = document.getElementById("btnMetradoInicio");
 const btnMetradoFin = document.getElementById("btnMetradoFin");
 const btnMetradoUndo = document.getElementById("btnMetradoUndo");
 const btnMetradoLimpiar = document.getElementById("btnMetradoLimpiar");
+const btnMetradoInspeccion = document.getElementById("btnMetradoInspeccion");
+const btnMetradoRegistrar = document.getElementById("btnMetradoRegistrar");
 const metradoColor = document.getElementById("metradoColor");
 const metradoLineas = document.getElementById("metradoLineas");
 const metradoDistancia = document.getElementById("metradoDistancia");
@@ -71,6 +73,27 @@ const btnRegistroBack = document.getElementById("btnRegistroBack");
 const registroPickerTitle = document.getElementById("registroPickerTitle");
 const registroPickerGridMain = document.getElementById("registroPickerGridMain");
 const registroPickerGridMarcas = document.getElementById("registroPickerGridMarcas");
+const modalInspeccion = document.getElementById("modalInspeccion");
+const modalInspeccionListado = document.getElementById("modalInspeccionListado");
+const btnInspeccionClose = document.getElementById("btnInspeccionClose");
+const btnInspeccionAgregar = document.getElementById("btnInspeccionAgregar");
+const btnInspeccionFinalizar = document.getElementById("btnInspeccionFinalizar");
+const btnInspeccionVerTodo = document.getElementById("btnInspeccionVerTodo");
+const btnInspeccionListClose = document.getElementById("btnInspeccionListClose");
+const inspeccionPrev = document.getElementById("inspeccionPrev");
+const inspeccionPrevBody = document.getElementById("inspeccionPrevBody");
+const inspeccionList = document.getElementById("inspeccionList");
+const insDistancia = document.getElementById("insDistancia");
+const insUbicacion = document.getElementById("insUbicacion");
+const insComprende = document.getElementById("insComprende");
+const insLi = document.getElementById("insLi");
+const insLd = document.getElementById("insLd");
+const insEc1 = document.getElementById("insEc1");
+const insEc2 = document.getElementById("insEc2");
+const insLiFoto = document.getElementById("insLiFoto");
+const insLdFoto = document.getElementById("insLdFoto");
+const insEc1Foto = document.getElementById("insEc1Foto");
+const insEc2Foto = document.getElementById("insEc2Foto");
 const dashboardOverlay = document.getElementById("dashboardOverlay");
 const btnDashLogout = document.getElementById("btnDashLogout");
 const dashUserName = document.getElementById("dashUserName");
@@ -122,6 +145,9 @@ let metradoCursorMarker = null;
 let metradoLoading = false;
 let metradoCalculoActivo = false;
 let metradoUltimoCalculo = null;
+let metradoInspecciones = [];
+let metradoInspeccionSeq = 1;
+let metradoRegistros = [];
 
 function mostrarRegistroHint(texto){
   if(!registroHint) return;
@@ -373,9 +399,10 @@ function renderResultadosLineas(res){
 }
 
 function actualizarEstadoBtnCalcular(){
-  if(!btnMetradoCalcular) return;
   const listo = (typeof metradoDistanciaM === "number" && metradoDistanciaM > 0) && Array.isArray(metradoPuntos) && metradoPuntos.length >= 2;
-  btnMetradoCalcular.disabled = !listo;
+  if(btnMetradoCalcular) btnMetradoCalcular.disabled = !listo;
+  if(btnMetradoInspeccion) btnMetradoInspeccion.disabled = !listo;
+  if(btnMetradoRegistrar) btnMetradoRegistrar.disabled = !listo;
 }
 
 function syncMetradoFormState(){
@@ -411,6 +438,8 @@ function actualizarResultadosMetrado(){
     metradoDistancia.textContent = metradoDistanciaM ? formatoMetros(metradoDistanciaM) : "-";
   }
 
+  const listo = (typeof metradoDistanciaM === "number" && metradoDistanciaM > 0) && Array.isArray(metradoPuntos) && metradoPuntos.length >= 2;
+  metradoCalculoActivo = listo;
   actualizarEstadoBtnCalcular();
 
   if(!metradoCalculoActivo){
@@ -422,6 +451,313 @@ function actualizarResultadosMetrado(){
   const res = calcularLineasMetrado(metradoDistanciaM, cfg);
   metradoUltimoCalculo = res;
   renderResultadosLineas(res);
+}
+
+function escapeHtml(str){
+  return String(str || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function escapeAttr(str){
+  return escapeHtml(str).replace(/\r|\n/g, " ");
+}
+
+function leerNumeroInput(el){
+  const val = el ? Number(el.value) : NaN;
+  return Number.isFinite(val) ? val : null;
+}
+
+function leerTextoInput(el){
+  return el && typeof el.value === "string" ? el.value.trim() : "";
+}
+
+function leerArchivoDataUrl(file){
+  return new Promise((resolve)=>{
+    if(!file){
+      resolve(null);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(ev){
+      resolve(ev.target && ev.target.result ? ev.target.result : null);
+    };
+    reader.onerror = function(){ resolve(null); };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function leerFotoInput(input){
+  if(!input || !input.files || !input.files[0]) return null;
+  return leerArchivoDataUrl(input.files[0]);
+}
+
+function limpiarInspeccionForm(){
+  if(insUbicacion) insUbicacion.value = "";
+  if(insComprende) insComprende.value = "";
+  if(insLi) insLi.value = "";
+  if(insLd) insLd.value = "";
+  if(insEc1) insEc1.value = "";
+  if(insEc2) insEc2.value = "";
+  [insLiFoto, insLdFoto, insEc1Foto, insEc2Foto].forEach((input)=>{
+    if(input) input.value = "";
+  });
+}
+
+function renderInspeccionPrev(){
+  if(!inspeccionPrev || !inspeccionPrevBody) return;
+  const last = metradoInspecciones.length ? metradoInspecciones[metradoInspecciones.length - 1] : null;
+  if(!last){
+    inspeccionPrev.classList.add("hidden");
+    inspeccionPrevBody.innerHTML = "";
+    return;
+  }
+  const ubicacion = escapeHtml(last.ubicacion || "Sin ubicacion");
+  const comprende = last.comprende ? escapeHtml(last.comprende) : "";
+  inspeccionPrevBody.innerHTML = ""
+    + "<div><strong>Ubicaci&oacute;n:</strong> " + ubicacion + "</div>"
+    + (comprende ? ("<div><strong>Comprende:</strong> " + comprende + "</div>") : "")
+    + "<div><strong>Distancia:</strong> " + (last.distancia || 0) + " m</div>"
+    + "<div><strong>Lateral izq:</strong> " + (last.retro.li ?? "-") + "</div>"
+    + "<div><strong>Lateral der:</strong> " + (last.retro.ld ?? "-") + "</div>"
+    + "<div><strong>Eje central 1:</strong> " + (last.retro.ec1 ?? "-") + "</div>"
+    + "<div><strong>Eje central 2:</strong> " + (last.retro.ec2 ?? "-") + "</div>";
+  inspeccionPrev.classList.remove("hidden");
+}
+
+function renderInspeccionRow(label, valor, foto){
+  const v = (valor === 0 || valor) ? String(valor) : "-";
+  const fotoHtml = foto ? ('<a href="#" class="inspeccion-link btnVerFoto" data-img="' + escapeAttr(foto) + '">Foto</a>') : '<span class="inspeccion-item-sub">Sin foto</span>';
+  return ""
+    + "<div class=\"inspeccion-item-row\">"
+    + "<span>" + escapeHtml(label) + "</span>"
+    + "<div><strong>" + escapeHtml(v) + "</strong>" + fotoHtml + "</div>"
+    + "</div>";
+}
+
+function renderInspeccionList(){
+  if(!inspeccionList) return;
+  if(!metradoInspecciones.length){
+    inspeccionList.innerHTML = "<div class=\"inspeccion-item\"><div class=\"inspeccion-item-title\">Sin mediciones registradas.</div></div>";
+    return;
+  }
+  inspeccionList.innerHTML = metradoInspecciones.map((item, idx)=>{
+    const titulo = escapeHtml(item.ubicacion || ("Medicion " + (idx + 1)));
+    const comprende = item.comprende ? escapeHtml(item.comprende) : "";
+    const fecha = escapeHtml(item.fecha || "");
+    const historial = Array.isArray(item.historial) ? item.historial : [];
+    const hist = historial.length;
+    const dist = item.distancia || 0;
+    const historialHtml = hist ? (
+      "<div class=\"inspeccion-history-controls\">"
+      + "<button type=\"button\" class=\"inspeccion-btn btn-inspeccion-history\">Ver historial (" + hist + ")</button>"
+      + "</div>"
+      + "<div class=\"inspeccion-history hidden\">"
+      + historial.map((h)=>(
+        "<div class=\"inspeccion-history-item\">"
+        + "<span class=\"inspeccion-history-date\">" + escapeHtml(h.fecha || "") + "</span>"
+        + "<span class=\"inspeccion-history-text\">" + escapeHtml(h.cambios || "") + "</span>"
+        + "</div>"
+      )).join("")
+      + "</div>"
+    ) : "<div class=\"inspeccion-history-empty\">Sin historial de cambios.</div>";
+    return ""
+      + "<div class=\"inspeccion-item\" data-id=\"" + item.id + "\">"
+      +   "<div class=\"inspeccion-item-head\">"
+      +     "<div>"
+      +       "<div class=\"inspeccion-item-title\">Ubicaci&oacute;n: " + titulo + "</div>"
+      +       "<div class=\"inspeccion-item-sub\">Distancia: " + dist + " m" + (fecha ? (" \u00B7 " + fecha) : "") + "</div>"
+      +       (comprende ? ("<div class=\"inspeccion-item-sub\">Comprende: " + comprende + "</div>") : "")
+      +     "</div>"
+      +     "<div class=\"inspeccion-item-actions\">"
+      +       "<button type=\"button\" class=\"inspeccion-btn btn-inspeccion-edit\">Editar</button>"
+      +       "<button type=\"button\" class=\"inspeccion-btn btn-inspeccion-delete\">Eliminar</button>"
+      +     "</div>"
+      +   "</div>"
+      +   "<div class=\"inspeccion-item-rows\">"
+      +     renderInspeccionRow("Lateral izquierda", item.retro.li, item.fotos.li)
+      +     renderInspeccionRow("Lateral derecha", item.retro.ld, item.fotos.ld)
+      +     renderInspeccionRow("Eje central 1", item.retro.ec1, item.fotos.ec1)
+      +     renderInspeccionRow("Eje central 2", item.retro.ec2, item.fotos.ec2)
+      +   "</div>"
+      +   "<div class=\"inspeccion-item-meta\">Historial: " + hist + " cambios</div>"
+      +   historialHtml
+      +   "<div class=\"inspeccion-edit hidden\">"
+      +     "<label>Distancia (m)</label>"
+      +     "<input type=\"number\" class=\"ins-edit-distancia\" min=\"0\" step=\"1\" value=\"" + escapeAttr(dist) + "\">"
+      +     "<label>Ubicaci&oacute;n / progresiva</label>"
+      +     "<input type=\"text\" class=\"ins-edit-ubicacion\" value=\"" + escapeAttr(item.ubicacion || "") + "\">"
+      +     "<label>Comprende</label>"
+      +     "<input type=\"text\" class=\"ins-edit-comprende\" value=\"" + escapeAttr(item.comprende || "") + "\">"
+      +     "<div class=\"inspeccion-edit-row\" data-field=\"li\">"
+      +       "<span>Lateral izquierda</span>"
+      +       "<input type=\"number\" class=\"ins-edit-value\" data-field=\"li\" min=\"0\" step=\"1\" value=\"" + escapeAttr(item.retro.li ?? "") + "\">"
+      +       "<label class=\"inspeccion-file\"><input type=\"file\" class=\"ins-edit-foto\" data-field=\"li\" accept=\"image/*\"><span>Subir</span></label>"
+      +       "<button type=\"button\" class=\"inspeccion-btn btn-inspeccion-clear\" data-field=\"li\">Quitar</button>"
+      +     "</div>"
+      +     "<div class=\"inspeccion-edit-row\" data-field=\"ld\">"
+      +       "<span>Lateral derecha</span>"
+      +       "<input type=\"number\" class=\"ins-edit-value\" data-field=\"ld\" min=\"0\" step=\"1\" value=\"" + escapeAttr(item.retro.ld ?? "") + "\">"
+      +       "<label class=\"inspeccion-file\"><input type=\"file\" class=\"ins-edit-foto\" data-field=\"ld\" accept=\"image/*\"><span>Subir</span></label>"
+      +       "<button type=\"button\" class=\"inspeccion-btn btn-inspeccion-clear\" data-field=\"ld\">Quitar</button>"
+      +     "</div>"
+      +     "<div class=\"inspeccion-edit-row\" data-field=\"ec1\">"
+      +       "<span>Eje central 1</span>"
+      +       "<input type=\"number\" class=\"ins-edit-value\" data-field=\"ec1\" min=\"0\" step=\"1\" value=\"" + escapeAttr(item.retro.ec1 ?? "") + "\">"
+      +       "<label class=\"inspeccion-file\"><input type=\"file\" class=\"ins-edit-foto\" data-field=\"ec1\" accept=\"image/*\"><span>Subir</span></label>"
+      +       "<button type=\"button\" class=\"inspeccion-btn btn-inspeccion-clear\" data-field=\"ec1\">Quitar</button>"
+      +     "</div>"
+      +     "<div class=\"inspeccion-edit-row\" data-field=\"ec2\">"
+      +       "<span>Eje central 2</span>"
+      +       "<input type=\"number\" class=\"ins-edit-value\" data-field=\"ec2\" min=\"0\" step=\"1\" value=\"" + escapeAttr(item.retro.ec2 ?? "") + "\">"
+      +       "<label class=\"inspeccion-file\"><input type=\"file\" class=\"ins-edit-foto\" data-field=\"ec2\" accept=\"image/*\"><span>Subir</span></label>"
+      +       "<button type=\"button\" class=\"inspeccion-btn btn-inspeccion-clear\" data-field=\"ec2\">Quitar</button>"
+      +     "</div>"
+      +     "<div class=\"inspeccion-edit-actions\">"
+      +       "<button type=\"button\" class=\"inspeccion-btn btn-inspeccion-cancel\">Cancelar</button>"
+      +       "<button type=\"button\" class=\"map-panel-btn btn-inspeccion-update\">Actualizar</button>"
+      +     "</div>"
+      +   "</div>"
+      + "</div>";
+  }).join("");
+}
+
+async function crearInspeccionDesdeForm(){
+  if(!insDistancia) return null;
+  const distancia = Number(insDistancia.value);
+  if(!Number.isFinite(distancia) || distancia <= 0){
+    alert("Ingresa la distancia de medicion.");
+    return null;
+  }
+  const ubicacion = leerTextoInput(insUbicacion);
+  if(!ubicacion){
+    alert("Ingresa la ubicacion o progresiva.");
+    return null;
+  }
+  const comprende = leerTextoInput(insComprende);
+  const retro = {
+    li: leerNumeroInput(insLi),
+    ld: leerNumeroInput(insLd),
+    ec1: leerNumeroInput(insEc1),
+    ec2: leerNumeroInput(insEc2)
+  };
+  const fotos = {
+    li: await leerFotoInput(insLiFoto),
+    ld: await leerFotoInput(insLdFoto),
+    ec1: await leerFotoInput(insEc1Foto),
+    ec2: await leerFotoInput(insEc2Foto)
+  };
+  const tieneDatos = Boolean(ubicacion || comprende || retro.li || retro.ld || retro.ec1 || retro.ec2 || fotos.li || fotos.ld || fotos.ec1 || fotos.ec2);
+  if(!tieneDatos){
+    alert("Completa los datos de la inspeccion.");
+    return null;
+  }
+  return {
+    id: metradoInspeccionSeq++,
+    fecha: hoyISO(),
+    distancia,
+    ubicacion,
+    comprende,
+    retro,
+    fotos,
+    historial: []
+  };
+}
+
+function abrirModalInspeccion(){
+  if(!modalInspeccion) return;
+  modalInspeccion.classList.remove("hidden");
+  modalInspeccion.setAttribute("aria-hidden","false");
+  renderInspeccionPrev();
+}
+
+function cerrarModalInspeccion(){
+  if(!modalInspeccion) return;
+  modalInspeccion.classList.add("hidden");
+  modalInspeccion.setAttribute("aria-hidden","true");
+}
+
+function abrirModalInspeccionListado(){
+  if(!modalInspeccionListado) return;
+  renderInspeccionList();
+  modalInspeccionListado.classList.remove("hidden");
+  modalInspeccionListado.setAttribute("aria-hidden","false");
+}
+
+function cerrarModalInspeccionListado(){
+  if(!modalInspeccionListado) return;
+  modalInspeccionListado.classList.add("hidden");
+  modalInspeccionListado.setAttribute("aria-hidden","true");
+}
+
+async function actualizarInspeccionDesdeItem(item){
+  if(!item) return;
+  const id = Number(item.getAttribute("data-id"));
+  const ins = metradoInspecciones.find(i => i.id === id);
+  if(!ins) return;
+  const cambios = [];
+
+  const distInput = item.querySelector(".ins-edit-distancia");
+  const newDist = distInput ? Number(distInput.value) : NaN;
+  if(Number.isFinite(newDist) && newDist > 0 && newDist !== ins.distancia){
+    cambios.push("Distancia: " + ins.distancia + " -> " + newDist);
+    ins.distancia = newDist;
+  }
+
+  const ubInput = item.querySelector(".ins-edit-ubicacion");
+  const newUb = ubInput ? ubInput.value.trim() : "";
+  if(newUb && newUb !== ins.ubicacion){
+    cambios.push("Ubicacion actualizada");
+    ins.ubicacion = newUb;
+  }
+
+  const compInput = item.querySelector(".ins-edit-comprende");
+  const newComp = compInput ? compInput.value.trim() : "";
+  if(newComp !== (ins.comprende || "")){
+    cambios.push("Comprende actualizado");
+    ins.comprende = newComp;
+  }
+
+  const fields = ["li","ld","ec1","ec2"];
+  for(const field of fields){
+    const valInput = item.querySelector(".ins-edit-value[data-field=\"" + field + "\"]");
+    const raw = valInput ? valInput.value : "";
+    const newVal = raw === "" ? null : Number(raw);
+    const oldVal = ins.retro[field];
+    if((newVal === null && oldVal !== null && oldVal !== undefined) || (Number.isFinite(newVal) && newVal !== oldVal)){
+      cambios.push("Valor " + field + " actualizado");
+      ins.retro[field] = Number.isFinite(newVal) ? newVal : null;
+    }
+
+    const clearBtn = item.querySelector(".btn-inspeccion-clear[data-field=\"" + field + "\"]");
+    if(clearBtn && clearBtn.classList.contains("is-clear")){
+      if(ins.fotos[field]){
+        cambios.push("Foto " + field + " eliminada");
+      }
+      ins.fotos[field] = null;
+      clearBtn.classList.remove("is-clear");
+    }
+
+    const fileInput = item.querySelector(".ins-edit-foto[data-field=\"" + field + "\"]");
+    if(fileInput && fileInput.files && fileInput.files[0]){
+      const dataUrl = await leerArchivoDataUrl(fileInput.files[0]);
+      if(dataUrl){
+        ins.fotos[field] = dataUrl;
+        cambios.push("Foto " + field + " actualizada");
+      }
+      fileInput.value = "";
+    }
+  }
+
+  if(cambios.length){
+    ins.historial = Array.isArray(ins.historial) ? ins.historial : [];
+    ins.historial.push({ fecha: hoyISO(), cambios: cambios.join(" | ") });
+  }
+  renderInspeccionList();
+  renderInspeccionPrev();
 }
 
 function aplicarEstiloRutaMetrado(){
@@ -468,6 +804,9 @@ function limpiarRutaMetrado(){
   metradoLoading = false;
   metradoCalculoActivo = false;
   metradoUltimoCalculo = null;
+  metradoInspecciones = [];
+  renderInspeccionPrev();
+  renderInspeccionList();
   if(metradoOptionsDetails) metradoOptionsDetails.open = true;
   if(btnMetradoFin) btnMetradoFin.disabled = true;
   if(btnMetradoUndo) btnMetradoUndo.disabled = true;
@@ -2534,6 +2873,8 @@ if(btnMetradoFin){
     } else {
       setMetradoStatus("Trazado finalizado.");
     }
+    if(metradoOptionsDetails) metradoOptionsDetails.open = false;
+    actualizarResultadosMetrado();
   });
 }
 if(btnMetradoUndo){
@@ -2542,21 +2883,39 @@ if(btnMetradoUndo){
 if(btnMetradoLimpiar){
   btnMetradoLimpiar.addEventListener("click", limpiarRutaMetrado);
 }
-if(btnMetradoCalcular){
-  btnMetradoCalcular.addEventListener("click", ()=>{
+if(btnMetradoInspeccion){
+  btnMetradoInspeccion.addEventListener("click", ()=>{
     if(rolActual !== "municipal"){
       setMetradoStatus("Disponible solo para municipalidad.");
       return;
     }
-    if(!(typeof metradoDistanciaM === "number" && metradoDistanciaM > 0) || metradoPuntos.length < 2){
-      setMetradoStatus("Primero traza una l\u00ednea (m\u00ednimo 2 puntos).");
+    if(!metradoCalculoActivo){
+      setMetradoStatus("Primero traza una l\u00ednea para abrir inspeccion.");
       return;
     }
-    metradoCalculoActivo = true;
-    try{ syncMetradoFormState(); }catch(e){}
-    actualizarResultadosMetrado();
-    if(metradoOptionsDetails) metradoOptionsDetails.open = false;
-    setMetradoStatus("L\u00edneas calculadas.");
+    abrirModalInspeccion();
+  });
+}
+if(btnMetradoRegistrar){
+  btnMetradoRegistrar.addEventListener("click", ()=>{
+    if(rolActual !== "municipal"){
+      setMetradoStatus("Disponible solo para municipalidad.");
+      return;
+    }
+    if(!metradoCalculoActivo || !metradoUltimoCalculo){
+      setMetradoStatus("Primero traza una l\u00ednea.");
+      return;
+    }
+    const registro = {
+      id: metradoRegistros.length + 1,
+      fecha: hoyISO(),
+      distancia_m: Math.round(metradoDistanciaM || 0),
+      resultados: metradoUltimoCalculo,
+      config: getMetradoConfig(),
+      inspecciones: metradoInspecciones.slice()
+    };
+    metradoRegistros.push(registro);
+    setMetradoStatus("Registro guardado.");
   });
 }
 if(metradoPanel){
@@ -2582,6 +2941,97 @@ if(metradoLineas){
   });
 }
 try{ syncMetradoFormState(); }catch(e){}
+
+if(btnInspeccionClose){
+  btnInspeccionClose.addEventListener("click", cerrarModalInspeccion);
+}
+if(btnInspeccionListClose){
+  btnInspeccionListClose.addEventListener("click", cerrarModalInspeccionListado);
+}
+if(btnInspeccionVerTodo){
+  btnInspeccionVerTodo.addEventListener("click", ()=>{
+    cerrarModalInspeccion();
+    abrirModalInspeccionListado();
+  });
+}
+if(btnInspeccionAgregar){
+  btnInspeccionAgregar.addEventListener("click", async ()=>{
+    const ins = await crearInspeccionDesdeForm();
+    if(!ins) return;
+    metradoInspecciones.push(ins);
+    limpiarInspeccionForm();
+    renderInspeccionPrev();
+    renderInspeccionList();
+  });
+}
+if(btnInspeccionFinalizar){
+  btnInspeccionFinalizar.addEventListener("click", async ()=>{
+    const ubicacion = leerTextoInput(insUbicacion);
+    const tieneDatos = ubicacion || leerTextoInput(insComprende)
+      || leerNumeroInput(insLi) || leerNumeroInput(insLd) || leerNumeroInput(insEc1) || leerNumeroInput(insEc2)
+      || (insLiFoto && insLiFoto.files && insLiFoto.files[0])
+      || (insLdFoto && insLdFoto.files && insLdFoto.files[0])
+      || (insEc1Foto && insEc1Foto.files && insEc1Foto.files[0])
+      || (insEc2Foto && insEc2Foto.files && insEc2Foto.files[0]);
+    if(tieneDatos){
+      const ins = await crearInspeccionDesdeForm();
+      if(!ins) return;
+      metradoInspecciones.push(ins);
+      limpiarInspeccionForm();
+      renderInspeccionPrev();
+      renderInspeccionList();
+    }
+    cerrarModalInspeccion();
+  });
+}
+if(modalInspeccion){
+  modalInspeccion.addEventListener("click", (e)=>{
+    if(e.target === modalInspeccion) cerrarModalInspeccion();
+  });
+}
+if(modalInspeccionListado){
+  modalInspeccionListado.addEventListener("click", (e)=>{
+    if(e.target === modalInspeccionListado) cerrarModalInspeccionListado();
+  });
+}
+if(inspeccionList){
+  inspeccionList.addEventListener("click", async (e)=>{
+    const target = e.target;
+    const item = target && target.closest ? target.closest(".inspeccion-item") : null;
+    if(!item) return;
+    if(target.classList.contains("btn-inspeccion-edit")){
+      const panel = item.querySelector(".inspeccion-edit");
+      if(panel) panel.classList.toggle("hidden");
+      return;
+    }
+    if(target.classList.contains("btn-inspeccion-cancel")){
+      const panel = item.querySelector(".inspeccion-edit");
+      if(panel) panel.classList.add("hidden");
+      return;
+    }
+    if(target.classList.contains("btn-inspeccion-delete")){
+      const id = Number(item.getAttribute("data-id"));
+      metradoInspecciones = metradoInspecciones.filter(i => i.id !== id);
+      renderInspeccionList();
+      renderInspeccionPrev();
+      return;
+    }
+    if(target.classList.contains("btn-inspeccion-history")){
+      const hist = item.querySelector(".inspeccion-history");
+      if(hist) hist.classList.toggle("hidden");
+      return;
+    }
+    if(target.classList.contains("btn-inspeccion-clear")){
+      target.classList.toggle("is-clear");
+      target.textContent = target.classList.contains("is-clear") ? "Quitar ✓" : "Quitar";
+      return;
+    }
+    if(target.classList.contains("btn-inspeccion-update")){
+      await actualizarInspeccionDesdeItem(item);
+      return;
+    }
+  });
+}
 
 // Capturar puntos de metrado en el mapa
 try{

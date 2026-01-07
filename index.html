@@ -417,11 +417,12 @@
                 </div>
                 <div class="metrado-actions metrado-actions--secondary">
                     <button id="btnMetradoUndo" type="button" class="map-panel-btn map-panel-btn--ghost" disabled>Deshacer</button>
+                    <button id="btnMetradoLimpiar" type="button" class="map-panel-btn map-panel-btn--ghost">Limpiar</button>
                 </div>
                 <details id="metradoOptionsDetails" class="metrado-options-details" open>
-                    <summary class="metrado-options-summary" aria-controls="metradoOptions">
-                        <span>Opciones</span>
-                        <span class="metrado-options-chev" aria-hidden="true">›</span>
+                    <summary class="metrado-options-summary" aria-controls="metradoOptions" title="Opciones">
+                        <span class="metrado-options-label">Opciones</span>
+                        <span class="metrado-options-chev" aria-hidden="true">&rsaquo;</span>
                     </summary>
                     <div id="metradoOptions" class="metrado-options">
                     <div class="metrado-field">
@@ -458,7 +459,6 @@
                     </div>
                     </div>
                 </details>
-                <button id="btnMetradoCalcular" type="button" class="map-panel-btn">Calcular l&iacute;neas</button>
                 <div class="metrado-results" aria-label="Resultados">
                     <div class="metrado-kpi">
                         <span>Longitud</span>
@@ -487,7 +487,8 @@
                         <strong id="metradoArea">-</strong>
                     </div>
                 </div>
-                <button id="btnMetradoLimpiar" type="button" class="map-panel-btn map-panel-btn--ghost">Limpiar</button>
+                <button id="btnMetradoInspeccion" type="button" class="map-panel-btn map-panel-btn--ghost" disabled>Subir inspecci&oacute;n</button>
+                <button id="btnMetradoRegistrar" type="button" class="map-panel-btn" disabled>Registrar</button>
             </div>
         </div>
     </div>
@@ -679,6 +680,75 @@
                 <button id="btnCancelarReporte" class="btnGhost">Cancelar</button>
                 <button id="btnEnviarReporte">Enviar aviso</button>
             </div>
+        </div>
+    </div>
+
+    <div id="modalInspeccion" class="modal hidden" aria-hidden="true">
+        <div class="modal-content inspeccion-modal">
+            <div class="inspeccion-head">
+                <h3>Registro de inspecci&oacute;n</h3>
+                <button id="btnInspeccionClose" type="button" class="inspeccion-close">&times;</button>
+            </div>
+            <label for="insDistancia">Distancia de medici&oacute;n (m)</label>
+            <input id="insDistancia" type="number" min="0" step="1" value="100">
+            <label for="insUbicacion">Ubicaci&oacute;n / progresiva</label>
+            <input id="insUbicacion" type="text" placeholder="Ej: Km 18 a Km 22">
+            <label for="insComprende">Comprende</label>
+            <input id="insComprende" type="text" placeholder="Ej: Av. Mariano Condorcanqui...">
+            <label>Retroreflectividad</label>
+            <div class="inspeccion-grid">
+                <div class="inspeccion-row">
+                    <span>Lateral izquierda</span>
+                    <input id="insLi" type="number" min="0" step="1" placeholder="0">
+                    <label class="inspeccion-file">
+                        <input id="insLiFoto" type="file" accept="image/*">
+                        <span>Foto</span>
+                    </label>
+                </div>
+                <div class="inspeccion-row">
+                    <span>Lateral derecha</span>
+                    <input id="insLd" type="number" min="0" step="1" placeholder="0">
+                    <label class="inspeccion-file">
+                        <input id="insLdFoto" type="file" accept="image/*">
+                        <span>Foto</span>
+                    </label>
+                </div>
+                <div class="inspeccion-row">
+                    <span>Eje central 1</span>
+                    <input id="insEc1" type="number" min="0" step="1" placeholder="0">
+                    <label class="inspeccion-file">
+                        <input id="insEc1Foto" type="file" accept="image/*">
+                        <span>Foto</span>
+                    </label>
+                </div>
+                <div class="inspeccion-row">
+                    <span>Eje central 2</span>
+                    <input id="insEc2" type="number" min="0" step="1" placeholder="0">
+                    <label class="inspeccion-file">
+                        <input id="insEc2Foto" type="file" accept="image/*">
+                        <span>Foto</span>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-actions inspeccion-actions">
+                <button id="btnInspeccionAgregar" type="button" class="map-panel-btn map-panel-btn--ghost">Agregar</button>
+                <button id="btnInspeccionFinalizar" type="button" class="map-panel-btn">Finalizar</button>
+            </div>
+            <div id="inspeccionPrev" class="inspeccion-prev hidden">
+                <div class="inspeccion-prev-title">Medici&oacute;n anterior</div>
+                <div id="inspeccionPrevBody" class="inspeccion-prev-body"></div>
+                <button id="btnInspeccionVerTodo" type="button" class="map-panel-btn map-panel-btn--ghost">Ver registro completo</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalInspeccionListado" class="modal hidden" aria-hidden="true">
+        <div class="modal-content inspeccion-modal inspeccion-modal--list">
+            <div class="inspeccion-head">
+                <h3>Registro completo</h3>
+                <button id="btnInspeccionListClose" type="button" class="inspeccion-close">&times;</button>
+            </div>
+            <div id="inspeccionList" class="inspeccion-list"></div>
         </div>
     </div>
 
