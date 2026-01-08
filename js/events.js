@@ -1659,13 +1659,45 @@ function detectarRolPorCorreo(correo){
   return "visitante";
 }
 
-const MUNICIPAL_ACCOUNTS = [
-  { email: "sanisidro@muni.gob.pe", pass: "Muni123!", distrito: "San Isidro" },
-  { email: "miraflores@muni.gob.pe", pass: "Muni123!", distrito: "Miraflores" },
-  { email: "jesusmaria@muni.gob.pe", pass: "Muni123!", distrito: "Jesus Maria" },
+function slugDistrito(distrito){
+  return String(distrito || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+const MUNICIPAL_ACCOUNTS = (function(){
+  const pass = "Muni123!";
+  const list = [];
+  const distritos = new Set();
+  try{
+    if(typeof MAPA_REGIONES === "object" && MAPA_REGIONES){
+      Object.values(MAPA_REGIONES).forEach((arr)=>{
+        if(!Array.isArray(arr)) return;
+        arr.forEach((d)=>{ if(d) distritos.add(d); });
+      });
+    }
+  }catch(e){}
+
+  if(distritos.size){
+    Array.from(distritos).sort().forEach((d)=>{
+      const slug = slugDistrito(d);
+      if(!slug) return;
+      list.push({ email: slug + "@muni.gob.pe", pass, distrito: d });
+    });
+  } else {
+    list.push(
+      { email: "sanisidro@muni.gob.pe", pass, distrito: "San Isidro" },
+      { email: "miraflores@muni.gob.pe", pass, distrito: "Miraflores" },
+      { email: "jesusmaria@muni.gob.pe", pass, distrito: "Jesus Maria" }
+    );
+  }
+
   // Municipalidad metropolitana (sin alcance fijo)
-  { email: "muni@muni.gob.pe", pass: "Muni123!", distrito: "" }
-];
+  list.push({ email: "muni@muni.gob.pe", pass, distrito: "" });
+  return list;
+})();
 
 const VISITANTE_ACCOUNT = { email:"visitante@correo.com", pass:"Visitante123" };
 
