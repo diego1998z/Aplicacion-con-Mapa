@@ -142,6 +142,12 @@ function nombreIconoPorModo(modo, iconId){
     return iconId || "-";
 }
 
+function labelEstadoReporte(estado){
+    if(typeof labelEstado === "function") return labelEstado(estado);
+    const map = { nueva:"Operativa", antigua:"Deteriorada", sin_senal:"No operativa" };
+    return map[estado] || (estado || "-");
+}
+
 function renderTabla(idTabla, data, prefix, idxByZone, modoIconos){
     const tbody = document.querySelector(idTabla + " tbody");
     if(!tbody) return;
@@ -151,13 +157,14 @@ function renderTabla(idTabla, data, prefix, idxByZone, modoIconos){
     }
     const rows = data.map(function(s){
         const nombreIcono = nombreIconoPorModo(modoIconos, s.icono);
+        const estadoLabel = labelEstadoReporte(s.estado);
         return ''
         + '<tr>'
-        +   '<td>' + idFormateado(prefix, s, idxByZone) + '</td>'
-        +   '<td>' + s.tipo + '</td>'
-        +   '<td>' + (nombreIcono || "-") + '</td>'
-        +   '<td>' + s.estado + '</td>'
-        +   '<td>' + (s.fecha_colocacion || "-") + '</td>'
+        +   '<td>' + escapeHtmlReporte(idFormateado(prefix, s, idxByZone)) + '</td>'
+        +   '<td>' + escapeHtmlReporte(s.tipo || "-") + '</td>'
+        +   '<td>' + escapeHtmlReporte(nombreIcono || "-") + '</td>'
+        +   '<td>' + escapeHtmlReporte(estadoLabel) + '</td>'
+        +   '<td>' + escapeHtmlReporte(s.fecha_colocacion || "-") + '</td>'
         + '</tr>';
     }).join("");
     tbody.innerHTML = rows;

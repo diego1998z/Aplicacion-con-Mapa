@@ -28,7 +28,7 @@
                         <button type="submit" id="btnLogin">Iniciar sesión</button>
                     </div>
                 </form>
-                <small class="login-hint">Municipal: sanisidro@muni.gob.pe, miraflores@muni.gob.pe, jesusmaria@muni.gob.pe / Muni123! · Visitante: visitante@correo.com / Visitante123</small>
+                <small class="login-hint">Municipal: distrito@muni.gob.pe / Muni123! | Visitante: visitante@correo.com / Visitante123</small>
             </div>
         </div>
     </div>
@@ -53,6 +53,7 @@
                 <button type="button" class="dash-link" data-dash="mapa">Mapa</button>
                 <button type="button" class="dash-link" data-dash="reportes">Reportes</button>
                 <button type="button" class="dash-link" data-dash="tareas">Tareas</button>
+                <button type="button" class="dash-link" data-dash="inversion">Inversion</button>
                 <button type="button" class="dash-link" data-dash="config">Configuracion</button>
             </nav>
 
@@ -109,10 +110,83 @@
                             <div class="dash-card-big" id="dashAtencion">0</div>
                             <div>
                                 <div class="dash-card-sub"><strong>Señales</strong><br>requieren atencion</div>
-                                <div class="dash-card-sub">Antiguas o sin señal</div>
+                                <div class="dash-card-sub">Deterioradas o no operativas</div>
                             </div>
                         </div>
                     </article>
+                </section>
+            </div>
+
+            <div class="dash-page hidden" data-dash-page="inversion">
+                <div class="dash-top">
+                    <div>
+                        <div class="dash-entity">Inversion</div>
+                        <div class="dash-msg">Resumen de costos y activos por proyecto.</div>
+                    </div>
+                </div>
+                <div class="dash-title">
+                    <h1>Inversion <span>/ Resumen</span></h1>
+                </div>
+                <section class="inv-grid">
+                    <article class="inv-card inv-card--total">
+                        <div class="inv-card-title">Inversion total</div>
+                        <div class="inv-card-value" id="invTotal">S/ 0</div>
+                    </article>
+                    <article class="inv-card inv-card--ok">
+                        <div class="inv-card-title">Activos operativos</div>
+                        <div class="inv-card-value" id="invOperativos">S/ 0</div>
+                        <div class="inv-card-sub" id="invOperativosPct">0%</div>
+                    </article>
+                    <article class="inv-card inv-card--warn">
+                        <div class="inv-card-title">Activos deteriorados</div>
+                        <div class="inv-card-value" id="invDeteriorados">S/ 0</div>
+                        <div class="inv-card-sub" id="invDeterioradosPct">0%</div>
+                    </article>
+                    <article class="inv-card inv-card--danger">
+                        <div class="inv-card-title">Inversion reposicion</div>
+                        <div class="inv-card-value" id="invReposicion">S/ 0</div>
+                    </article>
+                </section>
+
+                <section class="inv-block">
+                    <h3>Distribucion de inversion por tipo de activo</h3>
+                    <div class="inv-bars">
+                        <div class="inv-bar">
+                            <span>Senales de transito</span>
+                            <div class="inv-bar-track"><div id="invBarTransito" class="inv-bar-fill inv-bar-fill--blue"></div></div>
+                            <strong id="invValTransito">S/ 0</strong>
+                        </div>
+                        <div class="inv-bar">
+                            <span>Marcas viales</span>
+                            <div class="inv-bar-track"><div id="invBarMarcas" class="inv-bar-fill inv-bar-fill--gold"></div></div>
+                            <strong id="invValMarcas">S/ 0</strong>
+                        </div>
+                        <div class="inv-bar">
+                            <span>Mobiliario vial</span>
+                            <div class="inv-bar-track"><div id="invBarMobiliario" class="inv-bar-fill inv-bar-fill--green"></div></div>
+                            <strong id="invValMobiliario">S/ 0</strong>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="inv-block">
+                    <h3>Detalle de activos / partidas</h3>
+                    <table class="inv-table">
+                        <thead>
+                            <tr><th>Activo</th><th>Tipo</th><th>Cantidad</th><th>Estado</th><th>Inversion</th></tr>
+                        </thead>
+                        <tbody id="invTablaBody"></tbody>
+                    </table>
+                </section>
+
+                <section class="inv-block">
+                    <h3>Inversion proyectada</h3>
+                    <div class="inv-summary">
+                        <div class="inv-summary-row"><span>Activos sin verificacion</span><strong id="invSinVerif">S/ 0</strong></div>
+                        <div class="inv-summary-row"><span>Mantenimiento sugerido</span><strong id="invMantenimiento">S/ 0</strong></div>
+                        <div class="inv-summary-row"><span>Reposicion critica</span><strong id="invReposicionCrit">S/ 0</strong></div>
+                        <div class="inv-summary-row inv-summary-row--total"><span>Inversion total proxima etapa</span><strong id="invTotalProxima">S/ 0</strong></div>
+                    </div>
                 </section>
             </div>
 
@@ -366,6 +440,13 @@
             <button id="btnMapVisualizacion" type="button" class="map-floating-btn">Visualizaci&oacute;n</button>
             <button id="btnMapAgregar" type="button" class="map-floating-btn map-floating-btn--dark"><span class="plus">+</span> Agregar</button>
         </div>
+        <div class="map-floating-row map-floating-project hidden" id="projectSwitcher" aria-label="Proyecto activo">
+            <div class="project-chip">
+                <span class="project-label">Proyecto activo</span>
+                <select id="selectProyecto"></select>
+            </div>
+            <button id="btnCambiarProyecto" type="button" class="map-floating-btn map-floating-btn--ghost">Cambiar proyecto</button>
+        </div>
         <div id="visualizacionPanel" class="map-floating-panel hidden" aria-label="Opciones de visualizacion">
             <div class="map-panel-section">
                 <label class="map-panel-check">
@@ -562,9 +643,9 @@
             <div class="filtro-block">
                 <h3>Estado</h3>
                 <div class="estado-buttons">
-                    <button class="btnFiltro" data-estado="nueva">Nueva</button>
-                    <button class="btnFiltro" data-estado="antigua">Antigua</button>
-                    <button class="btnFiltro" data-estado="sin_senal">Sin senal</button>
+                    <button class="btnFiltro" data-estado="nueva">Operativa</button>
+                    <button class="btnFiltro" data-estado="antigua">Deteriorada</button>
+                    <button class="btnFiltro" data-estado="sin_senal">No operativa</button>
                     <button id="btnMostrarTodas" class="btnGhost fullwidth">Limpiar filtros</button>
                 </div>
             </div>
@@ -581,9 +662,9 @@
     <div id="map">
         <div class="legend">
             <div class="legend-title">Estados</div>
-            <div class="legend-item"><span class="dot dot-new"></span> Nueva</div>
-            <div class="legend-item"><span class="dot dot-bad"></span> Antigua</div>
-            <div class="legend-item"><span class="dot dot-missing"></span> Sin senal</div>
+            <div class="legend-item"><span class="dot dot-new"></span> Operativa</div>
+            <div class="legend-item"><span class="dot dot-bad"></span> Deteriorada</div>
+            <div class="legend-item"><span class="dot dot-missing"></span> No operativa</div>
         </div>
     </div>
 

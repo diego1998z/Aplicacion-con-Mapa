@@ -65,6 +65,9 @@ const btnCerrarReportes = document.getElementById("btnCerrarReportes");
 const reportesSheet = reportesPanel ? reportesPanel.querySelector(".reportes-sheet") : null;
 const mapContainer = document.getElementById("map");
 const mapFloatingControls = document.getElementById("mapFloatingControls");
+const projectSwitcher = document.getElementById("projectSwitcher");
+const selectProyecto = document.getElementById("selectProyecto");
+const btnCambiarProyecto = document.getElementById("btnCambiarProyecto");
 const registroPicker = document.getElementById("registroPicker");
 const registroPanel = document.getElementById("registroPanel");
 const registroHint = document.getElementById("registroHint");
@@ -104,6 +107,23 @@ const dashScore = document.getElementById("dashScore");
 const dashTotalSenales = document.getElementById("dashTotalSenales");
 const dashInversion = document.getElementById("dashInversion");
 const dashAtencion = document.getElementById("dashAtencion");
+const invTotal = document.getElementById("invTotal");
+const invOperativos = document.getElementById("invOperativos");
+const invOperativosPct = document.getElementById("invOperativosPct");
+const invDeteriorados = document.getElementById("invDeteriorados");
+const invDeterioradosPct = document.getElementById("invDeterioradosPct");
+const invReposicion = document.getElementById("invReposicion");
+const invBarTransito = document.getElementById("invBarTransito");
+const invBarMarcas = document.getElementById("invBarMarcas");
+const invBarMobiliario = document.getElementById("invBarMobiliario");
+const invValTransito = document.getElementById("invValTransito");
+const invValMarcas = document.getElementById("invValMarcas");
+const invValMobiliario = document.getElementById("invValMobiliario");
+const invTablaBody = document.getElementById("invTablaBody");
+const invSinVerif = document.getElementById("invSinVerif");
+const invMantenimiento = document.getElementById("invMantenimiento");
+const invReposicionCrit = document.getElementById("invReposicionCrit");
+const invTotalProxima = document.getElementById("invTotalProxima");
 
 // Configuracion
 const cfgNombre = document.getElementById("cfgNombre");
@@ -1160,6 +1180,148 @@ function nombreDesdeCorreo(correo){
   return name || capitalizeWord(user) || "Usuario";
 }
 
+const LS_PROJECTS_PREFIX = "urbbisProjects:";
+const LS_PROJECT_ACTIVE_PREFIX = "urbbisProjectActive:";
+let proyectosCache = [];
+let proyectoActivoId = "";
+
+function getProjectsKey(){
+  const correo = getSessionEmail() || "guest";
+  return LS_PROJECTS_PREFIX + normalizarCorreo(correo);
+}
+
+function getProjectActiveKey(){
+  const correo = getSessionEmail() || "guest";
+  return LS_PROJECT_ACTIVE_PREFIX + normalizarCorreo(correo);
+}
+
+function cloneSenales(list){
+  if(!Array.isArray(list)) return [];
+  return list.map(s => Object.assign({}, s));
+}
+
+function reemplazarSenales(target, source){
+  if(!Array.isArray(target)) return;
+  target.length = 0;
+  (Array.isArray(source) ? source : []).forEach((s)=> target.push(Object.assign({}, s)));
+}
+
+const BASE_SENALES = (function(){
+  return {
+    horizontal: cloneSenales(typeof senalesHorizontal !== "undefined" ? senalesHorizontal : []),
+    vertical: cloneSenales(typeof senalesVertical !== "undefined" ? senalesVertical : []),
+    mobiliario: cloneSenales(typeof senalesMobiliario !== "undefined" ? senalesMobiliario : [])
+  };
+})();
+
+function crearProyectoBase(nombre){
+  const id = "proj-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,6);
+  return {
+    id,
+    nombre: nombre || "Proyecto",
+    creado: hoyISO(),
+    senalesHorizontal: cloneSenales(BASE_SENALES.horizontal),
+    senalesVertical: cloneSenales(BASE_SENALES.vertical),
+    senalesMobiliario: cloneSenales(BASE_SENALES.mobiliario)
+  };
+}
+
+function guardarProyectos(){
+  const key = getProjectsKey();
+  try{
+    localStorage.setItem(key, JSON.stringify({ activo: proyectoActivoId, proyectos: proyectosCache }));
+  }catch(e){}
+  try{
+    localStorage.setItem(getProjectActiveKey(), proyectoActivoId || "");
+  }catch(e){}
+}
+
+function cargarProyectos(){
+  proyectosCache = [];
+  proyectoActivoId = "";
+  try{
+    const raw = localStorage.getItem(getProjectsKey());
+    if(raw){
+      const parsed = JSON.parse(raw);
+      if(parsed && Array.isArray(parsed.proyectos)){
+        proyectosCache = parsed.proyectos;
+        proyectoActivoId = parsed.activo || "";
+      }
+    }
+  }catch(e){}
+
+  if(!proyectosCache.length){
+    proyectosCache = [
+      crearProyectoBase("Registro senalizacion 2026"),
+      crearProyectoBase("Registro senalizacion 2025")
+    ];
+    proyectoActivoId = proyectosCache[0].id;
+    guardarProyectos();
+  }
+}
+
+function aplicarProyecto(proj){
+  if(!proj) return;
+  reemplazarSenales(senalesHorizontal, proj.senalesHorizontal);
+  reemplazarSenales(senalesVertical, proj.senalesVertical);
+  reemplazarSenales(senalesMobiliario, proj.senalesMobiliario);
+  proyectoActivoId = proj.id;
+  if(selectProyecto) selectProyecto.value = proj.id;
+  guardarProyectos();
+  if(typeof renderizarTodo === "function") renderizarTodo();
+  if(typeof updateReportes === "function") updateReportes();
+  if(typeof updateDashboard === "function") updateDashboard();
+  if(typeof updateInversion === "function") updateInversion();
+}
+
+function actualizarSelectProyecto(){
+  if(!selectProyecto) return;
+  selectProyecto.innerHTML = proyectosCache.map(p => (
+    '<option value="' + p.id + '">' + String(p.nombre || "Proyecto") + '</option>'
+  )).join("");
+}
+
+function setProyectoActivoPorId(id){
+  const proj = proyectosCache.find(p => p.id === id) || proyectosCache[0];
+  if(!proj) return;
+  aplicarProyecto(proj);
+}
+
+function initProyectos(){
+  if(rolActual !== "municipal"){
+    proyectosCache = [];
+    proyectoActivoId = "";
+    if(selectProyecto) selectProyecto.innerHTML = "";
+    updateProjectUI();
+    return;
+  }
+  cargarProyectos();
+  actualizarSelectProyecto();
+  setProyectoActivoPorId(proyectoActivoId);
+  updateProjectUI();
+}
+
+function updateProjectUI(){
+  if(!projectSwitcher) return;
+  const visible = rolActual === "municipal" && proyectosCache.length > 0;
+  projectSwitcher.classList.toggle("hidden", !visible);
+  if(btnCambiarProyecto) btnCambiarProyecto.disabled = !visible;
+}
+
+function guardarProyectoActivo(){
+  if(!proyectoActivoId) return;
+  const idx = proyectosCache.findIndex(p => p.id === proyectoActivoId);
+  if(idx < 0) return;
+  proyectosCache[idx].senalesHorizontal = cloneSenales(senalesHorizontal);
+  proyectosCache[idx].senalesVertical = cloneSenales(senalesVertical);
+  proyectosCache[idx].senalesMobiliario = cloneSenales(senalesMobiliario);
+  guardarProyectos();
+}
+
+window.initProyectos = initProyectos;
+window.guardarProyectoActivo = guardarProyectoActivo;
+window.updateProjectUI = updateProjectUI;
+
 function inicialesDesdeCorreo(correo){
   const name = nombreDesdeCorreo(correo);
   const parts = name.split(/\s+/g).filter(Boolean);
@@ -1222,6 +1384,7 @@ function updateDashboard(){
 
   const horiz = filtrarPorSeleccion(typeof senalesHorizontal !== "undefined" ? senalesHorizontal : []);
   const vert = filtrarPorSeleccion(typeof senalesVertical !== "undefined" ? senalesVertical : []);
+  const mob = filtrarPorSeleccion(typeof senalesMobiliario !== "undefined" ? senalesMobiliario : []);
   const all = horiz.concat(vert);
 
   const total = all.length;
@@ -1234,7 +1397,8 @@ function updateDashboard(){
 
   // Estimación simple (ajustable) por tipo de señalización
   const inversion = horiz.reduce((sum, s)=> sum + precioDeSenal("horizontal", s), 0)
-    + vert.reduce((sum, s)=> sum + precioDeSenal("vertical", s), 0);
+    + vert.reduce((sum, s)=> sum + precioDeSenal("vertical", s), 0)
+    + mob.reduce((sum, s)=> sum + precioDeSenal("mobiliario", s), 0);
 
   if(dashScore) dashScore.textContent = String(score);
   if(dashTotalSenales) dashTotalSenales.textContent = String(total);
@@ -1243,6 +1407,85 @@ function updateDashboard(){
 }
 
 window.updateDashboard = updateDashboard;
+
+function labelEstadoSeguro(estado){
+  if(typeof labelEstado === "function") return labelEstado(estado);
+  if(estado === "nueva") return "Operativa";
+  if(estado === "antigua") return "Deteriorada";
+  if(estado === "sin_senal") return "No operativa";
+  return estado || "-";
+}
+
+function cantidadLabel(s){
+  if(s && typeof s.area_m2 === "number" && Number.isFinite(s.area_m2)){
+    return s.area_m2.toFixed(2) + " m2";
+  }
+  return "1 und";
+}
+
+function updateInversion(){
+  if(!invTotal || !invOperativos || !invDeteriorados || !invReposicion) return;
+  const horiz = filtrarPorSeleccion(typeof senalesHorizontal !== "undefined" ? senalesHorizontal : []);
+  const vert = filtrarPorSeleccion(typeof senalesVertical !== "undefined" ? senalesVertical : []);
+  const mob = filtrarPorSeleccion(typeof senalesMobiliario !== "undefined" ? senalesMobiliario : []);
+  const all = horiz.concat(vert, mob);
+
+  const sumHoriz = horiz.reduce((sum, s)=> sum + precioDeSenal("horizontal", s), 0);
+  const sumVert = vert.reduce((sum, s)=> sum + precioDeSenal("vertical", s), 0);
+  const sumMob = mob.reduce((sum, s)=> sum + precioDeSenal("mobiliario", s), 0);
+  const total = sumHoriz + sumVert + sumMob;
+
+  const sumOper = all.filter(s => s.estado === "nueva").reduce((sum, s)=> sum + precioDeSenal("mix", s), 0);
+  const sumDet = all.filter(s => s.estado === "antigua").reduce((sum, s)=> sum + precioDeSenal("mix", s), 0);
+  const sumRepo = all.filter(s => s.estado === "sin_senal").reduce((sum, s)=> sum + precioDeSenal("mix", s), 0);
+
+  if(invTotal) invTotal.textContent = formatearMonedaPEN(total);
+  if(invOperativos) invOperativos.textContent = formatearMonedaPEN(sumOper);
+  if(invDeteriorados) invDeteriorados.textContent = formatearMonedaPEN(sumDet);
+  if(invReposicion) invReposicion.textContent = formatearMonedaPEN(sumRepo);
+  if(invOperativosPct) invOperativosPct.textContent = total ? Math.round((sumOper / total) * 100) + "%" : "0%";
+  if(invDeterioradosPct) invDeterioradosPct.textContent = total ? Math.round((sumDet / total) * 100) + "%" : "0%";
+
+  const pctTransito = total ? Math.round((sumVert / total) * 100) : 0;
+  const pctMarcas = total ? Math.round((sumHoriz / total) * 100) : 0;
+  const pctMobiliario = total ? Math.round((sumMob / total) * 100) : 0;
+  if(invBarTransito) invBarTransito.style.width = pctTransito + "%";
+  if(invBarMarcas) invBarMarcas.style.width = pctMarcas + "%";
+  if(invBarMobiliario) invBarMobiliario.style.width = pctMobiliario + "%";
+  if(invValTransito) invValTransito.textContent = formatearMonedaPEN(sumVert);
+  if(invValMarcas) invValMarcas.textContent = formatearMonedaPEN(sumHoriz);
+  if(invValMobiliario) invValMobiliario.textContent = formatearMonedaPEN(sumMob);
+
+  if(invTablaBody){
+    if(!all.length){
+      invTablaBody.innerHTML = "<tr><td colspan=\"5\">Sin activos registrados.</td></tr>";
+    } else {
+      invTablaBody.innerHTML = all.map((s)=>{
+        const nombre = String(s.nombre || s.tipo || "Activo");
+        const tipo = String(s.tipo || (s.icono ? "Senal" : "Activo"));
+        const precio = precioDeSenal("mix", s);
+        return "<tr>"
+          + "<td>" + escapeHtml(nombre) + "</td>"
+          + "<td>" + escapeHtml(tipo) + "</td>"
+          + "<td>" + cantidadLabel(s) + "</td>"
+          + "<td>" + escapeHtml(labelEstadoSeguro(s.estado)) + "</td>"
+          + "<td>" + formatearMonedaPEN(precio) + "</td>"
+          + "</tr>";
+      }).join("");
+    }
+  }
+
+  const sinVerif = all.filter(s => !s.inspeccionFoto).reduce((sum, s)=> sum + precioDeSenal("mix", s), 0);
+  const mantenimiento = sumDet;
+  const reposicion = sumRepo;
+  const totalProx = sinVerif + mantenimiento + reposicion;
+  if(invSinVerif) invSinVerif.textContent = formatearMonedaPEN(sinVerif);
+  if(invMantenimiento) invMantenimiento.textContent = formatearMonedaPEN(mantenimiento);
+  if(invReposicionCrit) invReposicionCrit.textContent = formatearMonedaPEN(reposicion);
+  if(invTotalProxima) invTotalProxima.textContent = formatearMonedaPEN(totalProx);
+}
+
+window.updateInversion = updateInversion;
 
 function abrirDashboard(){
   setDashView("dashboard");
@@ -1289,6 +1532,10 @@ function setDashView(view){
 
   if(view === "dashboard"){
     updateDashboard();
+  }
+
+  if(view === "inversion"){
+    updateInversion();
   }
 
   if(view === "tareas"){
@@ -1769,6 +2016,7 @@ function cargarSesionRol(){
           setScopeGeografico(scope.region || "", scope.distrito || "");
         }
       }catch(e){}
+      try{ initProyectos(); }catch(e){}
       updateMobileBanner();
       if(loginOverlay) loginOverlay.classList.add("hidden");
       try{ document.body.classList.add("dash-shell"); }catch(e){}
@@ -1825,6 +2073,7 @@ if(formLogin){
         setScopeGeografico(scope.region || "", scope.distrito || "");
       }
     }catch(e){}
+    try{ initProyectos(); }catch(e){}
     if(loginOverlay) loginOverlay.classList.add("hidden");
     updateMobileBanner();
     try{ document.body.classList.add("dash-shell"); }catch(e){}
@@ -1842,6 +2091,10 @@ function ejecutarLogout(){
     localStorage.removeItem("correoActual");
     limpiarSesionScope();
   }catch(e){}
+  proyectosCache = [];
+  proyectoActivoId = "";
+  if(selectProyecto) selectProyecto.innerHTML = "";
+  updateProjectUI();
   try{
     if(typeof setScopeGeografico === "function"){
       setScopeGeografico("", "");
@@ -2673,6 +2926,7 @@ async function registrarRegistroDraft(){
       });
       if(typeof renderizarTodo === "function"){ renderizarTodo(); }
       if(typeof updateReportes === "function"){ updateReportes(); }
+      if(typeof guardarProyectoActivo === "function"){ guardarProyectoActivo(); }
       cerrarRegistroPanel();
       return;
     }
@@ -2973,6 +3227,21 @@ if(metradoLineas){
   });
 }
 try{ syncMetradoFormState(); }catch(e){}
+
+if(selectProyecto){
+  selectProyecto.addEventListener("change", ()=>{
+    if(!btnCambiarProyecto){
+      setProyectoActivoPorId(selectProyecto.value);
+      return;
+    }
+    btnCambiarProyecto.disabled = !selectProyecto.value;
+  });
+}
+if(btnCambiarProyecto){
+  btnCambiarProyecto.addEventListener("click", ()=>{
+    setProyectoActivoPorId(selectProyecto ? selectProyecto.value : "");
+  });
+}
 
 if(btnInspeccionClose){
   btnInspeccionClose.addEventListener("click", cerrarModalInspeccion);

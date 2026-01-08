@@ -220,6 +220,126 @@
 .dash-avisos-expanded{
   max-width:1100px;
 }
+
+/* Inversion */
+.inv-grid{
+  display:grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap:18px;
+  margin-bottom:20px;
+}
+.inv-card{
+  background:var(--dash-card);
+  border-radius:18px;
+  padding:18px 18px;
+  border:1px solid rgba(11,34,48,0.08);
+  box-shadow:0 12px 26px rgba(11,34,48,0.08);
+}
+.inv-card-title{
+  font-weight:800;
+  font-size:12px;
+  color:rgba(11,34,48,0.7);
+}
+.inv-card-value{
+  margin-top:8px;
+  font-size:22px;
+  font-weight:900;
+}
+.inv-card-sub{
+  margin-top:6px;
+  font-size:12px;
+  color:rgba(11,34,48,0.6);
+  font-weight:800;
+}
+.inv-card--total{background:#e6f0f5;}
+.inv-card--ok{background:#e8f5ee;}
+.inv-card--warn{background:#fff2e6;}
+.inv-card--danger{background:#fdebea;}
+
+.inv-block{
+  background:var(--dash-card);
+  border-radius:18px;
+  padding:18px;
+  border:1px solid rgba(11,34,48,0.08);
+  box-shadow:0 12px 26px rgba(11,34,48,0.08);
+  margin-bottom:20px;
+}
+.inv-block h3{
+  margin:0 0 14px;
+  font-size:14px;
+  font-weight:900;
+}
+.inv-bars{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.inv-bar{
+  display:grid;
+  grid-template-columns:140px 1fr 120px;
+  gap:12px;
+  align-items:center;
+  font-size:12px;
+  font-weight:800;
+}
+.inv-bar-track{
+  height:12px;
+  background:#edf1f5;
+  border-radius:999px;
+  overflow:hidden;
+}
+.inv-bar-fill{
+  height:100%;
+  width:0%;
+  border-radius:999px;
+  transition:width 0.25s ease;
+}
+.inv-bar-fill--blue{background:#2f6fed;}
+.inv-bar-fill--gold{background:#f7a800;}
+.inv-bar-fill--green{background:#2fa84f;}
+
+.inv-table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:12px;
+}
+.inv-table th,
+.inv-table td{
+  padding:10px 8px;
+  border-bottom:1px solid rgba(11,34,48,0.08);
+  text-align:left;
+}
+.inv-table th{
+  color:#6a7a85;
+  font-weight:900;
+  text-transform:uppercase;
+  font-size:11px;
+}
+.inv-summary{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.inv-summary-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:10px 12px;
+  border-radius:12px;
+  background:#f6f8fb;
+  font-weight:800;
+}
+.inv-summary-row--total{
+  background:#f7edd1;
+}
+
+@media (max-width: 1100px){
+  .inv-grid{grid-template-columns: repeat(2, minmax(0, 1fr));}
+  .inv-bar{grid-template-columns:120px 1fr 90px;}
+}
+@media (max-width: 720px){
+  .inv-grid{grid-template-columns:1fr;}
+}
 .dash-avisos-expanded .reportes-toolbar{
   flex-wrap:wrap;
 }

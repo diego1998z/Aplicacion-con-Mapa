@@ -52,7 +52,7 @@ function escapeHtml(value){
 }
 
 function labelEstado(estado){
-    const map = { nueva:"Nueva", antigua:"Antigua", sin_senal:"Sin senal" };
+    const map = { nueva:"Operativa", antigua:"Deteriorada", sin_senal:"No operativa" };
     return map[estado] || (estado || "-");
 }
 
@@ -709,9 +709,9 @@ function renderizarSenalesModo(lista, modo, layerGroup) {
                 +     '<div class="senal-field">'
                 +       '<span>Estado</span>'
                 +       '<div class="estado-grid">'
-                +           '<button type="button" class="estado-option' + (s.estado === "nueva" ? " active" : "") + '" data-estado="nueva">Nueva</button>'
-                +           '<button type="button" class="estado-option' + (s.estado === "antigua" ? " active" : "") + '" data-estado="antigua">Antigua</button>'
-                +           '<button type="button" class="estado-option' + (s.estado === "sin_senal" ? " active" : "") + '" data-estado="sin_senal">Sin senal</button>'
+                +           '<button type="button" class="estado-option' + (s.estado === "nueva" ? " active" : "") + '" data-estado="nueva">Operativa</button>'
+                +           '<button type="button" class="estado-option' + (s.estado === "antigua" ? " active" : "") + '" data-estado="antigua">Deteriorada</button>'
+                +           '<button type="button" class="estado-option' + (s.estado === "sin_senal" ? " active" : "") + '" data-estado="sin_senal">No operativa</button>'
                 +       '</div>'
                 +     '</div>'
                 +     '<div class="fecha-row js-senal-fecha-row' + fechaHidden + '">'
@@ -787,6 +787,7 @@ function renderizarSenalesModo(lista, modo, layerGroup) {
                 try{ layerGroup.removeLayer(marker); }catch(e){}
                 try{ marker.closePopup(); }catch(e){}
                 if(typeof updateReportes === "function"){ updateReportes(); }
+                if(typeof guardarProyectoActivo === "function"){ guardarProyectoActivo(); }
             }catch(e){
                 alert("No se pudo eliminar la senal.");
             }
@@ -962,6 +963,7 @@ function renderizarSenalesModo(lista, modo, layerGroup) {
                 }
 
                 if(typeof updateReportes === "function"){ updateReportes(); }
+                if(typeof guardarProyectoActivo === "function"){ guardarProyectoActivo(); }
 
                 // Si con el nuevo estado ya no pasa filtro, se oculta
                 if(!pasaFiltroEstado(s)){
@@ -1012,6 +1014,7 @@ function renderizarSenalesModo(lista, modo, layerGroup) {
             console.log('Senal ' + s.id + ' movida a:', nueva);
             alert('Se movio la senal ' + s.id + ' a nueva ubicacion.');
             if(typeof updateReportes === "function"){ updateReportes(); }
+            if(typeof guardarProyectoActivo === "function"){ guardarProyectoActivo(); }
         });
 
     });
@@ -1081,9 +1084,9 @@ function templateCrearPopup(lat, lng){
     +   '<div class="step estado-step active">'
     +       '<div class="step-title">Estado</div>'
     +       '<div class="estado-grid">'
-    +           '<button class="estado-option" data-estado="nueva">Nueva</button>'
-    +           '<button class="estado-option" data-estado="antigua">Antigua</button>'
-    +           '<button class="estado-option" data-estado="sin_senal">Sin senal</button>'
+    +           '<button class="estado-option" data-estado="nueva">Operativa</button>'
+    +           '<button class="estado-option" data-estado="antigua">Deteriorada</button>'
+    +           '<button class="estado-option" data-estado="sin_senal">No operativa</button>'
     +       '</div>'
     +       '<div class="fecha-row hidden">'
     +           '<label>Fecha de colocacion</label>'
@@ -1563,6 +1566,7 @@ function crearSenal(lat, lng, estado, icono, fecha, precio, extra){
     }catch(e){}
     renderizarSenales(datasetActual);
     if(typeof updateReportes === "function"){ updateReportes(); }
+    if(typeof guardarProyectoActivo === "function"){ guardarProyectoActivo(); }
     // Siempre intentar inferir distrito/region por coordenadas para evitar errores
     // cuando se crea fuera del distrito seleccionado.
     inferirDistritoPorLatLng(nueva.lat, nueva.lng).then(function(d){
@@ -1643,6 +1647,9 @@ function setRol(nuevo){
     }
     if(typeof updateMobileBanner === "function"){
         updateMobileBanner();
+    }
+    if(typeof updateProjectUI === "function"){
+        updateProjectUI();
     }
 }
 
