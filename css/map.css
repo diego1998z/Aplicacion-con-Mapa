@@ -1471,7 +1471,7 @@ body.project-select-mode .leaflet-container{
     pointer-events:none;
 }
 #modalProyecto .project-modal{
-    margin:8px 0 0 0;
+    margin:180px 0 0 0;
     pointer-events:auto;
 }
 .modal-content{
@@ -1551,6 +1551,19 @@ body.project-select-mode .leaflet-container{
 }
 .project-table tbody tr:last-child td{
     border-bottom:none;
+}
+.project-remove-btn{
+    border:1px solid var(--border);
+    background:var(--field-bg);
+    color:var(--text);
+    border-radius:10px;
+    padding:6px 10px;
+    font-size:12px;
+    cursor:pointer;
+}
+.project-remove-btn:hover{
+    border-color:rgba(217,63,63,0.45);
+    color:#d93f3f;
 }
 .modal-content h3{
     margin:0 0 12px;
