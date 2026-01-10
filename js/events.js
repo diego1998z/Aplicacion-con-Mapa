@@ -68,6 +68,21 @@ const mapFloatingControls = document.getElementById("mapFloatingControls");
 const projectSwitcher = document.getElementById("projectSwitcher");
 const selectProyecto = document.getElementById("selectProyecto");
 const btnCambiarProyecto = document.getElementById("btnCambiarProyecto");
+const btnAgregarProyecto = document.getElementById("btnAgregarProyecto");
+const modalProyecto = document.getElementById("modalProyecto");
+const btnProyectoClose = document.getElementById("btnProyectoClose");
+const btnProyectoCancelar = document.getElementById("btnProyectoCancelar");
+const btnProyectoGuardar = document.getElementById("btnProyectoGuardar");
+const inputProyectoNombre = document.getElementById("inputProyectoNombre");
+const inputProyectoInicio = document.getElementById("inputProyectoInicio");
+const inputProyectoFin = document.getElementById("inputProyectoFin");
+const chkProyectoTransito = document.getElementById("chkProyectoTransito");
+const chkProyectoMarcas = document.getElementById("chkProyectoMarcas");
+const chkProyectoMobiliario = document.getElementById("chkProyectoMobiliario");
+const projectPreviewName = document.getElementById("projectPreviewName");
+const projectPreviewDates = document.getElementById("projectPreviewDates");
+const projectPreviewCount = document.getElementById("projectPreviewCount");
+const tablaProyectoPreview = document.getElementById("tablaProyectoPreview");
 const registroPicker = document.getElementById("registroPicker");
 const registroPanel = document.getElementById("registroPanel");
 const registroHint = document.getElementById("registroHint");
@@ -1184,6 +1199,12 @@ const LS_PROJECTS_PREFIX = "urbbisProjects:";
 const LS_PROJECT_ACTIVE_PREFIX = "urbbisProjectActive:";
 let proyectosCache = [];
 let proyectoActivoId = "";
+let projectSelectionActive = false;
+let projectSelection = {
+  vertical: new Set(),
+  horizontal: new Set(),
+  mobiliario: new Set()
+};
 
 function getProjectsKey(){
   const correo = getSessionEmail() || "guest";
@@ -1306,6 +1327,7 @@ function updateProjectUI(){
   const visible = rolActual === "municipal" && proyectosCache.length > 0;
   projectSwitcher.classList.toggle("hidden", !visible);
   if(btnCambiarProyecto) btnCambiarProyecto.disabled = !visible;
+  if(btnAgregarProyecto) btnAgregarProyecto.disabled = !visible;
 }
 
 function guardarProyectoActivo(){
@@ -1321,6 +1343,171 @@ function guardarProyectoActivo(){
 window.initProyectos = initProyectos;
 window.guardarProyectoActivo = guardarProyectoActivo;
 window.updateProjectUI = updateProjectUI;
+
+function resetProjectSelection(){
+  projectSelection = {
+    vertical: new Set(),
+    horizontal: new Set(),
+    mobiliario: new Set()
+  };
+}
+
+function isProjectSelectionActive(){
+  return !!projectSelectionActive;
+}
+
+function isProjectItemSelected(modo, id){
+  const key = String(id || "");
+  if(!key) return false;
+  const set = projectSelection && projectSelection[modo];
+  return !!(set && set.has(key));
+}
+
+function toggleProjectItemSelection(modo, item){
+  if(!projectSelectionActive || !item) return false;
+  const key = String(item.id || "");
+  if(!key) return false;
+  if(modo === "vertical" && chkProyectoTransito && !chkProyectoTransito.checked) return false;
+  if(modo === "horizontal" && chkProyectoMarcas && !chkProyectoMarcas.checked) return false;
+  if(modo === "mobiliario" && chkProyectoMobiliario && !chkProyectoMobiliario.checked) return false;
+  const set = projectSelection && projectSelection[modo];
+  if(!set) return false;
+  if(set.has(key)) set.delete(key);
+  else set.add(key);
+  updateProyectoPreview();
+  return true;
+}
+
+window.isProjectSelectionActive = isProjectSelectionActive;
+window.isProjectItemSelected = isProjectItemSelected;
+window.toggleProjectItemSelection = toggleProjectItemSelection;
+
+function labelEstadoProyecto(estado){
+  if(typeof labelEstadoSeguro === "function") return labelEstadoSeguro(estado);
+  if(estado === "nueva") return "Operativa";
+  if(estado === "antigua") return "Deteriorada";
+  if(estado === "sin_senal") return "No operativa";
+  return estado || "-";
+}
+
+function getProyectoSeleccionadoActivos(){
+  const items = [];
+  const filtrarPorSet = (list, set)=> {
+    if(!projectSelectionActive) return Array.isArray(list) ? list : [];
+    if(!set || !set.size) return [];
+    return (Array.isArray(list) ? list : []).filter(s => set.has(String(s.id || "")));
+  };
+  const addItems = (list, tipoLabel)=> {
+    (Array.isArray(list) ? list : []).forEach((s)=>{
+      const distrito = s.zona || s.distrito || "";
+      const region = s.region || (typeof regionPorDistrito === "function" ? (regionPorDistrito(distrito) || "") : "");
+      const ubicacion = (distrito || region) ? (String(distrito || "-") + (region ? " / " + region : "")) : "-";
+      const nombre = s.nombre || s.tipo || s.icono || "Activo";
+      items.push({
+        tipo: tipoLabel,
+        nombre,
+        estado: s.estado,
+        verificado: !!s.inspeccionFoto,
+        ubicacion
+      });
+    });
+  };
+  if(chkProyectoTransito && chkProyectoTransito.checked){
+    const base = typeof senalesVertical !== "undefined" ? senalesVertical : [];
+    addItems(filtrarPorSet(base, projectSelection.vertical), "Senales de transito");
+  }
+  if(chkProyectoMarcas && chkProyectoMarcas.checked){
+    const base = typeof senalesHorizontal !== "undefined" ? senalesHorizontal : [];
+    addItems(filtrarPorSet(base, projectSelection.horizontal), "Marcas viales");
+  }
+  if(chkProyectoMobiliario && chkProyectoMobiliario.checked){
+    const base = typeof senalesMobiliario !== "undefined" ? senalesMobiliario : [];
+    addItems(filtrarPorSet(base, projectSelection.mobiliario), "Mobiliario vial");
+  }
+  return items;
+}
+
+function updateProyectoPreview(){
+  const name = inputProyectoNombre ? inputProyectoNombre.value.trim() : "";
+  const inicio = inputProyectoInicio ? inputProyectoInicio.value : "";
+  const fin = inputProyectoFin ? inputProyectoFin.value : "";
+  let cleared = false;
+  if(projectSelectionActive){
+    if(chkProyectoTransito && !chkProyectoTransito.checked && projectSelection.vertical.size){
+      projectSelection.vertical.clear();
+      cleared = true;
+    }
+    if(chkProyectoMarcas && !chkProyectoMarcas.checked && projectSelection.horizontal.size){
+      projectSelection.horizontal.clear();
+      cleared = true;
+    }
+    if(chkProyectoMobiliario && !chkProyectoMobiliario.checked && projectSelection.mobiliario.size){
+      projectSelection.mobiliario.clear();
+      cleared = true;
+    }
+  }
+  if(projectPreviewName) projectPreviewName.textContent = name || "Sin nombre";
+  if(projectPreviewDates){
+    if(inicio || fin){
+      const iniTxt = inicio ? ("Inicio: " + inicio) : "Inicio: -";
+      const finTxt = fin ? ("Fin: " + fin) : "Fin: -";
+      projectPreviewDates.textContent = iniTxt + " | " + finTxt;
+    } else {
+      projectPreviewDates.textContent = "Sin fechas";
+    }
+  }
+  const data = getProyectoSeleccionadoActivos();
+  if(projectPreviewCount) projectPreviewCount.textContent = data.length + " activos";
+  const tbody = tablaProyectoPreview ? tablaProyectoPreview.querySelector("tbody") : null;
+  if(tbody){
+    if(!data.length){
+      tbody.innerHTML = "<tr><td colspan=\"5\">Sin activos seleccionados.</td></tr>";
+    } else {
+      tbody.innerHTML = data.map((s)=>(
+        "<tr>"
+        + "<td>" + escapeHtml(s.tipo) + "</td>"
+        + "<td>" + escapeHtml(s.nombre) + "</td>"
+        + "<td>" + escapeHtml(labelEstadoProyecto(s.estado)) + "</td>"
+        + "<td>" + (s.verificado ? "Verificado" : "No verificado") + "</td>"
+        + "<td>" + escapeHtml(s.ubicacion) + "</td>"
+        + "</tr>"
+      )).join("");
+    }
+  }
+  if(btnProyectoGuardar){
+    btnProyectoGuardar.disabled = !name || data.length === 0;
+  }
+  if(cleared){
+    try{ if(typeof renderizarTodo === "function"){ renderizarTodo(); } }catch(e){}
+  }
+}
+
+function abrirModalProyecto(){
+  if(!modalProyecto) return;
+  projectSelectionActive = true;
+  resetProjectSelection();
+  if(inputProyectoNombre) inputProyectoNombre.value = "";
+  if(inputProyectoInicio) inputProyectoInicio.value = hoyISO();
+  if(inputProyectoFin) inputProyectoFin.value = "";
+  if(chkProyectoTransito) chkProyectoTransito.checked = true;
+  if(chkProyectoMarcas) chkProyectoMarcas.checked = true;
+  if(chkProyectoMobiliario) chkProyectoMobiliario.checked = true;
+  updateProyectoPreview();
+  modalProyecto.classList.remove("hidden");
+  modalProyecto.setAttribute("aria-hidden","false");
+  try{ document.body.classList.add("project-select-mode"); }catch(e){}
+  try{ if(typeof renderizarTodo === "function"){ renderizarTodo(); } }catch(e){}
+}
+
+function cerrarModalProyecto(){
+  if(!modalProyecto) return;
+  modalProyecto.classList.add("hidden");
+  modalProyecto.setAttribute("aria-hidden","true");
+  projectSelectionActive = false;
+  resetProjectSelection();
+  try{ document.body.classList.remove("project-select-mode"); }catch(e){}
+  try{ if(typeof renderizarTodo === "function"){ renderizarTodo(); } }catch(e){}
+}
 
 function inicialesDesdeCorreo(correo){
   const name = nombreDesdeCorreo(correo);
@@ -2091,6 +2278,7 @@ function ejecutarLogout(){
     localStorage.removeItem("correoActual");
     limpiarSesionScope();
   }catch(e){}
+  cerrarModalProyecto();
   proyectosCache = [];
   proyectoActivoId = "";
   if(selectProyecto) selectProyecto.innerHTML = "";
@@ -3240,6 +3428,82 @@ if(selectProyecto){
 if(btnCambiarProyecto){
   btnCambiarProyecto.addEventListener("click", ()=>{
     setProyectoActivoPorId(selectProyecto ? selectProyecto.value : "");
+  });
+}
+if(btnAgregarProyecto){
+  btnAgregarProyecto.addEventListener("click", ()=>{
+    if(rolActual !== "municipal") return;
+    abrirModalProyecto();
+  });
+}
+if(btnProyectoClose){
+  btnProyectoClose.addEventListener("click", cerrarModalProyecto);
+}
+if(btnProyectoCancelar){
+  btnProyectoCancelar.addEventListener("click", cerrarModalProyecto);
+}
+["input","change"].forEach((evt)=>{
+  if(inputProyectoNombre) inputProyectoNombre.addEventListener(evt, updateProyectoPreview);
+  if(inputProyectoInicio) inputProyectoInicio.addEventListener(evt, updateProyectoPreview);
+  if(inputProyectoFin) inputProyectoFin.addEventListener(evt, updateProyectoPreview);
+  if(chkProyectoTransito) chkProyectoTransito.addEventListener(evt, updateProyectoPreview);
+  if(chkProyectoMarcas) chkProyectoMarcas.addEventListener(evt, updateProyectoPreview);
+  if(chkProyectoMobiliario) chkProyectoMobiliario.addEventListener(evt, updateProyectoPreview);
+});
+if(btnProyectoGuardar){
+  btnProyectoGuardar.addEventListener("click", ()=>{
+    const nombre = inputProyectoNombre ? inputProyectoNombre.value.trim() : "";
+    if(!nombre){
+      alert("Ingresa un nombre para el proyecto.");
+      return;
+    }
+    const includeTransito = !!(chkProyectoTransito && chkProyectoTransito.checked);
+    const includeMarcas = !!(chkProyectoMarcas && chkProyectoMarcas.checked);
+    const includeMobiliario = !!(chkProyectoMobiliario && chkProyectoMobiliario.checked);
+    if(!includeTransito && !includeMarcas && !includeMobiliario){
+      alert("Selecciona al menos un tipo de activo.");
+      return;
+    }
+    const inicio = inputProyectoInicio ? inputProyectoInicio.value : "";
+    const fin = inputProyectoFin ? inputProyectoFin.value : "";
+    if(inicio && fin && fin < inicio){
+      alert("La fecha fin debe ser mayor o igual a la fecha inicio.");
+      return;
+    }
+
+    const filtrarSeleccion = (list, set, include)=>{
+      if(!include) return [];
+      const base = Array.isArray(list) ? list : [];
+      if(!projectSelectionActive) return cloneSenales(base);
+      if(!set || !set.size) return [];
+      return cloneSenales(base.filter(s => set.has(String(s.id || ""))));
+    };
+
+    const seleccionadas = []
+      .concat(filtrarSeleccion(typeof senalesVertical !== "undefined" ? senalesVertical : [], projectSelection.vertical, includeTransito))
+      .concat(filtrarSeleccion(typeof senalesHorizontal !== "undefined" ? senalesHorizontal : [], projectSelection.horizontal, includeMarcas))
+      .concat(filtrarSeleccion(typeof senalesMobiliario !== "undefined" ? senalesMobiliario : [], projectSelection.mobiliario, includeMobiliario));
+    if(projectSelectionActive && !seleccionadas.length){
+      alert("Selecciona senales en el mapa para el proyecto.");
+      return;
+    }
+
+    const nuevo = {
+      id: "proj-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,6),
+      nombre,
+      creado: hoyISO(),
+      fecha_inicio: inicio || "",
+      fecha_fin: fin || "",
+      senalesHorizontal: filtrarSeleccion(typeof senalesHorizontal !== "undefined" ? senalesHorizontal : [], projectSelection.horizontal, includeMarcas),
+      senalesVertical: filtrarSeleccion(typeof senalesVertical !== "undefined" ? senalesVertical : [], projectSelection.vertical, includeTransito),
+      senalesMobiliario: filtrarSeleccion(typeof senalesMobiliario !== "undefined" ? senalesMobiliario : [], projectSelection.mobiliario, includeMobiliario)
+    };
+    proyectosCache.push(nuevo);
+    guardarProyectos();
+    actualizarSelectProyecto();
+    setProyectoActivoPorId(nuevo.id);
+    updateProjectUI();
+    cerrarModalProyecto();
   });
 }
 

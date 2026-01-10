@@ -594,6 +594,44 @@ function crearIcono(estado, iconoId, modo){
     });
 }
 
+function aplicarSeleccionMarker(marker, selected){
+    try{
+        const el = marker.getElement ? marker.getElement() : null;
+        if(el) el.classList.toggle("project-selected", !!selected);
+    }catch(e){}
+}
+
+function enlazarSeleccionProyecto(marker, modo, item){
+    if(!marker || !item) return;
+    if(typeof window.toggleProjectItemSelection !== "function") return;
+    const aplicarSiSeleccionado = ()=>{
+        try{
+            if(typeof window.isProjectSelectionActive === "function" && window.isProjectSelectionActive()){
+                if(typeof window.isProjectItemSelected === "function" && window.isProjectItemSelected(modo, item.id)){
+                    aplicarSeleccionMarker(marker, true);
+                } else {
+                    aplicarSeleccionMarker(marker, false);
+                }
+            } else {
+                aplicarSeleccionMarker(marker, false);
+            }
+        }catch(e){}
+    };
+    marker.on("add", aplicarSiSeleccionado);
+    aplicarSiSeleccionado();
+    marker.on("click", function(){
+        try{
+            if(typeof window.isProjectSelectionActive !== "function" || !window.isProjectSelectionActive()) return;
+            const changed = window.toggleProjectItemSelection(modo, item);
+            if(!changed) return;
+            const selected = (typeof window.isProjectItemSelected === "function")
+                ? window.isProjectItemSelected(modo, item.id)
+                : false;
+            aplicarSeleccionMarker(marker, selected);
+        }catch(e){}
+    });
+}
+
 function renderizarSenalesModo(lista, modo, layerGroup) {
     if(!layerGroup || typeof layerGroup.clearLayers !== "function") return;
     layerGroup.clearLayers();
@@ -739,6 +777,7 @@ function renderizarSenalesModo(lista, modo, layerGroup) {
             draggable: rolActual === "municipal",
             icon: crearIcono(s.estado, iconoInicial, modo)
         }).addTo(layerGroup);
+        enlazarSeleccionProyecto(marker, modo, s);
 
         let uiMode = "view"; // view | edit
         marker.bindPopup(buildPopupView());
@@ -1028,6 +1067,7 @@ function renderizarMobiliario(lista, layerGroup){
             draggable: rolActual === "municipal",
             icon: iconoMobiliario(s.estado)
         }).addTo(layerGroup);
+        enlazarSeleccionProyecto(marker, "mobiliario", s);
         marker.bindPopup('<strong>Mobiliario vial</strong><br>'
             + 'Distrito: ' + (s.zona || "-") + '<br>'
             + 'Region: ' + (s.region || regionPorDistrito(s.zona || "") || "-") + '<br>'

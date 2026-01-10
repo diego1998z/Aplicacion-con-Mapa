@@ -446,6 +446,7 @@
                 <select id="selectProyecto"></select>
             </div>
             <button id="btnCambiarProyecto" type="button" class="map-floating-btn map-floating-btn--ghost">Cambiar proyecto</button>
+            <button id="btnAgregarProyecto" type="button" class="map-floating-btn map-floating-btn--ghost">Agregar proyecto</button>
         </div>
         <div id="visualizacionPanel" class="map-floating-panel hidden" aria-label="Opciones de visualizacion">
             <div class="map-panel-section">
@@ -760,6 +761,54 @@
             <div class="modal-actions">
                 <button id="btnCancelarReporte" class="btnGhost">Cancelar</button>
                 <button id="btnEnviarReporte">Enviar aviso</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalProyecto" class="modal hidden" aria-hidden="true">
+        <div class="modal-content project-modal">
+            <div class="project-modal-head">
+                <h3>Agregar proyecto</h3>
+                <button id="btnProyectoClose" type="button" class="inspeccion-close">&times;</button>
+            </div>
+            <div class="project-form">
+                <label for="inputProyectoNombre">Nombre del proyecto</label>
+                <input id="inputProyectoNombre" type="text" placeholder="Ej: Registro senalizacion 2026">
+                <div class="project-grid">
+                    <div>
+                        <label for="inputProyectoInicio">Fecha inicio</label>
+                        <input id="inputProyectoInicio" type="date">
+                    </div>
+                    <div>
+                        <label for="inputProyectoFin">Fecha fin</label>
+                        <input id="inputProyectoFin" type="date">
+                    </div>
+                </div>
+                <div class="project-checks">
+                    <label class="map-panel-check"><input id="chkProyectoTransito" type="checkbox" checked> <span>Senales de transito</span></label>
+                    <label class="map-panel-check"><input id="chkProyectoMarcas" type="checkbox" checked> <span>Marcas viales</span></label>
+                    <label class="map-panel-check"><input id="chkProyectoMobiliario" type="checkbox" checked> <span>Mobiliario vial</span></label>
+                </div>
+                <div class="project-hint">Selecciona las senales en el mapa con click izquierdo.</div>
+            </div>
+            <div class="project-preview">
+                <div class="project-preview-title">Proyecto: <span id="projectPreviewName">-</span></div>
+                <div class="project-preview-meta">
+                    <span id="projectPreviewDates">Sin fechas</span>
+                    <span id="projectPreviewCount">0 activos</span>
+                </div>
+                <div class="project-table-wrap">
+                    <table id="tablaProyectoPreview" class="project-table">
+                        <thead>
+                            <tr><th>Tipo</th><th>Nombre</th><th>Estado</th><th>Verificado</th><th>Ubicacion</th></tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button id="btnProyectoCancelar" type="button" class="map-panel-btn map-panel-btn--ghost">Cancelar</button>
+                <button id="btnProyectoGuardar" type="button" class="map-panel-btn">Guardar</button>
             </div>
         </div>
     </div>
