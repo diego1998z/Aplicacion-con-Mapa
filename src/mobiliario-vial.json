@@ -1,0 +1,96 @@
+{
+  "capitulo": "Mobiliario vial",
+  "fecha": "2026-01-10",
+  "moneda": "PEN",
+  "partidas": [
+    {
+      "codigo": "3.01",
+      "partida": "Instalacion de Tacha Reflectiva",
+      "unidad": "und",
+      "rendimiento_und_dia": 64,
+      "costo_directo": 43.9,
+      "utilidad": 4.39,
+      "gastos_generales": 7.24,
+      "igv": 10.00,
+      "precio_unitario_total": 65.53,
+      "mano_obra": [
+        { "descripcion": "Capataz", "hh": 0.025, "precio": 17.58, "parcial": 0.44 },
+        { "descripcion": "Oficial", "hh": 0.125, "precio": 11.97, "parcial": 1.5 },
+        { "descripcion": "Peon", "hh": 0.25, "precio": 10.81, "parcial": 2.7 }
+      ],
+      "materiales": [
+        { "descripcion": "Pegamento epoxico", "unidad": "kg", "cantidad": 0.0133, "precio": 309.6, "parcial": 4.12 },
+        { "descripcion": "Tacha", "unidad": "und", "cantidad": 1.0, "precio": 35.0, "parcial": 35.0 }
+      ],
+      "equipos": [
+        { "descripcion": "Herramientas manuales", "factor": "%MO", "parcial": 0.14 }
+      ]
+    },
+    {
+      "codigo": "3.02",
+      "partida": "Instalacion de Bolardo",
+      "unidad": "und",
+      "rendimiento_und_dia": 30,
+      "estructura": "similar a tacha",
+      "materiales_principales": [
+        "Bolardo",
+        "Concreto",
+        "Adhesivo / Anclaje"
+      ],
+      "incluye": [
+        "mano de obra",
+        "equipos",
+        "nivelacion"
+      ],
+      "costo_directo": 43.9,
+      "utilidad": 4.39,
+      "gastos_generales": 7.24,
+      "igv": 10.00,
+      "precio_unitario_total": 65.53,
+      "mano_obra": [
+        { "descripcion": "Capataz", "hh": 0.025, "precio": 17.58, "parcial": 0.44 },
+        { "descripcion": "Oficial", "hh": 0.125, "precio": 11.97, "parcial": 1.5 },
+        { "descripcion": "Peon", "hh": 0.25, "precio": 10.81, "parcial": 2.7 }
+      ],
+      "materiales": [
+        { "descripcion": "Pegamento epoxico", "unidad": "kg", "cantidad": 0.0133, "precio": 309.6, "parcial": 4.12 },
+        { "descripcion": "Bolardo", "unidad": "und", "cantidad": 1.0, "precio": 35.0, "parcial": 35.0 }
+      ],
+      "equipos": [
+        { "descripcion": "Herramientas manuales", "factor": "%MO", "parcial": 0.14 }
+      ]
+    },
+    {
+      "codigo": "3.03",
+      "partida": "Instalacion de Tacha Vial",
+      "unidad": "und",
+      "rendimiento_und_dia": 80,
+      "estructura": "similar a tacha",
+      "materiales_principales": [
+        "Tacha reflectiva",
+        "Pegamento epoxico"
+      ],
+      "incluye": [
+        "mano de obra",
+        "equipos"
+      ],
+      "costo_directo": 43.9,
+      "utilidad": 4.39,
+      "gastos_generales": 7.24,
+      "igv": 10.00,
+      "precio_unitario_total": 65.53,
+      "mano_obra": [
+        { "descripcion": "Capataz", "hh": 0.025, "precio": 17.58, "parcial": 0.44 },
+        { "descripcion": "Oficial", "hh": 0.125, "precio": 11.97, "parcial": 1.5 },
+        { "descripcion": "Peon", "hh": 0.25, "precio": 10.81, "parcial": 2.7 }
+      ],
+      "materiales": [
+        { "descripcion": "Pegamento epoxico", "unidad": "kg", "cantidad": 0.0133, "precio": 309.6, "parcial": 4.12 },
+        { "descripcion": "Tacha vial", "unidad": "und", "cantidad": 1.0, "precio": 35.0, "parcial": 35.0 }
+      ],
+      "equipos": [
+        { "descripcion": "Herramientas manuales", "factor": "%MO", "parcial": 0.14 }
+      ]
+    }
+  ]
+}

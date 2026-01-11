@@ -333,9 +333,127 @@
   background:#f7edd1;
 }
 
+.apu-panel{
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+}
+.apu-controls{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:16px;
+}
+.apu-control label{
+  display:block;
+  font-size:12px;
+  color:var(--muted);
+  margin-bottom:6px;
+}
+.apu-control select,
+.apu-control input{
+  width:100%;
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:10px 12px;
+  background:var(--field-bg);
+  color:var(--text);
+  font-family:inherit;
+}
+.apu-meta{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px 18px;
+  font-size:12px;
+  color:var(--muted);
+}
+.apu-table-wrap{
+  border:1px solid var(--border);
+  border-radius:14px;
+  overflow:auto;
+  background:var(--panel);
+}
+.apu-table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:13px;
+}
+.apu-table th,
+.apu-table td{
+  text-align:left;
+  padding:10px 12px;
+  border-bottom:1px solid var(--border);
+}
+.apu-table th{
+  background:var(--field-bg);
+  color:var(--muted);
+  font-weight:700;
+}
+.apu-table tbody tr:last-child td{
+  border-bottom:none;
+}
+.apu-table tbody tr.is-selected{
+  background:rgba(29,112,184,0.08);
+}
+.apu-detail{
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:16px;
+  background:var(--panel);
+}
+.apu-detail-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+.apu-detail-head h3{
+  margin:0;
+  font-size:16px;
+}
+.apu-detail-head span{
+  color:var(--muted);
+  font-size:12px;
+}
+.apu-detail-section{
+  margin-bottom:16px;
+}
+.apu-detail-section:last-child{
+  margin-bottom:0;
+}
+.apu-detail-section h4{
+  margin:0 0 8px;
+  font-size:13px;
+}
+.apu-detail-table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:12px;
+}
+.apu-detail-table th,
+.apu-detail-table td{
+  text-align:left;
+  padding:8px 10px;
+  border-bottom:1px solid var(--border);
+}
+.apu-detail-table th{
+  background:var(--field-bg);
+  color:var(--muted);
+  font-weight:700;
+}
+.apu-detail-table tbody tr:last-child td{
+  border-bottom:none;
+}
+.apu-empty{
+  color:var(--muted);
+  font-size:12px;
+  padding:6px 2px;
+}
+
 @media (max-width: 1100px){
   .inv-grid{grid-template-columns: repeat(2, minmax(0, 1fr));}
   .inv-bar{grid-template-columns:120px 1fr 90px;}
+  .apu-controls{grid-template-columns:1fr;}
 }
 @media (max-width: 720px){
   .inv-grid{grid-template-columns:1fr;}

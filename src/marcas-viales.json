@@ -1,0 +1,128 @@
+{
+  "capitulo": "Marcas en el Pavimento",
+  "fecha": "2026-01-09",
+  "moneda": "PEN",
+  "partidas": [
+    {
+      "codigo": "13.01",
+      "partida": "Aplicación de Termoplástico por Spray",
+      "unidad": "m2",
+      "rendimiento": {
+        "ancho_10cm_m2_dia": 6667,
+        "ancho_15cm_m2_dia": 1000
+      },
+      "materiales": [
+        {
+          "descripcion": "Pintura termoplástica para spray",
+          "unidad": "kg",
+          "cantidad": 3.0,
+          "precio_unitario": 8.00,
+          "parcial": 24.00
+        },
+        {
+          "descripcion": "Microesferas de vidrio",
+          "unidad": "kg",
+          "cantidad": 0.65,
+          "precio_unitario": 6.20,
+          "parcial": 4.03
+        },
+        {
+          "descripcion": "Gas 25 kg",
+          "unidad": "balon",
+          "cantidad": 0.001,
+          "precio_unitario": 120.00,
+          "parcial": 0.12
+        },
+        {
+          "descripcion": "Combustible",
+          "unidad": "gl",
+          "cantidad": 0.038,
+          "precio_unitario": 21.00,
+          "parcial": 0.80
+        }
+      ],
+      "mano_obra": {
+        "criterio": "Precio único de referencia (no diferenciado por zonas)",
+        "detalle": [
+          { "descripcion": "Capataz", "unidad": "hh", "cantidad": 0.008, "precio": 27.00, "parcial": 0.22 },
+          { "descripcion": "Operador", "unidad": "hh", "cantidad": 0.008, "precio": 24.50, "parcial": 0.20 },
+          { "descripcion": "Chofer", "unidad": "hh", "cantidad": 0.016, "precio": 18.75, "parcial": 0.30 },
+          { "descripcion": "Peón", "unidad": "hh", "cantidad": 0.032, "precio": 17.20, "parcial": 0.55 }
+        ],
+        "subtotal": 1.26
+      },
+      "equipos": [
+        { "descripcion": "Camión caldera", "unidad": "hm", "cantidad": 0.008, "precio": 200.00, "parcial": 1.60 },
+        { "descripcion": "Caldera para termoplásticos", "unidad": "hm", "cantidad": 0.011, "precio": 200.00, "parcial": 2.20 },
+        { "descripcion": "Máquina para spray", "unidad": "hm", "cantidad": 0.008, "precio": 100.00, "parcial": 0.80 },
+        { "descripcion": "Camión furgón", "unidad": "hm", "cantidad": 0.008, "precio": 50.00, "parcial": 0.40 },
+        { "descripcion": "Herramientas y EPP", "tipo": "% MO", "factor": 0.05, "base": 1.26, "parcial": 0.06 }
+      ],
+      "costo_directo": 46.23,
+      "utilidad": 4.62,
+      "gastos_generales": 7.63,
+      "igv": 10.53,
+      "precio_unitario_total": 69.01
+    },
+
+    {
+      "codigo": "13.02",
+      "partida": "Aplicación de Termoplástico por Extrusión",
+      "unidad": "m2",
+      "rendimiento": {
+        "ancho_10cm_m2_dia": 2000,
+        "ancho_15cm_m2_dia": 300
+      },
+      "materiales": [
+        { "descripcion": "Pintura termoplástica para extrusión", "unidad": "kg", "cantidad": 6.0, "precio_unitario": 8.00, "parcial": 48.00 },
+        { "descripcion": "Microesferas de vidrio", "unidad": "kg", "cantidad": 0.65, "precio_unitario": 6.20, "parcial": 4.03 },
+        { "descripcion": "Gas 10 kg", "unidad": "balon", "cantidad": 0.0033, "precio_unitario": 55.00, "parcial": 0.18 },
+        { "descripcion": "Combustible petróleo", "unidad": "gl", "cantidad": 0.127, "precio_unitario": 21.00, "parcial": 2.66 },
+        { "descripcion": "Combustible gasolina", "unidad": "gl", "cantidad": 0.011, "precio_unitario": 22.00, "parcial": 0.24 }
+      ],
+      "mano_obra": {
+        "criterio": "Precio único de referencia",
+        "subtotal": 4.98
+      },
+      "equipos": [
+        { "descripcion": "Camión caldera", "parcial": 5.33 },
+        { "descripcion": "Caldera para termoplásticos", "parcial": 11.00 },
+        { "descripcion": "Máquina para extrusión", "parcial": 4.00 },
+        { "descripcion": "Camión furgón", "parcial": 5.33 },
+        { "descripcion": "Van personal", "parcial": 0.67 },
+        { "descripcion": "Herramientas y EPP", "parcial": 0.25 }
+      ],
+      "costo_directo": 102.94,
+      "utilidad": 10.29,
+      "gastos_generales": 16.99,
+      "igv": 23.44,
+      "precio_unitario_total": 153.66
+    },
+
+    {
+      "codigo": "13.03",
+      "partida": "Seguridad Vial para Marcas en el Pavimento",
+      "unidad": "ml",
+      "rendimiento_ml_dia": 3000,
+      "materiales": [
+        { "descripcion": "Conos de seguridad", "unidad": "und", "cantidad": 0.1, "precio_unitario": 100.00, "parcial": 10.00 },
+        { "descripcion": "Carteles de obra con trípode", "unidad": "und", "cantidad": 0.002, "precio_unitario": 145.00, "parcial": 0.34 },
+        { "descripcion": "Combustible", "unidad": "gl", "cantidad": 0.001, "precio_unitario": 21.00, "parcial": 0.01 }
+      ],
+      "mano_obra": {
+        "criterio": "Precio único",
+        "subtotal": 0.20
+      },
+      "equipos": [
+        { "descripcion": "Camión doble cabina", "parcial": 0.27 },
+        { "descripcion": "Camioneta de resguardo", "parcial": 0.13 },
+        { "descripcion": "Herramientas y EPP", "parcial": 0.01 }
+      ],
+      "costo_directo": 10.96,
+      "utilidad": 1.1,
+      "gastos_generales": 1.81,
+      "igv": 2.5,
+      "precio_unitario_total": 16.37
+    }
+  ]
+}

@@ -1,0 +1,147 @@
+{
+  "capitulo": "Señales de Tránsito",
+  "moneda": "PEN",
+  "partidas": [
+
+    {
+      "codigo": "1.01",
+      "partida": "Señal Preventiva",
+      "unidad": "und",
+      "rendimiento_und_dia": 200,
+      "costo_directo": 631.99,
+      "utilidad": 63.20,
+      "gastos_generales": 104.28,
+      "igv": 143.90,
+      "precio_unitario_total": 943.37,
+
+      "mano_obra": [
+        { "descripcion": "Capataz", "unidad": "hh", "cantidad": 0.20, "precio": 17.58, "parcial": 3.52 },
+        { "descripcion": "Operario", "unidad": "hh", "cantidad": 2.40, "precio": 13.52, "parcial": 32.45 }
+      ],
+
+      "materiales": [
+        { "descripcion": "Platina 2\" x 1/8\"", "unidad": "m", "cantidad": 16.00, "precio": 21.50, "parcial": 34.40 },
+        { "descripcion": "Fibra de vidrio 6 mm", "unidad": "m2", "cantidad": 0.56, "precio": 151.52, "parcial": 84.85 },
+        { "descripcion": "Pintura esmalte", "unidad": "gal", "cantidad": 0.06, "precio": 71.45, "parcial": 4.29 },
+        { "descripcion": "Tinta serigráfica negra", "unidad": "gal", "cantidad": 0.015, "precio": 1179.46, "parcial": 17.69 },
+        { "descripcion": "Thinner", "unidad": "gal", "cantidad": 0.001, "precio": 23.58, "parcial": 0.02 },
+        { "descripcion": "Soldadura", "unidad": "kg", "cantidad": 0.08, "precio": 10.57, "parcial": 0.85 },
+        { "descripcion": "Lámina reflectiva alta intensidad", "unidad": "p2", "cantidad": 62.50, "precio": 19.20, "parcial": 120.00 }
+      ],
+
+      "equipos": [
+        { "descripcion": "Herramientas manuales", "tipo": "%MO", "factor": 0.05, "base": 35.96, "parcial": 1.80 },
+        { "descripcion": "Máquina soldadora", "unidad": "hm", "cantidad": 0.40, "precio": 12.80, "parcial": 5.12 }
+      ],
+
+      "subpartidas": [
+        { "descripcion": "Instalación de señales", "unidad": "und", "precio": 100.01 },
+        { "descripcion": "Elaboración de postes para señales", "unidad": "und", "precio": 227.00 }
+      ]
+    },
+
+    {
+      "codigo": "1.02",
+      "partida": "Señal Reglamentaria",
+      "unidad": "und",
+      "rendimiento_und_dia": 150,
+      "costo_directo": 759.24,
+      "utilidad": 75.92,
+      "gastos_generales": 125.27,
+      "igv": 172.88,
+      "precio_unitario_total": 1133.31,
+
+      "mano_obra": [
+        { "descripcion": "Capataz", "hh": 0.27, "precio": 17.58, "parcial": 4.69 },
+        { "descripcion": "Operario", "hh": 2.67, "precio": 13.52, "parcial": 36.05 }
+      ],
+
+      "materiales": [
+        { "descripcion": "Platina 2\" x 1/8\"", "unidad": "m", "cantidad": 13.00, "precio": 21.50, "parcial": 27.95 },
+        { "descripcion": "Fibra de vidrio 6 mm", "unidad": "m2", "cantidad": 0.96, "precio": 151.52, "parcial": 145.46 },
+        { "descripcion": "Pintura esmalte", "unidad": "gal", "cantidad": 0.04, "precio": 71.45, "parcial": 2.86 },
+        { "descripcion": "Tinta serigráfica roja", "unidad": "gal", "cantidad": 0.003, "precio": 1198.20, "parcial": 3.59 },
+        { "descripcion": "Thinner", "unidad": "gal", "cantidad": 0.004, "precio": 23.58, "parcial": 0.09 },
+        { "descripcion": "Soldadura", "unidad": "kg", "cantidad": 0.08, "precio": 10.57, "parcial": 0.85 },
+        { "descripcion": "Lámina reflectiva alta intensidad", "unidad": "p2", "cantidad": 107.60, "precio": 19.20, "parcial": 206.59 }
+      ],
+
+      "equipos": [
+        { "descripcion": "Máquina soldadora", "unidad": "hm", "cantidad": 0.32, "precio": 12.80, "parcial": 4.10 }
+      ],
+
+      "subpartidas": [
+        { "descripcion": "Instalación de señales", "precio": 100.01 },
+        { "descripcion": "Elaboración de postes", "precio": 227.00 }
+      ]
+    },
+
+    {
+      "codigo": "1.03",
+      "partida": "Señal Informativa",
+      "unidad": "m2",
+      "rendimiento_m2_dia": 60,
+      "costo_directo": 490.73,
+      "utilidad": 49.07,
+      "gastos_generales": 80.97,
+      "igv": 111.74,
+      "precio_unitario_total": 732.51,
+
+      "mano_obra": [
+        { "descripcion": "Capataz", "hh": 0.27, "precio": 17.58, "parcial": 4.69 },
+        { "descripcion": "Operario", "hh": 13.33, "precio": 13.52, "parcial": 18.03 },
+        { "descripcion": "Peón", "hh": 13.33, "precio": 10.81, "parcial": 14.41 }
+      ],
+
+      "materiales": [
+        { "descripcion": "TEE acero 1½\"", "unidad": "pza", "cantidad": 0.36, "precio": 47.41, "parcial": 17.07 },
+        { "descripcion": "Fibra de vidrio 6 mm", "unidad": "m2", "cantidad": 1.00, "precio": 151.52, "parcial": 151.52 },
+        { "descripcion": "Pernos 5/16\" x 3\"", "unidad": "jgo", "cantidad": 0.23, "precio": 1.63, "parcial": 3.75 },
+        { "descripcion": "Pintura esmalte", "unidad": "gal", "cantidad": 0.067, "precio": 71.45, "parcial": 4.79 },
+        { "descripcion": "Pintura imprimante", "unidad": "gal", "cantidad": 0.067, "precio": 46.80, "parcial": 3.14 },
+        { "descripcion": "Thinner", "unidad": "gal", "cantidad": 0.0072, "precio": 23.58, "parcial": 0.17 },
+        { "descripcion": "Soldadura", "unidad": "kg", "cantidad": 0.20, "precio": 10.57, "parcial": 2.11 },
+        { "descripcion": "Lámina reflectiva alta intensidad", "unidad": "p2", "cantidad": 107.64, "precio": 19.20, "parcial": 206.67 }
+      ],
+
+      "equipos": [
+        { "descripcion": "Herramientas manuales", "tipo": "%MO", "factor": 0.05, "base": 37.13, "parcial": 1.86 },
+        { "descripcion": "Máquina soldadora", "unidad": "hm", "cantidad": 0.67, "precio": 12.80, "parcial": 8.53 }
+      ],
+
+      "subpartidas": [
+        { "descripcion": "Colocación de señal informativa", "precio": 54.00 }
+      ]
+    },
+    {
+      "codigo": "1.04",
+      "partida": "Estructura de Soporte Met lica",
+      "unidad": "m",
+      "rendimiento_m_dia": 200,
+      "costo_directo": 185.83,
+      "utilidad": 18.58,
+      "gastos_generales": 30.66,
+      "igv": 42.31,
+      "precio_unitario_total": 277.38,
+      "subpartidas": [
+        { "descripcion": "Colocaci¢n de p¢rtico de tubo", "precio": 60.00 }
+      ]
+    },
+    {
+      "codigo": "1.05",
+      "partida": "Cimentaci¢n de Se¤al",
+      "unidad": "m3",
+      "rendimiento_m3_dia": 20,
+      "costo_directo": 804.25,
+      "utilidad": 80.43,
+      "gastos_generales": 132.70,
+      "igv": 183.13,
+      "precio_unitario_total": 1200.51,
+      "subpartidas": [
+        { "descripcion": "Encofrado y desencofrado", "precio": 37.43 },
+        { "descripcion": "Concreto f'c=175 kg/cm2", "precio": 317.01 },
+        { "descripcion": "Acero de refuerzo", "precio": 3.96 }
+      ]
+    }
+  ]
+}

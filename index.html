@@ -54,6 +54,7 @@
                 <button type="button" class="dash-link" data-dash="reportes">Reportes</button>
                 <button type="button" class="dash-link" data-dash="tareas">Tareas</button>
                 <button type="button" class="dash-link" data-dash="inversion">Inversion</button>
+                <button type="button" class="dash-link" data-dash="apu">APU</button>
                 <button type="button" class="dash-link" data-dash="config">Configuracion</button>
             </nav>
 
@@ -186,6 +187,55 @@
                         <div class="inv-summary-row"><span>Mantenimiento sugerido</span><strong id="invMantenimiento">S/ 0</strong></div>
                         <div class="inv-summary-row"><span>Reposicion critica</span><strong id="invReposicionCrit">S/ 0</strong></div>
                         <div class="inv-summary-row inv-summary-row--total"><span>Inversion total proxima etapa</span><strong id="invTotalProxima">S/ 0</strong></div>
+                    </div>
+                </section>
+            </div>
+
+            <div class="dash-page hidden" data-dash-page="apu">
+                <div class="dash-top">
+                    <div>
+                        <div class="dash-entity">APU</div>
+                        <div class="dash-msg">Analisis de precios unitarios por partida.</div>
+                    </div>
+                </div>
+                <div class="dash-title">
+                    <h1>APU <span>/ Analisis de precios unitarios</span></h1>
+                </div>
+                <section class="apu-panel" aria-label="Analisis de precios unitarios">
+                    <div class="apu-controls">
+                        <div class="apu-control">
+                            <label for="apuCategoria">Partida</label>
+                            <select id="apuCategoria">
+                                <option value="transito">Senales de transito</option>
+                                <option value="marcas">Marcas viales</option>
+                                <option value="mobiliario">Mobiliario vial</option>
+                            </select>
+                        </div>
+                        <div class="apu-control">
+                            <label for="apuBuscar">Buscar</label>
+                            <input id="apuBuscar" type="text" placeholder="Buscar partida...">
+                        </div>
+                    </div>
+                    <div class="apu-meta">
+                        <span id="apuCapitulo">Capitulo: -</span>
+                        <span id="apuFecha">Fecha: -</span>
+                        <span id="apuMoneda">Moneda: -</span>
+                        <span id="apuTotal">Items: 0</span>
+                    </div>
+                    <div class="apu-table-wrap">
+                        <table class="apu-table">
+                            <thead>
+                                <tr><th>Codigo</th><th>Partida</th><th>Unidad</th><th>Costo directo</th><th>Total</th></tr>
+                            </thead>
+                            <tbody id="apuTablaBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="apu-detail">
+                        <div class="apu-detail-head">
+                            <h3 id="apuDetalleTitulo">Detalle de partida</h3>
+                            <span id="apuDetalleSub">Selecciona una partida para ver insumos.</span>
+                        </div>
+                        <div id="apuDetalleContenido"></div>
                     </div>
                 </section>
             </div>

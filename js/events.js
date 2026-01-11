@@ -139,6 +139,16 @@ const invSinVerif = document.getElementById("invSinVerif");
 const invMantenimiento = document.getElementById("invMantenimiento");
 const invReposicionCrit = document.getElementById("invReposicionCrit");
 const invTotalProxima = document.getElementById("invTotalProxima");
+const apuCategoria = document.getElementById("apuCategoria");
+const apuBuscar = document.getElementById("apuBuscar");
+const apuCapitulo = document.getElementById("apuCapitulo");
+const apuFecha = document.getElementById("apuFecha");
+const apuMoneda = document.getElementById("apuMoneda");
+const apuTotal = document.getElementById("apuTotal");
+const apuTablaBody = document.getElementById("apuTablaBody");
+const apuDetalleTitulo = document.getElementById("apuDetalleTitulo");
+const apuDetalleSub = document.getElementById("apuDetalleSub");
+const apuDetalleContenido = document.getElementById("apuDetalleContenido");
 
 // Configuracion
 const cfgNombre = document.getElementById("cfgNombre");
@@ -1205,6 +1215,17 @@ let projectSelection = {
   horizontal: new Set(),
   mobiliario: new Set()
 };
+const APU_SOURCES = {
+  transito: "src/senales-de-transito.json",
+  marcas: "src/marcas-viales.json",
+  mobiliario: "src/mobiliario-vial.json"
+};
+const apuState = {
+  loaded: false,
+  data: {},
+  categoria: "transito",
+  selectedCodigo: ""
+};
 
 function getProjectsKey(){
   const correo = getSessionEmail() || "guest";
@@ -1529,6 +1550,11 @@ function formatearMonedaPEN(monto){
   }
 }
 
+function redondearMoneda(valor){
+  const n = Number(valor || 0);
+  return Math.round(n * 100) / 100;
+}
+
 function filtrarPorSeleccion(dataset){
   let base = Array.isArray(dataset) ? dataset.slice() : [];
   try{
@@ -1677,6 +1703,186 @@ function updateInversion(){
 
 window.updateInversion = updateInversion;
 
+function normalizarPartidaApu(p){
+  const out = Object.assign({}, p || {});
+  const cd = Number(out.costo_directo);
+  const hasCd = Number.isFinite(cd);
+  if(hasCd){
+    if(!Number.isFinite(Number(out.utilidad))){
+      out.utilidad = redondearMoneda(cd * 0.10);
+    }
+    if(!Number.isFinite(Number(out.gastos_generales))){
+      out.gastos_generales = redondearMoneda(cd * 0.165);
+    }
+    if(!Number.isFinite(Number(out.igv))){
+      const base = cd + Number(out.utilidad || 0) + Number(out.gastos_generales || 0);
+      out.igv = redondearMoneda(base * 0.18);
+    }
+    if(!Number.isFinite(Number(out.precio_unitario_total))){
+      const total = cd + Number(out.utilidad || 0) + Number(out.gastos_generales || 0) + Number(out.igv || 0);
+      out.precio_unitario_total = redondearMoneda(total);
+    }
+  }
+  return out;
+}
+
+async function cargarApuData(){
+  if(apuState.loaded) return;
+  const entries = Object.entries(APU_SOURCES);
+  const out = {};
+  for(const [key, path] of entries){
+    try{
+      const res = await fetch(path, { cache: "no-store" });
+      if(!res.ok) throw new Error("HTTP " + res.status);
+      const json = await res.json();
+      const partidas = Array.isArray(json.partidas) ? json.partidas.map(normalizarPartidaApu) : [];
+      out[key] = {
+        capitulo: json.capitulo || "",
+        fecha: json.fecha || "",
+        moneda: json.moneda || "PEN",
+        partidas
+      };
+    }catch(e){
+      out[key] = { capitulo: "", fecha: "", moneda: "PEN", partidas: [] };
+    }
+  }
+  apuState.data = out;
+  apuState.loaded = true;
+}
+
+function obtenerPartidasApu(){
+  const key = apuCategoria ? apuCategoria.value : apuState.categoria;
+  apuState.categoria = key || "transito";
+  const pack = apuState.data[apuState.categoria] || { partidas: [] };
+  return pack;
+}
+
+function filtrarPartidasApu(partidas){
+  const q = apuBuscar ? (apuBuscar.value || "").trim().toLowerCase() : "";
+  if(!q) return partidas;
+  return (partidas || []).filter((p)=>{
+    const hay = String(p.codigo || "") + " " + String(p.partida || "");
+    return hay.toLowerCase().includes(q);
+  });
+}
+
+function renderApuDetalle(partida){
+  if(!apuDetalleContenido || !apuDetalleTitulo || !apuDetalleSub){
+    return;
+  }
+  if(!partida){
+    apuDetalleTitulo.textContent = "Detalle de partida";
+    apuDetalleSub.textContent = "Selecciona una partida para ver insumos.";
+    apuDetalleContenido.innerHTML = "";
+    return;
+  }
+  apuDetalleTitulo.textContent = String(partida.partida || "Partida");
+  apuDetalleSub.textContent = "Codigo " + String(partida.codigo || "-") + " · Unidad " + String(partida.unidad || "-");
+
+  const sections = [
+    { key: "materiales", title: "Materiales" },
+    { key: "mano_obra", title: "Mano de obra" },
+    { key: "equipos", title: "Equipos y herramientas" }
+  ];
+
+  function normalizarLista(raw){
+    if(Array.isArray(raw)) return raw;
+    if(raw && Array.isArray(raw.detalle)) return raw.detalle;
+    return [];
+  }
+
+  let html = sections.map((sec)=>{
+    const lista = normalizarLista(partida[sec.key]);
+    if(!lista.length) return "";
+    const rows = lista.map((it)=>{
+      const desc = it.descripcion || "-";
+      const unidad = it.unidad || it.unid || "-";
+      const cantidad = (it.cantidad ?? it.hh ?? it.factor ?? "");
+      const precio = (it.precio_unitario ?? it.precio ?? "");
+      const parcial = (it.parcial ?? "");
+      return "<tr>"
+        + "<td>" + escapeHtml(desc) + "</td>"
+        + "<td>" + escapeHtml(unidad) + "</td>"
+        + "<td>" + escapeHtml(String(cantidad)) + "</td>"
+        + "<td>" + escapeHtml(String(precio)) + "</td>"
+        + "<td>" + escapeHtml(String(parcial)) + "</td>"
+        + "</tr>";
+    }).join("");
+    return "<div class=\"apu-detail-section\">"
+      + "<h4>" + escapeHtml(sec.title) + "</h4>"
+      + "<table class=\"apu-detail-table\">"
+      + "<thead><tr><th>Descripcion</th><th>Unidad</th><th>Cantidad</th><th>Precio</th><th>Parcial</th></tr></thead>"
+      + "<tbody>" + rows + "</tbody>"
+      + "</table>"
+      + "</div>";
+  }).join("");
+
+  const sub = Array.isArray(partida.subpartidas) ? partida.subpartidas : [];
+  if(sub.length){
+    const rows = sub.map((it)=>{
+      const desc = it.descripcion || "-";
+      const unidad = it.unidad || "-";
+      const precio = (it.precio ?? it.costo ?? "");
+      return "<tr>"
+        + "<td>" + escapeHtml(desc) + "</td>"
+        + "<td>" + escapeHtml(unidad) + "</td>"
+        + "<td>" + escapeHtml(String(precio)) + "</td>"
+        + "</tr>";
+    }).join("");
+    html += "<div class=\"apu-detail-section\">"
+      + "<h4>Subpartidas</h4>"
+      + "<table class=\"apu-detail-table\">"
+      + "<thead><tr><th>Descripcion</th><th>Unidad</th><th>Precio</th></tr></thead>"
+      + "<tbody>" + rows + "</tbody>"
+      + "</table>"
+      + "</div>";
+  }
+  apuDetalleContenido.innerHTML = html || "<div class=\"apu-empty\">Sin detalle disponible.</div>";
+}
+
+function renderApuTabla(){
+  if(!apuTablaBody) return;
+  const pack = obtenerPartidasApu();
+  const partidas = filtrarPartidasApu(pack.partidas || []);
+  if(apuCapitulo) apuCapitulo.textContent = "Capitulo: " + (pack.capitulo || "-");
+  if(apuFecha) apuFecha.textContent = "Fecha: " + (pack.fecha || "-");
+  if(apuMoneda) apuMoneda.textContent = "Moneda: " + (pack.moneda || "PEN");
+  if(apuTotal) apuTotal.textContent = "Items: " + partidas.length;
+
+  if(!partidas.length){
+    apuTablaBody.innerHTML = "<tr><td colspan=\"5\">Sin datos para esta partida.</td></tr>";
+    renderApuDetalle(null);
+    return;
+  }
+
+  if(!apuState.selectedCodigo || !partidas.some(p => String(p.codigo || "") === apuState.selectedCodigo)){
+    apuState.selectedCodigo = String(partidas[0].codigo || "");
+  }
+
+  apuTablaBody.innerHTML = partidas.map((p)=>{
+    const codigo = String(p.codigo || "");
+    const isSel = codigo === apuState.selectedCodigo ? " is-selected" : "";
+    const total = (p.precio_unitario_total ?? p.costo_directo ?? 0);
+    return "<tr class=\"" + isSel + "\" data-codigo=\"" + escapeAttr(codigo) + "\">"
+      + "<td>" + escapeHtml(codigo || "-") + "</td>"
+      + "<td>" + escapeHtml(p.partida || "-") + "</td>"
+      + "<td>" + escapeHtml(p.unidad || "-") + "</td>"
+      + "<td>" + escapeHtml(String(p.costo_directo ?? "-")) + "</td>"
+      + "<td>" + escapeHtml(String(total ?? "-")) + "</td>"
+      + "</tr>";
+  }).join("");
+
+  const seleccionado = partidas.find(p => String(p.codigo || "") === apuState.selectedCodigo);
+  renderApuDetalle(seleccionado || null);
+}
+
+function updateApu(){
+  if(!apuTablaBody) return;
+  cargarApuData().then(renderApuTabla).catch(()=> renderApuTabla());
+}
+
+window.updateApu = updateApu;
+
 function abrirDashboard(){
   setDashView("dashboard");
 }
@@ -1726,6 +1932,9 @@ function setDashView(view){
 
   if(view === "inversion"){
     updateInversion();
+  }
+  if(view === "apu"){
+    updateApu();
   }
 
   if(view === "tareas"){
@@ -3431,6 +3640,27 @@ if(selectProyecto){
 if(btnCambiarProyecto){
   btnCambiarProyecto.addEventListener("click", ()=>{
     setProyectoActivoPorId(selectProyecto ? selectProyecto.value : "");
+  });
+}
+if(apuCategoria){
+  apuCategoria.addEventListener("change", ()=>{
+    apuState.categoria = apuCategoria.value || "transito";
+    apuState.selectedCodigo = "";
+    updateApu();
+  });
+}
+if(apuBuscar){
+  apuBuscar.addEventListener("input", ()=>{
+    apuState.selectedCodigo = "";
+    renderApuTabla();
+  });
+}
+if(apuTablaBody){
+  apuTablaBody.addEventListener("click", (e)=>{
+    const row = e.target && e.target.closest ? e.target.closest("tr[data-codigo]") : null;
+    if(!row) return;
+    apuState.selectedCodigo = row.getAttribute("data-codigo") || "";
+    renderApuTabla();
   });
 }
 if(btnAgregarProyecto){
