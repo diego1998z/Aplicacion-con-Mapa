@@ -575,6 +575,7 @@ body.dash-shell .registro-picker-card{
     padding:12px 12px 14px;
 }
 .map-floating-panel#metradoPanel{
+    width:340px;
     max-height:calc(100vh - 32px);
     overflow-y:auto;
 }
@@ -640,6 +641,26 @@ body.dash-shell .registro-picker-card{
     font-weight:800;
     color:var(--muted);
 }
+.metrado-panel .metrado-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+}
+.metrado-panel .metrado-btn-inline{
+    width:auto;
+    padding:6px 10px;
+    border-radius:999px;
+    font-size:11px;
+    font-weight:800;
+    display:flex;
+    align-items:center;
+    gap:6px;
+}
+.metrado-panel .metrado-btn-icon{
+    width:14px;
+    height:14px;
+}
 .metrado-input{
     width:100%;
     padding:9px 12px;
@@ -663,6 +684,27 @@ body.dash-shell .registro-picker-card{
 .metrado-panel .metrado-actions .map-panel-btn{
     flex:1;
     margin-top:0;
+}
+.metrado-panel .metrado-actions.metrado-actions--compact{
+    gap:8px;
+}
+.metrado-panel .metrado-actions.metrado-actions--compact .map-panel-btn{
+    padding:8px 10px;
+    font-size:11px;
+}
+.metrado-panel .metrado-actions--secondary.metrado-actions--compact{
+    margin-top:6px;
+}
+.metrado-action-btn{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    line-height:1;
+}
+.metrado-action-icon{
+    width:16px;
+    height:16px;
 }
 .metrado-panel .metrado-actions--secondary{
     margin-top:10px;

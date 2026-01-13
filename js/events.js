@@ -1017,8 +1017,7 @@ function limpiarRutaMetrado(){
   if(metradoNombre) metradoNombre.value = "";
   renderInspeccionPrev();
   renderInspeccionList();
-  if(metradoOptionsDetails) metradoOptionsDetails.open = true;
-  if(btnMetradoFin) btnMetradoFin.disabled = true;
+    if(btnMetradoFin) btnMetradoFin.disabled = true;
   if(btnMetradoUndo) btnMetradoUndo.disabled = true;
   setMetradoStatus("Inicia el trazado y marca puntos sobre la pista.");
   actualizarResultadosMetrado();
