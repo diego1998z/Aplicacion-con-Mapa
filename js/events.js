@@ -45,6 +45,7 @@ const metradoEje = document.getElementById("metradoEje");
 const metradoLaterales = document.getElementById("metradoLaterales");
 const metradoInternas = document.getElementById("metradoInternas");
 const metradoArea = document.getElementById("metradoArea");
+const metradoSnapVias = document.getElementById("metradoSnapVias");
 const metradoNombre = document.getElementById("metradoNombre");
 const btnMetradoVerRegistros = document.getElementById("btnMetradoVerRegistros");
 const modalMetradoRegistros = document.getElementById("modalMetradoRegistros");
@@ -199,6 +200,26 @@ let metradoUltimoCalculo = null;
 let metradoInspecciones = [];
 let metradoInspeccionSeq = 1;
 let metradoRegistros = [];
+let metradoSnapEnabled = false;
+let metradoSnapReady = false;
+let metradoSnapLoading = false;
+let metradoSnapIndex = new Map();
+let metradoSnapFeatures = [];
+let metradoSnapLast = null;
+let metradoSnapHover = null;
+let metradoSnapHighway = "";
+let metradoSnapFailReason = "";
+const METRADO_SNAP_CELL = 0.0025;
+const METRADO_SNAP_MAX_M = 20;
+const METRADO_SNAP_TARGET_POINTS = 1400000;
+const METRADO_SNAP_WINDOW = 8;
+const METRADO_SNAP_MAX_SEG_POINTS = 140;
+const METRADO_SNAP_MAX_SEG_M = 160;
+const METRADO_SNAP_MAX_PREVIEW_M = 100;
+const METRADO_SNAP_MAX_JUMP_M = 22;
+const METRADO_SNAP_SEG_SEARCH_M = 45;
+const METRADO_SNAP_CONNECT_WINDOW = 320;
+const METRADO_SNAP_CONNECT_MAX_M = 30;
 
 function mostrarRegistroHint(texto){
   if(!registroHint) return;
@@ -330,6 +351,377 @@ function ocultarMetradoPreview(){
   }
   metradoPreviewLine = null;
   metradoCursorMarker = null;
+}
+
+function metradoSnapCellKey(lat, lng){
+  const x = Math.floor(lng / METRADO_SNAP_CELL);
+  const y = Math.floor(lat / METRADO_SNAP_CELL);
+  return x + ":" + y;
+}
+
+function metradoSnapWidthMeters(highway){
+  let t = String(highway || "").toLowerCase();
+  if(t.includes("_link")) t = t.replace("_link", "");
+  if(t.includes("motorway") || t.includes("trunk")) return 12;
+  if(t.includes("primary")) return 10;
+  if(t.includes("secondary")) return 9;
+  if(t.includes("tertiary")) return 8;
+  if(t.includes("residential") || t.includes("unclassified") || t.includes("living_street") || t.includes("road")) return 7;
+  if(t.includes("service")) return 5;
+  if(t.includes("footway") || t.includes("path") || t.includes("cycleway") || t.includes("steps") || t.includes("pedestrian")) return 3;
+  return 6;
+}
+
+function metradoSnapWeightPx(highway){
+  try{
+    if(typeof map === "undefined" || !map || typeof map.containerPointToLatLng !== "function"){
+      return 10;
+    }
+    const p0 = map.containerPointToLatLng([0, 0]);
+    const p1 = map.containerPointToLatLng([0, 10]);
+    const meters = map.distance(p0, p1);
+    const metersPerPx = meters / 10;
+    if(!metersPerPx || !Number.isFinite(metersPerPx)) return 10;
+    const widthM = metradoSnapWidthMeters(highway);
+    return Math.max(6, Math.min(28, Math.round(widthM / metersPerPx)));
+  }catch(e){
+    return 10;
+  }
+}
+
+function metradoSnapAllowedHighway(highway){
+  const t = String(highway || "").toLowerCase();
+  if(!t) return false;
+  if(t.includes("footway") || t.includes("path") || t.includes("cycleway") || t.includes("steps") || t.includes("pedestrian")) return false;
+  if(t.includes("construction") || t.includes("proposed") || t.includes("abandoned")) return false;
+  return true;
+}
+
+function metradoPesoPorHighway(highway){
+  const weight = metradoSnapWeightPx(highway);
+  return Number.isFinite(weight) ? weight : 8;
+}
+
+function proyectarEnSegmento(latlng, a, b){
+  try{
+    if(typeof map === "undefined" || !map || typeof map.project !== "function" || typeof map.unproject !== "function"){
+      return null;
+    }
+    const p = map.project(latlng);
+    const p1 = map.project(a);
+    const p2 = map.project(b);
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    const len2 = dx * dx + dy * dy;
+    if(!len2){
+      const dist = map.distance(latlng, a);
+      return { latlng: a, dist, t: 0 };
+    }
+    let t = ((p.x - p1.x) * dx + (p.y - p1.y) * dy) / len2;
+    t = Math.max(0, Math.min(1, t));
+    const proj = L.point(p1.x + t * dx, p1.y + t * dy);
+    const projLatLng = map.unproject(proj);
+    const dist = map.distance(latlng, projLatLng);
+    return { latlng: projLatLng, dist, t };
+  }catch(e){
+    return null;
+  }
+}
+
+function prepararViasMetrado(data){
+  metradoSnapIndex = new Map();
+  metradoSnapFeatures = [];
+  let totalCoords = 0;
+  const features = Array.isArray(data && data.features) ? data.features : [];
+  features.forEach((feat)=>{
+    const geom = feat && feat.geometry ? feat.geometry : null;
+    if(!geom) return;
+    const coords = geom.coordinates;
+    if(!coords) return;
+    const props = feat.properties || {};
+    const highway = props.highway || "";
+    if(!metradoSnapAllowedHighway(highway)) return;
+    if(geom.type === "LineString" && Array.isArray(coords)){
+      totalCoords += coords.length;
+      return;
+    }
+    if(geom.type === "MultiLineString" && Array.isArray(coords)){
+      coords.forEach((line)=>{ if(Array.isArray(line)) totalCoords += line.length; });
+    }
+  });
+
+  const step = Math.max(1, Math.ceil(totalCoords / METRADO_SNAP_TARGET_POINTS));
+  features.forEach((feat)=>{
+    const geom = feat && feat.geometry ? feat.geometry : null;
+    if(!geom) return;
+    const coords = geom.coordinates;
+    if(!coords) return;
+    const props = feat.properties || {};
+    const highway = props.highway || "";
+    if(!metradoSnapAllowedHighway(highway)) return;
+
+    const pushLine = (line)=>{
+      if(!Array.isArray(line) || line.length < 2) return;
+      const slim = [];
+      for(let i = 0; i < line.length; i += step){
+        const pt = line[i];
+        if(!pt || pt.length < 2) continue;
+        slim.push([pt[1], pt[0]]);
+      }
+      const last = line[line.length - 1];
+      if(last && last.length >= 2){
+        const lastLat = last[1];
+        const lastLng = last[0];
+        const prev = slim.length ? slim[slim.length - 1] : null;
+        if(!prev || prev[0] !== lastLat || prev[1] !== lastLng){
+          slim.push([lastLat, lastLng]);
+        }
+      }
+      if(slim.length < 2) return;
+      const idx = metradoSnapFeatures.length;
+      metradoSnapFeatures.push({ highway, coords: slim });
+      slim.forEach((pt, i)=>{
+        const key = metradoSnapCellKey(pt[0], pt[1]);
+        const bucket = metradoSnapIndex.get(key) || [];
+        bucket.push([pt[0], pt[1], idx, i]);
+        if(bucket.length === 1) metradoSnapIndex.set(key, bucket);
+      });
+    };
+
+    if(geom.type === "LineString"){
+      pushLine(coords);
+    } else if(geom.type === "MultiLineString"){
+      coords.forEach((line)=> pushLine(line));
+    }
+  });
+}
+
+async function cargarViasMetrado(){
+  if(metradoSnapLoading || metradoSnapReady) return;
+  metradoSnapLoading = true;
+  try{
+    setMetradoStatus("Cargando vias para ajuste...");
+    const res = await fetch("src/lima_callao_vias.geojson", { cache: "force-cache" });
+    if(!res.ok) throw new Error("Error al cargar vias.");
+    const data = await res.json();
+    prepararViasMetrado(data);
+    metradoSnapReady = true;
+    setMetradoStatus("Ajuste a vias listo.");
+  }catch(e){
+    metradoSnapReady = false;
+    metradoSnapEnabled = false;
+    if(metradoSnapVias) metradoSnapVias.checked = false;
+    setMetradoStatus("No se pudo cargar vias para ajuste.");
+  }finally{
+    metradoSnapLoading = false;
+  }
+}
+
+function buscarSnapMetrado(latlng){
+  if(!metradoSnapEnabled || !metradoSnapReady) return null;
+  if(!latlng) return null;
+  let best = null;
+  let bestDist = Infinity;
+  const lat = latlng.lat;
+  const lng = latlng.lng;
+  const baseX = Math.floor(lng / METRADO_SNAP_CELL);
+  const baseY = Math.floor(lat / METRADO_SNAP_CELL);
+  for(let dx = -1; dx <= 1; dx++){
+    for(let dy = -1; dy <= 1; dy++){
+      const key = (baseX + dx) + ":" + (baseY + dy);
+      const bucket = metradoSnapIndex.get(key);
+      if(!bucket) continue;
+      for(let i = 0; i < bucket.length; i++){
+        const item = bucket[i];
+        const feature = metradoSnapFeatures[item[2]];
+        if(!feature) continue;
+        const coordIndex = item[3];
+        const pointLatLng = L.latLng(item[0], item[1]);
+        let bestLocalDist = map.distance(latlng, pointLatLng);
+        let bestLocalLatLng = pointLatLng;
+        let bestLocalSegment = null;
+
+        if(bestLocalDist <= METRADO_SNAP_SEG_SEARCH_M){
+          const coords = feature.coords || [];
+          if(coordIndex > 0 && coords[coordIndex - 1]){
+            const prev = L.latLng(coords[coordIndex - 1][0], coords[coordIndex - 1][1]);
+            const proj = proyectarEnSegmento(latlng, prev, pointLatLng);
+            if(proj && proj.dist < bestLocalDist){
+              bestLocalDist = proj.dist;
+              bestLocalLatLng = proj.latlng;
+              bestLocalSegment = coordIndex - 1;
+            }
+          }
+          if(coordIndex < coords.length - 1 && coords[coordIndex + 1]){
+            const next = L.latLng(coords[coordIndex + 1][0], coords[coordIndex + 1][1]);
+            const proj = proyectarEnSegmento(latlng, pointLatLng, next);
+            if(proj && proj.dist < bestLocalDist){
+              bestLocalDist = proj.dist;
+              bestLocalLatLng = proj.latlng;
+              bestLocalSegment = coordIndex;
+            }
+          }
+        }
+
+        if(bestLocalDist < bestDist){
+          bestDist = bestLocalDist;
+          best = {
+            latlng: bestLocalLatLng,
+            featureIndex: item[2],
+            coordIndex: coordIndex,
+            segmentIndex: bestLocalSegment,
+            highway: feature.highway || ""
+          };
+        }
+      }
+    }
+  }
+  if(!best || bestDist > METRADO_SNAP_MAX_M) return null;
+  return best;
+}
+
+function limitarSegmentoMetrado(segment){
+  if(segment.length <= METRADO_SNAP_MAX_SEG_POINTS) return segment;
+  const step = Math.ceil(segment.length / METRADO_SNAP_MAX_SEG_POINTS);
+  const out = [];
+  for(let i = 0; i < segment.length; i += step){
+    out.push(segment[i]);
+  }
+  if(out[out.length - 1] !== segment[segment.length - 1]){
+    out.push(segment[segment.length - 1]);
+  }
+  return out;
+}
+
+function recortarSegmentoPorDistancia(segment, maxM){
+  if(!segment || segment.length < 2) return segment;
+  if(typeof map === "undefined" || !map || typeof map.distance !== "function") return segment;
+  const out = [segment[segment.length - 1]];
+  let total = 0;
+  for(let i = segment.length - 2; i >= 0; i--){
+    total += map.distance(segment[i + 1], segment[i]);
+    out.push(segment[i]);
+    if(total >= maxM) break;
+  }
+  return out.reverse();
+}
+
+function buscarConexionMetrado(lastSnap, snap){
+  if(!lastSnap || !snap) return null;
+  if(lastSnap.featureIndex === snap.featureIndex) return null;
+  if(typeof map === "undefined" || !map || typeof map.distance !== "function") return null;
+  const feature = metradoSnapFeatures[lastSnap.featureIndex];
+  if(!feature || !Array.isArray(feature.coords) || !feature.coords.length) return null;
+  const coords = feature.coords;
+  const startIndex = Math.max(0, Math.min(coords.length - 1, lastSnap.coordIndex));
+  const start = Math.max(0, startIndex - METRADO_SNAP_CONNECT_WINDOW);
+  const end = Math.min(coords.length - 1, startIndex + METRADO_SNAP_CONNECT_WINDOW);
+  let bestIndex = -1;
+  let bestDist = Infinity;
+  for(let i = start; i <= end; i++){
+    const pt = coords[i];
+    if(!pt || pt.length < 2) continue;
+    const latlng = L.latLng(pt[0], pt[1]);
+    const dist = map.distance(latlng, snap.latlng);
+    if(dist < bestDist){
+      bestDist = dist;
+      bestIndex = i;
+    }
+  }
+  if(bestIndex < 0 || bestDist > METRADO_SNAP_CONNECT_MAX_M) return null;
+  const forward = startIndex <= bestIndex;
+  const segStart = forward ? startIndex : bestIndex;
+  const segEnd = forward ? bestIndex : startIndex;
+  let segment = coords.slice(segStart, segEnd + 1).map((pt)=> L.latLng(pt[0], pt[1]));
+  if(!forward) segment = segment.reverse();
+  if(segment.length && lastSnap.latlng){
+    segment[0] = lastSnap.latlng;
+  }
+  segment = limitarSegmentoMetrado(segment);
+  return { puntos: segment, coordIndex: bestIndex, dist: bestDist };
+}
+
+function construirPreviewMetrado(snap){
+  if(!snap) return [];
+  const feature = metradoSnapFeatures[snap.featureIndex];
+  if(!feature) return [];
+  const coords = feature.coords || [];
+  if(!coords.length) return [];
+
+  if(metradoSnapLast && metradoSnapLast.featureIndex === snap.featureIndex){
+    const start = Math.min(metradoSnapLast.coordIndex, snap.coordIndex);
+    const end = Math.max(metradoSnapLast.coordIndex, snap.coordIndex);
+    let segment = coords.slice(start, end + 1).map((pt)=> L.latLng(pt[0], pt[1]));
+    if(metradoSnapLast.coordIndex > snap.coordIndex){
+      segment = segment.reverse();
+    }
+    if(segment.length <= 1){
+      const base = metradoSnapLast.latlng || (segment[0] || snap.latlng);
+      if(base && snap.latlng && base !== snap.latlng){
+        segment = [base, snap.latlng];
+      } else {
+        segment = base ? [base] : [];
+      }
+    } else {
+      if(metradoSnapLast.latlng){
+        segment[0] = metradoSnapLast.latlng;
+      }
+      if(snap.latlng){
+        segment[segment.length - 1] = snap.latlng;
+      }
+    }
+    segment = recortarSegmentoPorDistancia(segment, METRADO_SNAP_MAX_PREVIEW_M);
+    return limitarSegmentoMetrado(segment);
+  }
+
+  const start = Math.max(0, snap.coordIndex - METRADO_SNAP_WINDOW);
+  const end = Math.min(coords.length - 1, snap.coordIndex + METRADO_SNAP_WINDOW);
+  const preview = coords.slice(start, end + 1).map((pt)=> L.latLng(pt[0], pt[1]));
+  if(preview.length && snap.latlng){
+    preview[preview.length - 1] = snap.latlng;
+  }
+  return preview;
+}
+
+function ajustarPreviewMetrado(highway){
+  if(!metradoPreviewLine || typeof metradoPreviewLine.setStyle !== "function") return;
+  const weight = metradoSnapEnabled ? metradoSnapWeightPx(highway) : 7;
+  const opacity = metradoSnapEnabled ? 0.32 : 0.55;
+  metradoPreviewLine.setStyle({ weight, opacity });
+}
+
+function actualizarPesosMetrado(){
+  const baseWeight = metradoPesoPorHighway(metradoSnapHighway);
+  const outlineWeight = baseWeight + 4;
+  const flowWeight = Math.max(3, baseWeight - 3);
+
+  try{
+    if(metradoRouteOutline && typeof metradoRouteOutline.setStyle === "function"){
+      metradoRouteOutline.setStyle({ weight: outlineWeight });
+    }
+    if(metradoRouteLine && typeof metradoRouteLine.setStyle === "function"){
+      metradoRouteLine.setStyle({ weight: baseWeight });
+    }
+    if(metradoRouteFlow && typeof metradoRouteFlow.setStyle === "function"){
+      metradoRouteFlow.setStyle({ weight: flowWeight });
+    }
+    if(metradoPreviewLine && typeof metradoPreviewLine.setStyle === "function"){
+      const highway = metradoSnapHover ? metradoSnapHover.highway : metradoSnapHighway;
+      const weight = metradoPesoPorHighway(highway || "");
+      const opacity = metradoSnapEnabled ? 0.32 : 0.55;
+      metradoPreviewLine.setStyle({ weight, opacity });
+    }
+    if(metradoRegistrosLayer && typeof metradoRegistrosLayer.eachLayer === "function"){
+      metradoRegistrosLayer.eachLayer((layer)=>{
+        if(!layer || typeof layer.setStyle !== "function") return;
+        const weight = metradoPesoPorHighway(layer._metradoHighway || "");
+        layer.setStyle({ weight: weight });
+        if(layer._metradoBaseStyle){
+          layer._metradoBaseStyle.weight = weight;
+        }
+      });
+    }
+  }catch(e){}
 }
 
 function setMetradoStatus(texto){
@@ -850,9 +1242,10 @@ function guardarRutaMetradoRegistrada(){
     const layer = asegurarMetradoRegistrosLayer();
     if(!layer) return;
     const color = colorLineaMetrado();
+    const weight = metradoPesoPorHighway(metradoSnapHighway);
       L.polyline(metradoPuntos.slice(), {
         color: color,
-        weight: 7,
+        weight: weight,
         opacity: 0.8,
         lineCap: "round",
         lineJoin: "round",
@@ -883,9 +1276,10 @@ function renderMetradoRegistrosOnMap(){
     const pendiente = !!registro.inspeccion_pendiente || inspecciones === 0;
     const baseColor = registro.color || "#0c426a";
     const color = pendiente ? "#d93f3f" : baseColor;
+    const weight = metradoPesoPorHighway(registro.highway || "");
       const opts = {
         color: color,
-        weight: 7,
+        weight: weight,
         opacity: pendiente ? 0.75 : 0.85,
         dashArray: pendiente ? "7 10" : null,
         lineCap: "round",
@@ -895,6 +1289,7 @@ function renderMetradoRegistrosOnMap(){
       };
     const line = L.polyline(registro.puntos.slice(), opts).addTo(layer);
     line._metradoId = registro.id;
+    line._metradoHighway = registro.highway || "";
     line._metradoBaseStyle = {
       color: opts.color,
       weight: opts.weight,
@@ -984,7 +1379,10 @@ function focusMetradoRegistro(id){
       });
       metradoRegistrosLayer.eachLayer((layer)=>{
         if(layer && layer.setStyle && String(layer._metradoId) === String(id)){
-          layer.setStyle({ weight: 10, opacity: 1 });
+          const baseWeight = (layer._metradoBaseStyle && Number.isFinite(layer._metradoBaseStyle.weight))
+            ? layer._metradoBaseStyle.weight
+            : 7;
+          layer.setStyle({ weight: baseWeight + 3, opacity: 1 });
         }
       });
     }
@@ -1009,6 +1407,10 @@ function limpiarRutaMetrado(){
   metradoRouteLine = null;
   metradoRouteFlow = null;
   metradoPuntos = [];
+  metradoSnapLast = null;
+  metradoSnapHover = null;
+  metradoSnapHighway = "";
+  metradoSnapFailReason = "";
   metradoInicioLatLng = null;
   metradoFinLatLng = null;
   metradoDistanciaM = 0;
@@ -1058,11 +1460,13 @@ function dibujarRutaMetrado(latlngs){
   }
 
   const color = colorLineaMetrado();
-  const weight = 8;
+  const weight = metradoPesoPorHighway(metradoSnapHighway);
+  const outlineWeight = weight + 4;
+  const flowWeight = Math.max(3, weight - 3);
     if(!metradoRouteOutline){
       metradoRouteOutline = L.polyline(puntos, {
         color: "#0b2230",
-        weight: weight + 4,
+        weight: outlineWeight,
         opacity: 0.22,
         lineCap: "round",
         lineJoin: "round",
@@ -1071,6 +1475,9 @@ function dibujarRutaMetrado(latlngs){
       }).addTo(layer);
     } else {
       metradoRouteOutline.setLatLngs(puntos);
+      if(typeof metradoRouteOutline.setStyle === "function"){
+        metradoRouteOutline.setStyle({ weight: outlineWeight });
+      }
     }
     if(!metradoRouteLine){
       metradoRouteLine = L.polyline(puntos, {
@@ -1084,13 +1491,16 @@ function dibujarRutaMetrado(latlngs){
       }).addTo(layer);
     } else {
       metradoRouteLine.setLatLngs(puntos);
+      if(typeof metradoRouteLine.setStyle === "function"){
+        metradoRouteLine.setStyle({ weight: weight });
+      }
     }
 
   const flowColor = (color === "#ffffff") ? "rgba(12,66,106,0.70)" : "rgba(255,255,255,0.70)";
     if(!metradoRouteFlow){
       metradoRouteFlow = L.polyline(puntos, {
         color: flowColor,
-        weight: Math.max(3, weight - 3),
+        weight: flowWeight,
         opacity: 0.70,
         dashArray: "10 16",
         lineCap: "round",
@@ -1101,7 +1511,7 @@ function dibujarRutaMetrado(latlngs){
     } else {
     metradoRouteFlow.setLatLngs(puntos);
     if(typeof metradoRouteFlow.setStyle === "function"){
-      metradoRouteFlow.setStyle({ color: flowColor });
+      metradoRouteFlow.setStyle({ color: flowColor, weight: flowWeight });
     }
   }
   aplicarEstiloRutaMetrado();
@@ -1146,9 +1556,8 @@ function actualizarTrazadoMetrado(){
   if(btnMetradoUndo) btnMetradoUndo.disabled = metradoPuntos.length === 0;
 }
 
-function agregarPuntoMetrado(rawLatLng){
-  if(!rawLatLng) return false;
-  const latlng = rawLatLng;
+function pushPuntoMetrado(latlng){
+  if(!latlng) return false;
   try{
     const last = metradoPuntos.length ? metradoPuntos[metradoPuntos.length - 1] : null;
     if(last && typeof map !== "undefined" && map && typeof map.distance === "function"){
@@ -1157,8 +1566,105 @@ function agregarPuntoMetrado(rawLatLng){
     }
   }catch(e){}
   metradoPuntos.push(latlng);
-  actualizarTrazadoMetrado();
   return true;
+}
+
+function agregarPuntosMetrado(puntos){
+  const list = Array.isArray(puntos) ? puntos : [];
+  let added = false;
+  list.forEach((latlng)=>{
+    if(pushPuntoMetrado(latlng)) added = true;
+  });
+  if(added) actualizarTrazadoMetrado();
+  return added;
+}
+
+function agregarPuntoMetrado(rawLatLng){
+  if(!rawLatLng) return false;
+  return agregarPuntosMetrado([rawLatLng]);
+}
+
+function agregarPuntoMetradoSnapped(snap){
+  if(!snap || !snap.latlng) return false;
+  metradoSnapFailReason = "";
+  let puntos = [];
+  if(metradoSnapLast && metradoSnapLast.featureIndex === snap.featureIndex){
+    const feature = metradoSnapFeatures[snap.featureIndex];
+    const coords = feature ? feature.coords : null;
+    if(coords && coords.length){
+      const forward = metradoSnapLast.coordIndex <= snap.coordIndex;
+      const start = forward ? metradoSnapLast.coordIndex : snap.coordIndex;
+      const end = forward ? snap.coordIndex : metradoSnapLast.coordIndex;
+      if(start === end){
+        puntos = [snap.latlng];
+      } else {
+        let total = 0;
+        let last = null;
+        let limitReached = false;
+        for(let i = start; i <= end; i++){
+          const idx = forward ? i : (start + end - i);
+          const pt = coords[idx];
+          if(!pt || pt.length < 2) continue;
+          const latlng = L.latLng(pt[0], pt[1]);
+          if(last){
+            const dist = map.distance(last, latlng);
+            if(Number.isFinite(dist) && total + dist > METRADO_SNAP_MAX_SEG_M){
+              limitReached = true;
+              break;
+            }
+            if(Number.isFinite(dist)) total += dist;
+          }
+          puntos.push(latlng);
+          last = latlng;
+        }
+        if(limitReached){
+          metradoSnapFailReason = "tramo";
+        }
+        if(puntos.length && metradoSnapLast.latlng){
+          puntos[0] = metradoSnapLast.latlng;
+        }
+        if(puntos.length && snap.latlng){
+          puntos[puntos.length - 1] = snap.latlng;
+        }
+        if(metradoPuntos.length && puntos.length){
+          puntos = puntos.slice(1);
+        }
+        puntos = limitarSegmentoMetrado(puntos);
+      }
+    }
+  } else {
+    if(metradoPuntos.length){
+      const lastPoint = metradoPuntos[metradoPuntos.length - 1];
+      const jump = map.distance(lastPoint, snap.latlng);
+      const jumpLimit = Math.max(METRADO_SNAP_MAX_JUMP_M, metradoSnapWidthMeters(snap.highway) * 2.2);
+      if(jump > jumpLimit){
+        const puente = buscarConexionMetrado(metradoSnapLast, snap);
+        if(puente && Array.isArray(puente.puntos) && puente.puntos.length){
+          puntos = puente.puntos.slice();
+          if(puntos.length && snap.latlng){
+            puntos.push(snap.latlng);
+          }
+        } else if(puente){
+          puntos = [snap.latlng];
+        } else {
+          metradoSnapFailReason = "salto";
+          return false;
+        }
+      }
+    }
+    if(!puntos.length) puntos = [snap.latlng];
+  }
+  const ok = agregarPuntosMetrado(puntos);
+  if(ok){
+    metradoSnapLast = {
+      featureIndex: snap.featureIndex,
+      coordIndex: snap.coordIndex,
+      segmentIndex: snap.segmentIndex,
+      latlng: snap.latlng
+    };
+    metradoSnapHighway = snap.highway || metradoSnapHighway;
+  }
+  return ok;
 }
 
 function deshacerPuntoMetrado(){
@@ -1215,12 +1721,13 @@ function abrirMetradoPanel(){
   if(metradoOptionsDetails) metradoOptionsDetails.open = true;
   if(btnMapMetrado) btnMapMetrado.classList.add("active");
   if(visualizacionPanel) visualizacionPanel.classList.add("hidden");
-  if(btnMapVisualizacion) btnMapVisualizacion.classList.remove("active");
-  if(visualizacionAvanzada) visualizacionAvanzada.classList.add("hidden");
-  try{ syncMetradoFormState(); }catch(e){}
-  try{ actualizarResultadosMetrado(); }catch(e){}
-  try{ actualizarMetradoRegistrosUI(); }catch(e){}
-}
+    if(btnMapVisualizacion) btnMapVisualizacion.classList.remove("active");
+    if(visualizacionAvanzada) visualizacionAvanzada.classList.add("hidden");
+    try{ syncMetradoFormState(); }catch(e){}
+    try{ actualizarResultadosMetrado(); }catch(e){}
+    if(metradoSnapEnabled) cargarViasMetrado();
+    try{ actualizarMetradoRegistrosUI(); }catch(e){}
+  }
 
 function iconoRegistroTemporal(){
   try{
@@ -3743,6 +4250,11 @@ if(btnMetradoInicio){
     limpiarRutaMetrado();
     metradoPicking = "draw";
     if(btnMetradoFin) btnMetradoFin.disabled = false;
+    if(metradoSnapVias){
+      metradoSnapVias.checked = true;
+    }
+    metradoSnapEnabled = true;
+    cargarViasMetrado();
     setMetradoStatus("Modo trazado: haz click para agregar puntos sobre la pista.");
     mostrarRegistroHint("Click en el mapa para agregar puntos del trazado.");
     try{
@@ -3817,6 +4329,7 @@ if(btnMetradoRegistrar){
       resultados: metradoUltimoCalculo,
       config: getMetradoConfig(),
       color: colorRegistro,
+      highway: metradoSnapHighway || "",
       puntos: metradoPuntos.map(p => [Number(p.lat), Number(p.lng)]),
       inspecciones: metradoInspecciones.slice(),
       inspeccion_pendiente: !tieneInspeccion
@@ -3833,18 +4346,30 @@ if(btnMetradoRegistrar){
     );
   });
 }
-if(metradoPanel){
-  metradoPanel.addEventListener("change", (e)=>{
-    const t = e && e.target ? e.target : null;
-    if(!t || !t.name) return;
-    if(["metradoAncho","metradoVia","metradoSep","metradoSentido"].includes(t.name)){
-      try{ syncMetradoFormState(); }catch(err){}
-      if(metradoCalculoActivo){
-        actualizarResultadosMetrado();
+  if(metradoPanel){
+    metradoPanel.addEventListener("change", (e)=>{
+      const t = e && e.target ? e.target : null;
+      if(!t || !t.name) return;
+      if(["metradoAncho","metradoVia","metradoSep","metradoSentido"].includes(t.name)){
+        try{ syncMetradoFormState(); }catch(err){}
+        if(metradoCalculoActivo){
+          actualizarResultadosMetrado();
+        }
       }
-    }
-  });
-}
+    });
+  }
+  if(metradoSnapVias){
+    metradoSnapEnabled = metradoSnapVias.checked;
+    metradoSnapVias.addEventListener("change", ()=>{
+      metradoSnapEnabled = metradoSnapVias.checked;
+      metradoSnapLast = null;
+      metradoSnapHover = null;
+      if(metradoSnapEnabled){
+        cargarViasMetrado();
+        actualizarPesosMetrado();
+      }
+    });
+  }
 if(metradoColor){
   metradoColor.addEventListener("change", ()=>{
     aplicarEstiloRutaMetrado();
@@ -4085,11 +4610,44 @@ try{
       if(!e || !e.latlng) return;
       if(metradoLoading) return;
 
-      const ok = agregarPuntoMetrado(e.latlng);
-      if(!ok) return;
+      let ok = false;
+      if(!metradoSnapEnabled){
+        if(metradoSnapVias){
+          metradoSnapVias.checked = true;
+        }
+        metradoSnapEnabled = true;
+        cargarViasMetrado();
+        setMetradoStatus("Activa el ajuste a vias para trazar solo en pistas.");
+        return;
+      }
+      if(!metradoSnapReady){
+        setMetradoStatus("Cargando vias para ajuste. Espera un momento.");
+        return;
+      }
+      let snap = buscarSnapMetrado(e.latlng);
+      if(!snap && metradoSnapHover){
+        snap = metradoSnapHover;
+      }
+      if(!snap){
+        setMetradoStatus("Acerca el cursor a una pista para continuar el trazado.");
+        return;
+      }
+      ok = agregarPuntoMetradoSnapped(snap);
+      if(!ok){
+        if(metradoSnapFailReason === "salto"){
+          setMetradoStatus("Para cambiar de pista, hazlo cerca de la interseccion.");
+        } else if(metradoSnapFailReason === "tramo"){
+          setMetradoStatus("Tramo largo. Acerca el cursor para continuar.");
+        } else {
+          setMetradoStatus("Acerca el cursor a la pista para continuar.");
+        }
+        return;
+      }
 
       if(metradoPuntos.length === 1){
         setMetradoStatus("Inicio listo. Sigue marcando puntos sobre la pista y finaliza.");
+      } else if(metradoSnapFailReason === "tramo"){
+        setMetradoStatus("Tramo largo. Sigue trazando desde el ultimo punto.");
       } else {
         setMetradoStatus("Puntos: " + metradoPuntos.length + " \u00B7 Distancia: " + formatoMetros(metradoDistanciaM));
       }
@@ -4101,16 +4659,30 @@ try{
       asegurarMetradoCursor();
       asegurarMetradoPreview();
       try{
-        if(metradoCursorMarker) metradoCursorMarker.setLatLng(e.latlng);
-        if(metradoPreviewLine){
-          if(metradoPuntos.length){
-            const last = metradoPuntos[metradoPuntos.length - 1];
-            metradoPreviewLine.setLatLngs([last, e.latlng]);
-          } else {
+        let snap = null;
+        if(metradoSnapEnabled && metradoSnapReady){
+          snap = buscarSnapMetrado(e.latlng);
+        }
+        metradoSnapHover = snap;
+        if(snap){
+          if(metradoCursorMarker) metradoCursorMarker.setLatLng(snap.latlng);
+          if(metradoPreviewLine){
+            const preview = construirPreviewMetrado(snap);
+            metradoPreviewLine.setLatLngs(preview);
+          }
+          ajustarPreviewMetrado(snap.highway);
+        } else {
+          if(metradoCursorMarker) metradoCursorMarker.setLatLng(e.latlng);
+          if(metradoPreviewLine){
             metradoPreviewLine.setLatLngs([]);
           }
+          ajustarPreviewMetrado("");
         }
       }catch(err){}
+    });
+
+    map.on("zoomend", ()=>{
+      actualizarPesosMetrado();
     });
   }
 }catch(e){}
