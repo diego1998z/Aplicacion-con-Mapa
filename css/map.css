@@ -578,6 +578,10 @@ body.dash-shell .registro-picker-card{
     width:340px;
     max-height:calc(100vh - 32px);
     overflow-y:auto;
+    position:fixed;
+    right:20px;
+    top:16px;
+    left:auto;
 }
 .map-floating-panel.hidden{display:none;}
 .map-panel-section{
@@ -2135,6 +2139,11 @@ body.project-select-mode .leaflet-container{
     }
     .map-floating-panel{
         width:min(360px, calc(100vw - 24px));
+    }
+    .map-floating-panel#metradoPanel{
+        right:12px;
+        left:12px;
+        top:12px;
     }
     .icon-grid{
         grid-template-columns:repeat(2,1fr);

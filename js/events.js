@@ -300,24 +300,25 @@ function asegurarMetradoCursor(){
   }
 }
 
-function asegurarMetradoPreview(){
-  const layer = asegurarMetradoLayer();
-  if(!layer) return;
-  if(metradoPreviewLine) return;
-  try{
-    metradoPreviewLine = L.polyline([], {
-      color: colorLineaMetrado(),
-      weight: 7,
-      opacity: 0.55,
-      dashArray: "10 12",
-      lineCap: "round",
-      lineJoin: "round",
-      className: "metrado-route-preview"
-    }).addTo(layer);
-  }catch(e){
-    metradoPreviewLine = null;
+  function asegurarMetradoPreview(){
+    const layer = asegurarMetradoLayer();
+    if(!layer) return;
+    if(metradoPreviewLine) return;
+    try{
+      metradoPreviewLine = L.polyline([], {
+        color: colorLineaMetrado(),
+        weight: 7,
+        opacity: 0.55,
+        dashArray: "10 12",
+        lineCap: "round",
+        lineJoin: "round",
+        className: "metrado-route-preview",
+        interactive: false
+      }).addTo(layer);
+    }catch(e){
+      metradoPreviewLine = null;
+    }
   }
-}
 
 function ocultarMetradoPreview(){
   const layer = asegurarMetradoLayer();
@@ -849,16 +850,17 @@ function guardarRutaMetradoRegistrada(){
     const layer = asegurarMetradoRegistrosLayer();
     if(!layer) return;
     const color = colorLineaMetrado();
-    L.polyline(metradoPuntos.slice(), {
-      color: color,
-      weight: 7,
-      opacity: 0.8,
-      lineCap: "round",
-      lineJoin: "round",
-      className: "metrado-route-saved"
-    }).addTo(layer);
-  }catch(e){}
-}
+      L.polyline(metradoPuntos.slice(), {
+        color: color,
+        weight: 7,
+        opacity: 0.8,
+        lineCap: "round",
+        lineJoin: "round",
+        className: "metrado-route-saved",
+        interactive: false
+      }).addTo(layer);
+    }catch(e){}
+  }
 
 function nombreRegistroMetrado(registro){
   const raw = registro && typeof registro.nombre === "string" ? registro.nombre.trim() : "";
@@ -881,15 +883,16 @@ function renderMetradoRegistrosOnMap(){
     const pendiente = !!registro.inspeccion_pendiente || inspecciones === 0;
     const baseColor = registro.color || "#0c426a";
     const color = pendiente ? "#d93f3f" : baseColor;
-    const opts = {
-      color: color,
-      weight: 7,
-      opacity: pendiente ? 0.75 : 0.85,
-      dashArray: pendiente ? "7 10" : null,
-      lineCap: "round",
-      lineJoin: "round",
-      className: "metrado-route-saved"
-    };
+      const opts = {
+        color: color,
+        weight: 7,
+        opacity: pendiente ? 0.75 : 0.85,
+        dashArray: pendiente ? "7 10" : null,
+        lineCap: "round",
+        lineJoin: "round",
+        className: "metrado-route-saved",
+        interactive: false
+      };
     const line = L.polyline(registro.puntos.slice(), opts).addTo(layer);
     line._metradoId = registro.id;
     line._metradoBaseStyle = {
@@ -1056,43 +1059,46 @@ function dibujarRutaMetrado(latlngs){
 
   const color = colorLineaMetrado();
   const weight = 8;
-  if(!metradoRouteOutline){
-    metradoRouteOutline = L.polyline(puntos, {
-      color: "#0b2230",
-      weight: weight + 4,
-      opacity: 0.22,
-      lineCap: "round",
-      lineJoin: "round",
-      className: "metrado-route-outline"
-    }).addTo(layer);
-  } else {
-    metradoRouteOutline.setLatLngs(puntos);
-  }
-  if(!metradoRouteLine){
-    metradoRouteLine = L.polyline(puntos, {
-      color: color,
-      weight: weight,
-      opacity: 0.88,
-      lineCap: "round",
-      lineJoin: "round",
-      className: "metrado-route-line"
-    }).addTo(layer);
-  } else {
-    metradoRouteLine.setLatLngs(puntos);
-  }
+    if(!metradoRouteOutline){
+      metradoRouteOutline = L.polyline(puntos, {
+        color: "#0b2230",
+        weight: weight + 4,
+        opacity: 0.22,
+        lineCap: "round",
+        lineJoin: "round",
+        className: "metrado-route-outline",
+        interactive: false
+      }).addTo(layer);
+    } else {
+      metradoRouteOutline.setLatLngs(puntos);
+    }
+    if(!metradoRouteLine){
+      metradoRouteLine = L.polyline(puntos, {
+        color: color,
+        weight: weight,
+        opacity: 0.88,
+        lineCap: "round",
+        lineJoin: "round",
+        className: "metrado-route-line",
+        interactive: false
+      }).addTo(layer);
+    } else {
+      metradoRouteLine.setLatLngs(puntos);
+    }
 
   const flowColor = (color === "#ffffff") ? "rgba(12,66,106,0.70)" : "rgba(255,255,255,0.70)";
-  if(!metradoRouteFlow){
-    metradoRouteFlow = L.polyline(puntos, {
-      color: flowColor,
-      weight: Math.max(3, weight - 3),
-      opacity: 0.70,
-      dashArray: "10 16",
-      lineCap: "round",
-      lineJoin: "round",
-      className: "metrado-route-flow"
-    }).addTo(layer);
-  } else {
+    if(!metradoRouteFlow){
+      metradoRouteFlow = L.polyline(puntos, {
+        color: flowColor,
+        weight: Math.max(3, weight - 3),
+        opacity: 0.70,
+        dashArray: "10 16",
+        lineCap: "round",
+        lineJoin: "round",
+        className: "metrado-route-flow",
+        interactive: false
+      }).addTo(layer);
+    } else {
     metradoRouteFlow.setLatLngs(puntos);
     if(typeof metradoRouteFlow.setStyle === "function"){
       metradoRouteFlow.setStyle({ color: flowColor });
