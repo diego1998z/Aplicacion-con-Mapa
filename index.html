@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="css/sidebar.css">
     <link rel="stylesheet" href="css/map.css">
     <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="css/chat.css">
 </head>
 <body>
     <div id="loginOverlay">
@@ -189,6 +190,26 @@
                         <div class="inv-summary-row inv-summary-row--total"><span>Inversion total proxima etapa</span><strong id="invTotalProxima">S/ 0</strong></div>
                     </div>
                 </section>
+
+                <div class="ai-chat" aria-live="polite">
+                    <button id="aiChatToggle" class="ai-chat-toggle" type="button" aria-label="Abrir chat AI" aria-controls="aiChatPanel" aria-expanded="false">AI</button>
+                    <div id="aiChatPanel" class="ai-chat-panel hidden" role="dialog" aria-label="Chat de inversion AI" aria-modal="false">
+                        <div class="ai-chat-head">
+                            <div>
+                                <div class="ai-chat-title">Asistente de inversion</div>
+                                <div class="ai-chat-sub" id="aiChatStatus">Simulacion desactivada</div>
+                            </div>
+                            <button id="aiChatClose" class="ai-chat-close" type="button" aria-label="Cerrar chat">&times;</button>
+                        </div>
+                        <div class="ai-chat-body" id="aiChatBody"></div>
+                        <div class="ai-chat-quick" id="aiChatQuick"></div>
+                        <form id="aiChatForm" class="ai-chat-form" autocomplete="off">
+                            <input id="aiChatInput" type="text" placeholder="Escribe tu consulta..." autocomplete="off">
+                            <button type="submit" class="ai-chat-send">Enviar</button>
+                        </form>
+                        <div class="ai-chat-footer">Soporte: +51 993931475</div>
+                    </div>
+                </div>
             </div>
 
             <div class="dash-page hidden" data-dash-page="apu">
@@ -939,5 +960,6 @@
     <script src="js/filters.js"></script>
     <script src="js/events.js"></script>
     <script src="js/reportes.js"></script>
+    <script src="js/chat.js"></script>
 </body>
 </html>

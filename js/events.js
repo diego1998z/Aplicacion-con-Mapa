@@ -1649,11 +1649,33 @@ function updateInversion(){
   const sumHoriz = horiz.reduce((sum, s)=> sum + precioDeSenal("horizontal", s), 0);
   const sumVert = vert.reduce((sum, s)=> sum + precioDeSenal("vertical", s), 0);
   const sumMob = mob.reduce((sum, s)=> sum + precioDeSenal("mobiliario", s), 0);
-  const total = sumHoriz + sumVert + sumMob;
+  let total = sumHoriz + sumVert + sumMob;
 
-  const sumOper = all.filter(s => s.estado === "nueva").reduce((sum, s)=> sum + precioDeSenal("mix", s), 0);
-  const sumDet = all.filter(s => s.estado === "antigua").reduce((sum, s)=> sum + precioDeSenal("mix", s), 0);
-  const sumRepo = all.filter(s => s.estado === "sin_senal").reduce((sum, s)=> sum + precioDeSenal("mix", s), 0);
+  let sumOper = all.filter(s => s.estado === "nueva").reduce((sum, s)=> sum + precioDeSenal("mix", s), 0);
+  let sumDet = all.filter(s => s.estado === "antigua").reduce((sum, s)=> sum + precioDeSenal("mix", s), 0);
+  let sumRepo = all.filter(s => s.estado === "sin_senal").reduce((sum, s)=> sum + precioDeSenal("mix", s), 0);
+
+  try{
+    window.aiInversionBase = { total, sumOper, sumDet, sumRepo };
+  }catch(e){}
+
+  const aiOverride = (typeof window.aiInversionOverride === "object" && window.aiInversionOverride) ? window.aiInversionOverride : null;
+  if(aiOverride){
+    const oOper = Number(aiOverride.operativos);
+    const oDet = Number(aiOverride.deteriorados);
+    const oRepo = Number(aiOverride.reposicion);
+    const oTotal = Number(aiOverride.total);
+    const hasOverrideValues = Number.isFinite(oOper) || Number.isFinite(oDet) || Number.isFinite(oRepo);
+
+    if(Number.isFinite(oOper)) sumOper = Math.max(0, oOper);
+    if(Number.isFinite(oDet)) sumDet = Math.max(0, oDet);
+    if(Number.isFinite(oRepo)) sumRepo = Math.max(0, oRepo);
+    if(Number.isFinite(oTotal) && oTotal > 0){
+      total = oTotal;
+    } else if(hasOverrideValues){
+      total = sumOper + sumDet + sumRepo;
+    }
+  }
 
   if(invTotal) invTotal.textContent = formatearMonedaPEN(total);
   if(invOperativos) invOperativos.textContent = formatearMonedaPEN(sumOper);
