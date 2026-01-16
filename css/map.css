@@ -1549,6 +1549,25 @@ body.project-select-mode .leaflet-container{
     margin:180px 0 0 0;
     pointer-events:auto;
 }
+#modalMetradoRegistros{
+    background:transparent;
+    justify-content:flex-start;
+    align-items:flex-start;
+    padding:16px;
+    pointer-events:none;
+}
+#modalMetradoRegistros .inspeccion-modal--list{
+    margin:120px 0 0 16px;
+    pointer-events:auto;
+}
+@media (min-width: 901px){
+    body.dash-shell #modalMetradoRegistros{
+        padding-left:calc(280px + 20px);
+    }
+    body.dash-shell #modalMetradoRegistros .inspeccion-modal--list{
+        margin-left:0;
+    }
+}
 .modal-content{
     background:var(--panel);
     border-radius:12px;
@@ -1847,6 +1866,11 @@ body.project-select-mode .leaflet-container{
     cursor:pointer;
 }
 .inspeccion-btn:hover{filter:brightness(0.98);}
+.inspeccion-btn--danger{
+    border-color:rgba(217,63,63,0.4);
+    background:rgba(217,63,63,0.12);
+    color:#d93f3f;
+}
 .inspeccion-item-rows{
     margin-top:10px;
     display:grid;

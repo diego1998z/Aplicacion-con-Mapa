@@ -1327,6 +1327,7 @@ function renderMetradoRegistrosList(){
       +     "</div>"
       +     "<div class=\"inspeccion-item-actions\">"
       +       "<button type=\"button\" class=\"inspeccion-btn btn-metrado-focus\" data-id=\"" + idAttr + "\">Ver en mapa</button>"
+      +       "<button type=\"button\" class=\"inspeccion-btn inspeccion-btn--danger btn-metrado-delete\" data-id=\"" + idAttr + "\">Eliminar trazo</button>"
       +     "</div>"
       +   "</div>"
       +   "<div class=\"metrado-registro-meta\">"
@@ -2510,16 +2511,41 @@ function renderApuDetalle(partida){
     if(raw && Array.isArray(raw.detalle)) return raw.detalle;
     return [];
   }
+  function toNumber(value){
+    if(value === null || value === undefined || value === "") return NaN;
+    const num = Number(String(value).replace(",", "."));
+    return Number.isFinite(num) ? num : NaN;
+  }
+  function resolveParcial(item){
+    const raw = item.parcial ?? item.parcial_total ?? item.total ?? null;
+    const rawNum = toNumber(raw);
+    if(Number.isFinite(rawNum)) return rawNum;
+    const cantidad = toNumber(item.cantidad ?? item.hh ?? item.factor ?? item.cant ?? "");
+    const precio = toNumber(item.precio_unitario ?? item.precio ?? item.base ?? "");
+    if(Number.isFinite(cantidad) && Number.isFinite(precio)) return cantidad * precio;
+    return NaN;
+  }
+  function formatNumber(value){
+    return Number.isFinite(value) ? value.toFixed(2) : "";
+  }
 
   let html = sections.map((sec)=>{
     const lista = normalizarLista(partida[sec.key]);
     if(!lista.length) return "";
+    let totalParcial = 0;
+    let hasParcial = false;
     const rows = lista.map((it)=>{
       const desc = it.descripcion || "-";
       const unidad = it.unidad || it.unid || "-";
       const cantidad = (it.cantidad ?? it.hh ?? it.factor ?? "");
       const precio = (it.precio_unitario ?? it.precio ?? "");
-      const parcial = (it.parcial ?? "");
+      const parcialNum = resolveParcial(it);
+      if(Number.isFinite(parcialNum)){
+        totalParcial += parcialNum;
+        hasParcial = true;
+      }
+      const parcialRaw = (it.parcial ?? it.parcial_total ?? it.total ?? "");
+      const parcial = parcialRaw !== "" ? String(parcialRaw) : formatNumber(parcialNum);
       return "<tr>"
         + "<td>" + escapeHtml(desc) + "</td>"
         + "<td>" + escapeHtml(unidad) + "</td>"
@@ -2528,11 +2554,17 @@ function renderApuDetalle(partida){
         + "<td>" + escapeHtml(String(parcial)) + "</td>"
         + "</tr>";
     }).join("");
+    const totalRow = hasParcial
+      ? "<tfoot><tr class=\"apu-detail-total\"><td colspan=\"4\">Total parcial</td><td>"
+        + escapeHtml(formatNumber(totalParcial))
+        + "</td></tr></tfoot>"
+      : "";
     return "<div class=\"apu-detail-section\">"
       + "<h4>" + escapeHtml(sec.title) + "</h4>"
       + "<table class=\"apu-detail-table\">"
       + "<thead><tr><th>Descripcion</th><th>Unidad</th><th>Cantidad</th><th>Precio</th><th>Parcial</th></tr></thead>"
       + "<tbody>" + rows + "</tbody>"
+      + totalRow
       + "</table>"
       + "</div>";
   }).join("");
@@ -4522,9 +4554,21 @@ if(btnMetradoRegistrosClose){
 }
 if(metradoRegistrosList){
   metradoRegistrosList.addEventListener("click", (e)=>{
-    const btn = e.target && e.target.closest ? e.target.closest(".btn-metrado-focus") : null;
-    if(!btn) return;
-    focusMetradoRegistro(btn.getAttribute("data-id") || "");
+    const target = e.target;
+    if(target && target.closest){
+      const deleteBtn = target.closest(".btn-metrado-delete");
+      if(deleteBtn){
+        const id = deleteBtn.getAttribute("data-id") || "";
+        metradoRegistros = (Array.isArray(metradoRegistros) ? metradoRegistros : []).filter(r => String(r.id) !== String(id));
+        actualizarMetradoRegistrosUI();
+        guardarProyectoActivo();
+        return;
+      }
+      const focusBtn = target.closest(".btn-metrado-focus");
+      if(focusBtn){
+        focusMetradoRegistro(focusBtn.getAttribute("data-id") || "");
+      }
+    }
   });
 }
 if(btnInspeccionVerTodo){

@@ -444,6 +444,14 @@
 .apu-detail-table tbody tr:last-child td{
   border-bottom:none;
 }
+.apu-detail-table tfoot td{
+  background:var(--field-bg);
+  font-weight:700;
+  border-top:1px solid var(--border);
+}
+.apu-detail-table tfoot td:last-child{
+  text-align:right;
+}
 .apu-empty{
   color:var(--muted);
   font-size:12px;
