@@ -354,10 +354,17 @@
   display:flex;
   align-items:center;
   justify-content:space-between;
-  gap:8px;
+  gap:10px;
+  flex-wrap:wrap;
 }
 .inv-price-cell span{
   white-space:nowrap;
+}
+.inv-price-actions{
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
 }
 .inv-edit-btn{
   border:1px solid rgba(11,34,48,0.18);
@@ -382,6 +389,18 @@
   white-space:nowrap;
 }
 .inv-map-btn:hover{filter:brightness(0.98);}
+.inv-apu-btn{
+  border:1px solid rgba(37,57,75,0.22);
+  background:#eef2f7;
+  color:#1b2c3b;
+  border-radius:999px;
+  padding:4px 12px;
+  font-size:11px;
+  font-weight:800;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.inv-apu-btn:hover{filter:brightness(0.98);}
 .inv-summary{
   display:flex;
   flex-direction:column;

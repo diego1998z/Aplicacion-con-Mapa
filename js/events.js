@@ -2038,6 +2038,31 @@ function obtenerCostoApuMetrado(registro){
   return costoUnitario * area;
 }
 
+function obtenerApuRelacion(kind, item){
+  if(!item) return null;
+  if(kind === "vertical"){
+    const key = normalizarApuKey(item.tipo || item.categoria || "");
+    const codigo = APU_MAP_TRANSITO[key] || "";
+    return { categoria: "transito", codigo };
+  }
+  if(kind === "mobiliario"){
+    const key = normalizarApuKey(item.nombre || "");
+    const codigo = APU_MAP_MOBILIARIO[key] || "";
+    return { categoria: "mobiliario", codigo };
+  }
+  if(kind === "metrado"){
+    const tipo = String(item.pintura_tipo || "pintura_trafico");
+    const codigo = APU_MAP_MARCAS[tipo] || APU_MAP_MARCAS.pintura_trafico || "";
+    return { categoria: "marcas", codigo };
+  }
+  if(kind === "horizontal"){
+    const tipo = String(item.pintura_tipo || "pintura_trafico");
+    const codigo = APU_MAP_MARCAS[tipo] || APU_MAP_MARCAS.pintura_trafico || "";
+    return { categoria: "marcas", codigo };
+  }
+  return null;
+}
+
 function getProjectsKey(){
   const correo = getSessionEmail() || "guest";
   return LS_PROJECTS_PREFIX + normalizarCorreo(correo);
@@ -2605,6 +2630,26 @@ function limpiarInversionMapa(){
   }catch(e){}
 }
 
+function abrirApuRelacionado(row){
+  if(!row || !row.ref) return;
+  const relacion = obtenerApuRelacion(row.kind, row.ref);
+  setDashView("apu");
+  const aplicar = ()=>{
+    if(relacion){
+      apuState.categoria = relacion.categoria || "transito";
+      if(apuCategoria) apuCategoria.value = apuState.categoria;
+      if(apuBuscar) apuBuscar.value = "";
+      apuState.selectedCodigo = relacion.codigo || "";
+    }
+    renderApuTabla();
+  };
+  if(apuState.loaded){
+    aplicar();
+  } else {
+    cargarApuData().then(aplicar).catch(()=> updateApu());
+  }
+}
+
 function enfocarInversionEnMapa(row){
   if(!row || !row.ref) return;
   if(typeof map === "undefined" || !map) return;
@@ -2740,7 +2785,7 @@ function updateInversion(){
 
   if(invTablaBody){
     if(!rows.length){
-      invTablaBody.innerHTML = "<tr><td colspan=\"6\">Sin activos registrados.</td></tr>";
+      invTablaBody.innerHTML = "<tr><td colspan=\"5\">Sin activos registrados.</td></tr>";
     } else {
       invTablaBody.innerHTML = rows.map((row, idx)=>{
         const s = row.ref || {};
@@ -2765,9 +2810,12 @@ function updateInversion(){
           + "<td>" + escapeHtml(labelEstadoInversion(row.kind, s)) + "</td>"
           + "<td class=\"inv-price-cell\">"
           +   "<span>" + formatearMonedaPEN(precio) + "</span>"
-          +   "<button type=\"button\" class=\"inv-edit-btn\" data-kind=\"" + kindAttr + "\" data-id=\"" + idAttr + "\">Editar</button>"
+          +   "<div class=\"inv-price-actions\">"
+          +     "<button type=\"button\" class=\"inv-edit-btn\" data-kind=\"" + kindAttr + "\" data-id=\"" + idAttr + "\">Editar</button>"
+          +     "<button type=\"button\" class=\"inv-map-btn\" data-kind=\"" + kindAttr + "\" data-id=\"" + idAttr + "\">Ver mapa</button>"
+          +     "<button type=\"button\" class=\"inv-apu-btn\" data-kind=\"" + kindAttr + "\" data-id=\"" + idAttr + "\">Ver APU</button>"
+          +   "</div>"
           + "</td>"
-          + "<td><button type=\"button\" class=\"inv-map-btn\" data-kind=\"" + kindAttr + "\" data-id=\"" + idAttr + "\">Ver mapa</button></td>"
           + "</tr>";
       }).join("");
     }
@@ -4829,6 +4877,12 @@ if(invTablaBody){
     const rowEl = target && target.closest ? target.closest("tr[data-row]") : null;
     const rowIndex = rowEl ? Number(rowEl.getAttribute("data-row")) : NaN;
     const row = Number.isFinite(rowIndex) ? invRowsCache[rowIndex] : null;
+
+    const apuBtn = target && target.closest ? target.closest(".inv-apu-btn") : null;
+    if(apuBtn){
+      if(row) abrirApuRelacionado(row);
+      return;
+    }
 
     const mapBtn = target && target.closest ? target.closest(".inv-map-btn") : null;
     if(mapBtn){
