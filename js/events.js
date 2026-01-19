@@ -2601,8 +2601,61 @@ function renderApuTabla(){
   if(apuMoneda) apuMoneda.textContent = "Moneda: " + (pack.moneda || "PEN");
   if(apuTotal) apuTotal.textContent = "Items: " + partidas.length;
 
+  function normalizarLista(raw){
+    if(Array.isArray(raw)) return raw;
+    if(raw && Array.isArray(raw.detalle)) return raw.detalle;
+    return [];
+  }
+  function toNumber(value){
+    if(value === null || value === undefined || value === "") return NaN;
+    const num = Number(String(value).replace(",", "."));
+    return Number.isFinite(num) ? num : NaN;
+  }
+  function sumarParciales(items){
+    let total = 0;
+    let has = false;
+    (items || []).forEach((it)=>{
+      const parcialRaw = it.parcial ?? it.parcial_total ?? it.total ?? null;
+      const parcialNum = toNumber(parcialRaw);
+      if(Number.isFinite(parcialNum)){
+        total += parcialNum;
+        has = true;
+        return;
+      }
+      const cantidad = toNumber(it.cantidad ?? it.hh ?? it.factor ?? it.cant ?? "");
+      const precio = toNumber(it.precio_unitario ?? it.precio ?? it.base ?? "");
+      if(Number.isFinite(cantidad) && Number.isFinite(precio)){
+        total += cantidad * precio;
+        has = true;
+      }
+    });
+    return { total, has };
+  }
+  function calcularCostoDirecto(partida){
+    if(!partida) return NaN;
+    let total = 0;
+    let hasAny = false;
+    const materiales = normalizarLista(partida.materiales);
+    const equipos = normalizarLista(partida.equipos);
+    const mano = normalizarLista(partida.mano_obra);
+    const matSum = sumarParciales(materiales);
+    if(matSum.has){ total += matSum.total; hasAny = true; }
+    const eqSum = sumarParciales(equipos);
+    if(eqSum.has){ total += eqSum.total; hasAny = true; }
+    if(mano.length){
+      const moSum = sumarParciales(mano);
+      if(moSum.has){ total += moSum.total; hasAny = true; }
+    } else if(partida.mano_obra && partida.mano_obra.subtotal !== undefined){
+      const moSub = toNumber(partida.mano_obra.subtotal);
+      if(Number.isFinite(moSub)){ total += moSub; hasAny = true; }
+    }
+    if(hasAny) return total;
+    const fallback = toNumber(partida.costo_directo);
+    return Number.isFinite(fallback) ? fallback : NaN;
+  }
+
   if(!partidas.length){
-    apuTablaBody.innerHTML = "<tr><td colspan=\"5\">Sin datos para esta partida.</td></tr>";
+    apuTablaBody.innerHTML = "<tr><td colspan=\"4\">Sin datos para esta partida.</td></tr>";
     renderApuDetalle(null);
     return;
   }
@@ -2614,13 +2667,13 @@ function renderApuTabla(){
   apuTablaBody.innerHTML = partidas.map((p)=>{
     const codigo = String(p.codigo || "");
     const isSel = codigo === apuState.selectedCodigo ? " is-selected" : "";
-    const total = (p.precio_unitario_total ?? p.costo_directo ?? 0);
+    const costoDirecto = calcularCostoDirecto(p);
+    const costoTexto = Number.isFinite(costoDirecto) ? costoDirecto.toFixed(2) : "-";
     return "<tr class=\"" + isSel + "\" data-codigo=\"" + escapeAttr(codigo) + "\">"
       + "<td>" + escapeHtml(codigo || "-") + "</td>"
       + "<td>" + escapeHtml(p.partida || "-") + "</td>"
       + "<td>" + escapeHtml(p.unidad || "-") + "</td>"
-      + "<td>" + escapeHtml(String(p.costo_directo ?? "-")) + "</td>"
-      + "<td>" + escapeHtml(String(total ?? "-")) + "</td>"
+      + "<td>" + escapeHtml(costoTexto) + "</td>"
       + "</tr>";
   }).join("");
 

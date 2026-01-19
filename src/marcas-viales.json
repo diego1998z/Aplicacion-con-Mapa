@@ -123,6 +123,31 @@
       "gastos_generales": 1.81,
       "igv": 2.5,
       "precio_unitario_total": 16.37
+    },
+    {
+      "codigo": "13.05",
+      "partida": "Aplicacion de pintura trafico",
+      "unidad": "m2",
+      "rendimiento_m2_dia": 1000,
+      "mano_obra": {
+        "criterio": "Precio unico de referencia",
+        "detalle": [
+          { "descripcion": "Capataz", "unidad": "hh", "cantidad": 0.004, "precio": 17.58, "parcial": 0.07 },
+          { "descripcion": "Operario", "unidad": "hh", "cantidad": 0.016, "precio": 13.52, "parcial": 0.22 },
+          { "descripcion": "Peon", "unidad": "hh", "cantidad": 0.064, "precio": 10.81, "parcial": 0.69 }
+        ],
+        "subtotal": 0.98
+      },
+      "materiales": [
+        { "descripcion": "Pintura de trafico", "unidad": "gal", "cantidad": 0.11, "precio_unitario": 78.70, "parcial": 8.66 },
+        { "descripcion": "Microesferas de vidrio", "unidad": "kg", "cantidad": 0.35, "precio_unitario": 11.59, "parcial": 4.06 },
+        { "descripcion": "Solvente", "unidad": "gal", "cantidad": 0.01, "precio_unitario": 46.30, "parcial": 0.46 }
+      ],
+      "equipos": [
+        { "descripcion": "Herramientas manuales", "tipo": "% MO", "factor": 0.03, "base": 0.98, "parcial": 0.03 },
+        { "descripcion": "Maquina para pintar pavimentos", "unidad": "hm", "cantidad": 0.008, "precio": 13.50, "parcial": 0.11 }
+      ],
+      "costo_directo": 14.30
     }
   ]
 }
