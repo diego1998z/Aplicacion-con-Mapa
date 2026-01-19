@@ -2471,6 +2471,9 @@ function cantidadLabel(s){
 }
 
 let invProyectoFiltro = "active";
+let invRowsCache = [];
+let invMapaMarker = null;
+let invMapaLine = null;
 
 function actualizarInvProyectoSelect(){
   if(!invProyectoSelect) return;
@@ -2594,6 +2597,52 @@ function verificadoInversion(kind, item){
   return !!(item && item.inspeccionFoto);
 }
 
+function limpiarInversionMapa(){
+  try{
+    if(typeof map === "undefined" || !map) return;
+    if(invMapaMarker){ map.removeLayer(invMapaMarker); invMapaMarker = null; }
+    if(invMapaLine){ map.removeLayer(invMapaLine); invMapaLine = null; }
+  }catch(e){}
+}
+
+function enfocarInversionEnMapa(row){
+  if(!row || !row.ref) return;
+  if(typeof map === "undefined" || !map) return;
+  if(typeof setDashView === "function") setDashView("mapa");
+
+  setTimeout(()=>{
+    try{ if(map && typeof map.invalidateSize === "function") map.invalidateSize(); }catch(e){}
+    limpiarInversionMapa();
+    const item = row.ref;
+    if(row.kind === "metrado"){
+      const puntos = Array.isArray(item.puntos) ? item.puntos : [];
+      if(puntos.length >= 2 && typeof L !== "undefined"){
+        invMapaLine = L.polyline(puntos, { color:"#0b5d5b", weight:6, opacity:0.85 }).addTo(map);
+        const bounds = L.latLngBounds(puntos.map(p => L.latLng(p[0], p[1])));
+        map.fitBounds(bounds, { padding:[50,50] });
+        const label = item.nombre || "Trazado";
+        invMapaLine.bindPopup("<strong>" + escapeHtml(label) + "</strong>").openPopup();
+        return;
+      }
+    }
+    const lat = Number(item.lat);
+    const lng = Number(item.lng);
+    if(!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    const label = row.kind === "mobiliario"
+      ? (item.nombre || "Mobiliario")
+      : (item.nombre || item.tipo || "Activo");
+    if(typeof map.flyTo === "function"){
+      map.flyTo([lat, lng], 17, { duration: 1.1, easeLinearity: 0.25 });
+    } else {
+      map.setView([lat, lng], 17);
+    }
+    if(typeof L !== "undefined"){
+      invMapaMarker = L.marker([lat, lng]).addTo(map);
+      invMapaMarker.bindPopup("<strong>" + escapeHtml(label) + "</strong>").openPopup();
+    }
+  }, 200);
+}
+
 function buscarItemInversion(kind, id){
   const key = String(id || "");
   if(kind === "metrado"){
@@ -2641,6 +2690,7 @@ function updateInversion(){
       id: r.id,
       area_m2: r && r.resultados && Number.isFinite(Number(r.resultados.area)) ? Number(r.resultados.area) : null
     })));
+  invRowsCache = rows.slice();
 
   let sumOper = rows.filter(r => estadoClaveInversion(r.kind, r.ref) === "nueva")
     .reduce((sum, r)=> sum + precioInversionItem(r.kind, r.ref), 0);
@@ -2690,9 +2740,9 @@ function updateInversion(){
 
   if(invTablaBody){
     if(!rows.length){
-      invTablaBody.innerHTML = "<tr><td colspan=\"5\">Sin activos registrados.</td></tr>";
+      invTablaBody.innerHTML = "<tr><td colspan=\"6\">Sin activos registrados.</td></tr>";
     } else {
-      invTablaBody.innerHTML = rows.map((row)=>{
+      invTablaBody.innerHTML = rows.map((row, idx)=>{
         const s = row.ref || {};
         const nombre = (row.kind === "metrado")
           ? String(s.nombre || "Trazado")
@@ -2708,7 +2758,7 @@ function updateInversion(){
         const precio = precioInversionItem(row.kind, s);
         const idAttr = escapeAttr(String(row.id || ""));
         const kindAttr = escapeAttr(String(row.kind || ""));
-        return "<tr data-kind=\"" + kindAttr + "\" data-id=\"" + idAttr + "\">"
+        return "<tr data-kind=\"" + kindAttr + "\" data-id=\"" + idAttr + "\" data-row=\"" + idx + "\">"
           + "<td>" + escapeHtml(nombre) + "</td>"
           + "<td>" + escapeHtml(tipo) + "</td>"
           + "<td>" + escapeHtml(cantidad) + "</td>"
@@ -2717,6 +2767,7 @@ function updateInversion(){
           +   "<span>" + formatearMonedaPEN(precio) + "</span>"
           +   "<button type=\"button\" class=\"inv-edit-btn\" data-kind=\"" + kindAttr + "\" data-id=\"" + idAttr + "\">Editar</button>"
           + "</td>"
+          + "<td><button type=\"button\" class=\"inv-map-btn\" data-kind=\"" + kindAttr + "\" data-id=\"" + idAttr + "\">Ver mapa</button></td>"
           + "</tr>";
       }).join("");
     }
@@ -4774,12 +4825,21 @@ if(apuTablaBody){
 }
 if(invTablaBody){
   invTablaBody.addEventListener("click", (e)=>{
-    if(rolActual !== "municipal") return;
-    const btn = e.target && e.target.closest ? e.target.closest(".inv-edit-btn") : null;
-    if(!btn) return;
-    const kind = btn.getAttribute("data-kind") || "";
-    const id = btn.getAttribute("data-id") || "";
-    const item = buscarItemInversion(kind, id);
+    const target = e.target;
+    const rowEl = target && target.closest ? target.closest("tr[data-row]") : null;
+    const rowIndex = rowEl ? Number(rowEl.getAttribute("data-row")) : NaN;
+    const row = Number.isFinite(rowIndex) ? invRowsCache[rowIndex] : null;
+
+    const mapBtn = target && target.closest ? target.closest(".inv-map-btn") : null;
+    if(mapBtn){
+      if(row) enfocarInversionEnMapa(row);
+      return;
+    }
+
+    const btn = target && target.closest ? target.closest(".inv-edit-btn") : null;
+    if(!btn || rolActual !== "municipal") return;
+    const item = row ? row.ref : null;
+    const kind = row ? row.kind : (btn.getAttribute("data-kind") || "");
     if(!item) return;
     const actual = precioInversionItem(kind, item);
     const valor = prompt("Nuevo valor de inversion (S/):", Number.isFinite(actual) ? actual.toFixed(2) : "");
@@ -4787,13 +4847,13 @@ if(invTablaBody){
     const limpio = String(valor).trim();
     if(!limpio){
       setOverrideInversion(item, null);
-    updateInversion();
-    if(typeof guardarProyectos === "function"){
-      guardarProyectos();
-    } else if(typeof guardarProyectoActivo === "function"){
-      guardarProyectoActivo();
-    }
-    return;
+      updateInversion();
+      if(typeof guardarProyectos === "function"){
+        guardarProyectos();
+      } else if(typeof guardarProyectoActivo === "function"){
+        guardarProyectoActivo();
+      }
+      return;
     }
     const num = Number(limpio.replace(",", "."));
     if(!Number.isFinite(num) || num < 0){
