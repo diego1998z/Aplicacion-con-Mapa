@@ -125,6 +125,7 @@ const dashUserName = document.getElementById("dashUserName");
 const dashUserEmail = document.getElementById("dashUserEmail");
 const dashAvatarInitials = document.getElementById("dashAvatarInitials");
 const dashEntity = document.getElementById("dashEntity");
+const dashProjectSelect = document.getElementById("dashProjectSelect");
 const dashScore = document.getElementById("dashScore");
 const dashTotalSenales = document.getElementById("dashTotalSenales");
 const dashInversion = document.getElementById("dashInversion");
@@ -2424,6 +2425,57 @@ function filtrarPorSeleccion(dataset){
   return base;
 }
 
+let dashProyectoFiltro = "active";
+
+function actualizarDashProyectoSelect(){
+  if(!dashProjectSelect) return;
+  const actual = dashProjectSelect.value || dashProyectoFiltro || "active";
+  let html = '<option value="active">Proyecto activo</option>'
+    + '<option value="todos">Todos los proyectos</option>';
+  if(Array.isArray(proyectosCache) && proyectosCache.length){
+    html += '<optgroup label="Proyectos">';
+    html += proyectosCache.map(p => (
+      '<option value="' + escapeAttr(p.id) + '">' + escapeHtml(p.nombre || "Proyecto") + '</option>'
+    )).join("");
+    html += '</optgroup>';
+  }
+  dashProjectSelect.innerHTML = html;
+  const hasProject = Array.isArray(proyectosCache) && proyectosCache.some(p => String(p.id || "") === String(actual));
+  dashProjectSelect.value = (actual === "active" || actual === "todos" || hasProject) ? actual : "active";
+  dashProyectoFiltro = dashProjectSelect.value;
+}
+
+function obtenerListasDashboard(){
+  const filtro = dashProjectSelect ? dashProjectSelect.value : dashProyectoFiltro;
+  dashProyectoFiltro = filtro || "active";
+  const fallback = ()=>({
+    horiz: filtrarPorSeleccion(typeof senalesHorizontal !== "undefined" ? senalesHorizontal : []),
+    vert: filtrarPorSeleccion(typeof senalesVertical !== "undefined" ? senalesVertical : []),
+    mob: filtrarPorSeleccion(typeof senalesMobiliario !== "undefined" ? senalesMobiliario : [])
+  });
+  if(!filtro || filtro === "active" || !Array.isArray(proyectosCache) || !proyectosCache.length){
+    return fallback();
+  }
+  if(filtro === "todos"){
+    const horiz = [];
+    const vert = [];
+    const mob = [];
+    proyectosCache.forEach((p)=>{
+      horiz.push(...filtrarPorSeleccion(p.senalesHorizontal || []));
+      vert.push(...filtrarPorSeleccion(p.senalesVertical || []));
+      mob.push(...filtrarPorSeleccion(p.senalesMobiliario || []));
+    });
+    return { horiz, vert, mob };
+  }
+  const proj = proyectosCache.find(p => String(p.id || "") === String(filtro));
+  if(!proj) return fallback();
+  return {
+    horiz: filtrarPorSeleccion(proj.senalesHorizontal || []),
+    vert: filtrarPorSeleccion(proj.senalesVertical || []),
+    mob: filtrarPorSeleccion(proj.senalesMobiliario || [])
+  };
+}
+
 function precioDeSenal(modo, senal){
   try{
     const p = senal && typeof senal.precio === "number" ? senal.precio : NaN;
@@ -2454,10 +2506,12 @@ function updateDashboard(){
     }
   }
 
-  const horiz = filtrarPorSeleccion(typeof senalesHorizontal !== "undefined" ? senalesHorizontal : []);
-  const vert = filtrarPorSeleccion(typeof senalesVertical !== "undefined" ? senalesVertical : []);
-  const mob = filtrarPorSeleccion(typeof senalesMobiliario !== "undefined" ? senalesMobiliario : []);
-  const all = horiz.concat(vert);
+  actualizarDashProyectoSelect();
+  const data = obtenerListasDashboard();
+  const horiz = data.horiz;
+  const vert = data.vert;
+  const mob = data.mob;
+  const all = horiz.concat(vert, mob);
 
   const total = all.length;
   const nNueva = all.filter(s => s.estado === "nueva").length;
@@ -4843,6 +4897,12 @@ if(invProyectoSelect){
   invProyectoSelect.addEventListener("change", ()=>{
     invProyectoFiltro = invProyectoSelect.value || "active";
     updateInversion();
+  });
+}
+if(dashProjectSelect){
+  dashProjectSelect.addEventListener("change", ()=>{
+    dashProyectoFiltro = dashProjectSelect.value || "active";
+    updateDashboard();
   });
 }
 if(btnCambiarProyecto){
