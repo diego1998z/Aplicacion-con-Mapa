@@ -2451,7 +2451,8 @@ function obtenerListasDashboard(){
   const fallback = ()=>({
     horiz: filtrarPorSeleccion(typeof senalesHorizontal !== "undefined" ? senalesHorizontal : []),
     vert: filtrarPorSeleccion(typeof senalesVertical !== "undefined" ? senalesVertical : []),
-    mob: filtrarPorSeleccion(typeof senalesMobiliario !== "undefined" ? senalesMobiliario : [])
+    mob: filtrarPorSeleccion(typeof senalesMobiliario !== "undefined" ? senalesMobiliario : []),
+    metrado: Array.isArray(metradoRegistros) ? metradoRegistros : []
   });
   if(!filtro || filtro === "active" || !Array.isArray(proyectosCache) || !proyectosCache.length){
     return fallback();
@@ -2460,19 +2461,22 @@ function obtenerListasDashboard(){
     const horiz = [];
     const vert = [];
     const mob = [];
+    const metrado = [];
     proyectosCache.forEach((p)=>{
       horiz.push(...filtrarPorSeleccion(p.senalesHorizontal || []));
       vert.push(...filtrarPorSeleccion(p.senalesVertical || []));
       mob.push(...filtrarPorSeleccion(p.senalesMobiliario || []));
+      if(Array.isArray(p.metradoRegistros)) metrado.push(...p.metradoRegistros);
     });
-    return { horiz, vert, mob };
+    return { horiz, vert, mob, metrado };
   }
   const proj = proyectosCache.find(p => String(p.id || "") === String(filtro));
   if(!proj) return fallback();
   return {
     horiz: filtrarPorSeleccion(proj.senalesHorizontal || []),
     vert: filtrarPorSeleccion(proj.senalesVertical || []),
-    mob: filtrarPorSeleccion(proj.senalesMobiliario || [])
+    mob: filtrarPorSeleccion(proj.senalesMobiliario || []),
+    metrado: Array.isArray(proj.metradoRegistros) ? proj.metradoRegistros : []
   };
 }
 
@@ -2490,6 +2494,9 @@ function precioDeSenal(modo, senal){
 function updateDashboard(){
   if(!dashboardOverlay) return;
   const correo = getSessionEmail();
+  if(!apuState.loaded){
+    cargarApuData().then(()=> updateDashboard()).catch(()=>{});
+  }
 
   const profileName = getProfileName();
   if(dashUserName) dashUserName.textContent = profileName || nombreDesdeCorreo(correo);
@@ -2511,6 +2518,7 @@ function updateDashboard(){
   const horiz = data.horiz;
   const vert = data.vert;
   const mob = data.mob;
+  const metrado = data.metrado;
   const all = horiz.concat(vert, mob);
 
   const total = all.length;
@@ -2522,9 +2530,11 @@ function updateDashboard(){
   const atencion = nAntigua + nSin;
 
   // Estimación simple (ajustable) por tipo de señalización
-  const inversion = horiz.reduce((sum, s)=> sum + precioDeSenal("horizontal", s), 0)
-    + vert.reduce((sum, s)=> sum + precioDeSenal("vertical", s), 0)
-    + mob.reduce((sum, s)=> sum + precioDeSenal("mobiliario", s), 0);
+  const sumHoriz = horiz.reduce((sum, s)=> sum + precioInversionSenal("horizontal", s), 0);
+  const sumMetrado = metrado.reduce((sum, r)=> sum + precioInversionMetrado(r), 0);
+  const sumVert = vert.reduce((sum, s)=> sum + precioInversionSenal("vertical", s), 0);
+  const sumMob = mob.reduce((sum, s)=> sum + precioInversionSenal("mobiliario", s), 0);
+  const inversion = sumHoriz + sumMetrado + sumVert + sumMob;
 
   if(dashScore) dashScore.textContent = String(score);
   if(dashTotalSenales) dashTotalSenales.textContent = String(total);
