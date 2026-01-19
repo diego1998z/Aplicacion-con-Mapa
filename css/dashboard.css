@@ -315,6 +315,26 @@
   text-transform:uppercase;
   font-size:11px;
 }
+.inv-price-cell{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+}
+.inv-price-cell span{
+  white-space:nowrap;
+}
+.inv-edit-btn{
+  border:1px solid rgba(11,34,48,0.18);
+  background:#f2f6fa;
+  color:#0b2230;
+  border-radius:999px;
+  padding:4px 10px;
+  font-size:11px;
+  font-weight:800;
+  cursor:pointer;
+}
+.inv-edit-btn:hover{filter:brightness(0.98);}
 .inv-summary{
   display:flex;
   flex-direction:column;

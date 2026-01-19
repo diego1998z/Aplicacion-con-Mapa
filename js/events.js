@@ -47,6 +47,7 @@ const metradoInternas = document.getElementById("metradoInternas");
 const metradoArea = document.getElementById("metradoArea");
 const metradoSnapVias = document.getElementById("metradoSnapVias");
 const metradoNombre = document.getElementById("metradoNombre");
+const metradoTipoPintura = document.getElementById("metradoTipoPintura");
 const btnMetradoVerRegistros = document.getElementById("btnMetradoVerRegistros");
 const modalMetradoRegistros = document.getElementById("modalMetradoRegistros");
 const btnMetradoRegistrosClose = document.getElementById("btnMetradoRegistrosClose");
@@ -1905,6 +1906,135 @@ const apuState = {
   categoria: "transito",
   selectedCodigo: ""
 };
+const APU_MAP_TRANSITO = {
+  preventiva: "1.01",
+  reglamentaria: "1.02",
+  informativa: "1.03"
+};
+const APU_MAP_MOBILIARIO = {
+  bolardo: "3.02",
+  tachas: "3.01",
+  tachon: "3.03"
+};
+const APU_MAP_MARCAS = {
+  termoplastico_spray: "13.01",
+  termoplastico_extrusion: "13.02",
+  pintura_trafico: "13.05"
+};
+
+function apuToNumber(value){
+  if(value === null || value === undefined || value === "") return NaN;
+  const num = Number(String(value).replace(",", "."));
+  return Number.isFinite(num) ? num : NaN;
+}
+
+function apuNormalizarLista(raw){
+  if(Array.isArray(raw)) return raw;
+  if(raw && Array.isArray(raw.detalle)) return raw.detalle;
+  return [];
+}
+
+function apuSumarParciales(items){
+  let total = 0;
+  let has = false;
+  (items || []).forEach((it)=>{
+    const parcialRaw = it.parcial ?? it.parcial_total ?? it.total ?? null;
+    const parcialNum = apuToNumber(parcialRaw);
+    if(Number.isFinite(parcialNum)){
+      total += parcialNum;
+      has = true;
+      return;
+    }
+    const cantidad = apuToNumber(it.cantidad ?? it.hh ?? it.factor ?? it.cant ?? "");
+    const precio = apuToNumber(it.precio_unitario ?? it.precio ?? it.base ?? "");
+    if(Number.isFinite(cantidad) && Number.isFinite(precio)){
+      total += cantidad * precio;
+      has = true;
+    }
+  });
+  return { total, has };
+}
+
+function calcularCostoDirectoPartida(partida){
+  if(!partida) return NaN;
+  let total = 0;
+  let hasAny = false;
+  const materiales = apuNormalizarLista(partida.materiales);
+  const equipos = apuNormalizarLista(partida.equipos);
+  const mano = apuNormalizarLista(partida.mano_obra);
+  const matSum = apuSumarParciales(materiales);
+  if(matSum.has){ total += matSum.total; hasAny = true; }
+  const eqSum = apuSumarParciales(equipos);
+  if(eqSum.has){ total += eqSum.total; hasAny = true; }
+  if(mano.length){
+    const moSum = apuSumarParciales(mano);
+    if(moSum.has){ total += moSum.total; hasAny = true; }
+  } else if(partida.mano_obra && partida.mano_obra.subtotal !== undefined){
+    const moSub = apuToNumber(partida.mano_obra.subtotal);
+    if(Number.isFinite(moSub)){ total += moSub; hasAny = true; }
+  }
+  if(hasAny) return total;
+  const fallback = apuToNumber(partida.costo_directo);
+  return Number.isFinite(fallback) ? fallback : NaN;
+}
+
+function normalizarApuKey(texto){
+  return String(texto || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "_")
+    .trim();
+}
+
+function buscarPartidaApu(categoria, codigo){
+  if(!apuState.loaded) return null;
+  const pack = apuState.data[categoria];
+  const partidas = pack && Array.isArray(pack.partidas) ? pack.partidas : [];
+  return partidas.find(p => String(p.codigo || "") === String(codigo || "")) || null;
+}
+
+function obtenerCostoDirectoApu(categoria, codigo){
+  const partida = buscarPartidaApu(categoria, codigo);
+  if(!partida) return NaN;
+  return calcularCostoDirectoPartida(partida);
+}
+
+function obtenerCostoApuSenal(modo, senal){
+  if(!apuState.loaded || !senal) return NaN;
+  if(modo === "vertical"){
+    const key = normalizarApuKey(senal.tipo || senal.categoria || "");
+    const codigo = APU_MAP_TRANSITO[key];
+    if(codigo) return obtenerCostoDirectoApu("transito", codigo);
+  }
+  if(modo === "mobiliario"){
+    const key = normalizarApuKey(senal.nombre || "");
+    const codigo = APU_MAP_MOBILIARIO[key];
+    if(codigo) return obtenerCostoDirectoApu("mobiliario", codigo);
+  }
+  return NaN;
+}
+
+function etiquetaPinturaMetrado(tipo){
+  if(tipo === "termoplastico_spray") return "Termoplastico en spray";
+  if(tipo === "termoplastico_extrusion") return "Termoplastico en extrusion";
+  if(tipo === "pintura_trafico") return "Pintura trafico";
+  if(!tipo) return "Pintura trafico";
+  return "Pintura";
+}
+
+function obtenerCostoApuMetrado(registro){
+  if(!registro) return NaN;
+  const tipo = String(registro.pintura_tipo || "pintura_trafico");
+  const codigo = APU_MAP_MARCAS[tipo];
+  if(!codigo) return NaN;
+  const costoUnitario = obtenerCostoDirectoApu("marcas", codigo);
+  const area = registro.resultados && Number.isFinite(Number(registro.resultados.area))
+    ? Number(registro.resultados.area)
+    : 0;
+  if(!Number.isFinite(costoUnitario) || !(area > 0)) return NaN;
+  return costoUnitario * area;
+}
 
 function getProjectsKey(){
   const correo = getSessionEmail() || "guest";
@@ -2338,21 +2468,113 @@ function cantidadLabel(s){
   return "1 und";
 }
 
+function obtenerOverrideInversion(item){
+  const raw = item && (item.inversion_override ?? item.inversionOverride);
+  const num = Number(raw);
+  return Number.isFinite(num) ? num : NaN;
+}
+
+function setOverrideInversion(item, value){
+  if(!item) return;
+  if(value === null){
+    delete item.inversion_override;
+    delete item.inversionOverride;
+    return;
+  }
+  item.inversion_override = value;
+}
+
+function precioInversionSenal(modo, senal){
+  const override = obtenerOverrideInversion(senal);
+  if(Number.isFinite(override)) return override;
+  const apu = obtenerCostoApuSenal(modo, senal);
+  if(Number.isFinite(apu)) return apu;
+  return precioDeSenal(modo, senal);
+}
+
+function precioInversionMetrado(registro){
+  const override = obtenerOverrideInversion(registro);
+  if(Number.isFinite(override)) return override;
+  const apu = obtenerCostoApuMetrado(registro);
+  if(Number.isFinite(apu)) return apu;
+  return 0;
+}
+
+function precioInversionItem(kind, item){
+  if(kind === "metrado") return precioInversionMetrado(item);
+  return precioInversionSenal(kind, item);
+}
+
+function estadoClaveInversion(kind, item){
+  if(kind === "metrado") return "nueva";
+  return (item && item.estado) ? item.estado : "";
+}
+
+function labelEstadoInversion(kind, item){
+  if(kind === "metrado"){
+    return item && item.inspeccion_pendiente ? "Inspeccion pendiente" : "Inspeccion registrada";
+  }
+  return labelEstadoSeguro(item ? item.estado : "");
+}
+
+function verificadoInversion(kind, item){
+  if(kind === "metrado"){
+    return item ? !item.inspeccion_pendiente : false;
+  }
+  return !!(item && item.inspeccionFoto);
+}
+
+function buscarItemInversion(kind, id){
+  const key = String(id || "");
+  if(kind === "metrado"){
+    return (Array.isArray(metradoRegistros) ? metradoRegistros : []).find(r => String(r.id) === key) || null;
+  }
+  if(kind === "vertical"){
+    return (Array.isArray(senalesVertical) ? senalesVertical : []).find(s => String(s.id) === key) || null;
+  }
+  if(kind === "horizontal"){
+    return (Array.isArray(senalesHorizontal) ? senalesHorizontal : []).find(s => String(s.id) === key) || null;
+  }
+  if(kind === "mobiliario"){
+    return (Array.isArray(senalesMobiliario) ? senalesMobiliario : []).find(s => String(s.id) === key) || null;
+  }
+  return null;
+}
+
 function updateInversion(){
   if(!invTotal || !invOperativos || !invDeteriorados || !invReposicion) return;
+  if(!apuState.loaded){
+    cargarApuData().then(()=> updateInversion()).catch(()=>{});
+  }
   const horiz = filtrarPorSeleccion(typeof senalesHorizontal !== "undefined" ? senalesHorizontal : []);
   const vert = filtrarPorSeleccion(typeof senalesVertical !== "undefined" ? senalesVertical : []);
   const mob = filtrarPorSeleccion(typeof senalesMobiliario !== "undefined" ? senalesMobiliario : []);
-  const all = horiz.concat(vert, mob);
+  const metradoList = Array.isArray(metradoRegistros) ? metradoRegistros : [];
 
-  const sumHoriz = horiz.reduce((sum, s)=> sum + precioDeSenal("horizontal", s), 0);
-  const sumVert = vert.reduce((sum, s)=> sum + precioDeSenal("vertical", s), 0);
-  const sumMob = mob.reduce((sum, s)=> sum + precioDeSenal("mobiliario", s), 0);
-  let total = sumHoriz + sumVert + sumMob;
+  const sumHorizSenales = horiz.reduce((sum, s)=> sum + precioInversionSenal("horizontal", s), 0);
+  const sumMetrado = metradoList.reduce((sum, r)=> sum + precioInversionMetrado(r), 0);
+  const sumVert = vert.reduce((sum, s)=> sum + precioInversionSenal("vertical", s), 0);
+  const sumMob = mob.reduce((sum, s)=> sum + precioInversionSenal("mobiliario", s), 0);
+  const sumMarcas = sumHorizSenales + sumMetrado;
+  let total = sumMarcas + sumVert + sumMob;
 
-  let sumOper = all.filter(s => s.estado === "nueva").reduce((sum, s)=> sum + precioDeSenal("mix", s), 0);
-  let sumDet = all.filter(s => s.estado === "antigua").reduce((sum, s)=> sum + precioDeSenal("mix", s), 0);
-  let sumRepo = all.filter(s => s.estado === "sin_senal").reduce((sum, s)=> sum + precioDeSenal("mix", s), 0);
+  const rows = []
+    .concat(horiz.map(s => ({ kind: "horizontal", ref: s, id: s.id, area_m2: s.area_m2 })))
+    .concat(vert.map(s => ({ kind: "vertical", ref: s, id: s.id, area_m2: s.area_m2 })))
+    .concat(mob.map(s => ({ kind: "mobiliario", ref: s, id: s.id, area_m2: s.area_m2 })))
+    .concat(metradoList.map(r => ({
+      kind: "metrado",
+      ref: r,
+      id: r.id,
+      area_m2: r && r.resultados && Number.isFinite(Number(r.resultados.area)) ? Number(r.resultados.area) : null
+    })));
+
+  let sumOper = rows.filter(r => estadoClaveInversion(r.kind, r.ref) === "nueva")
+    .reduce((sum, r)=> sum + precioInversionItem(r.kind, r.ref), 0);
+  let sumDet = rows.filter(r => estadoClaveInversion(r.kind, r.ref) === "antigua")
+    .reduce((sum, r)=> sum + precioInversionItem(r.kind, r.ref), 0);
+  let sumRepo = rows.filter(r => estadoClaveInversion(r.kind, r.ref) === "sin_senal")
+    .reduce((sum, r)=> sum + precioInversionItem(r.kind, r.ref), 0);
 
   try{
     window.aiInversionBase = { total, sumOper, sumDet, sumRepo };
@@ -2384,35 +2606,51 @@ function updateInversion(){
   if(invDeterioradosPct) invDeterioradosPct.textContent = total ? Math.round((sumDet / total) * 100) + "%" : "0%";
 
   const pctTransito = total ? Math.round((sumVert / total) * 100) : 0;
-  const pctMarcas = total ? Math.round((sumHoriz / total) * 100) : 0;
+  const pctMarcas = total ? Math.round((sumMarcas / total) * 100) : 0;
   const pctMobiliario = total ? Math.round((sumMob / total) * 100) : 0;
   if(invBarTransito) invBarTransito.style.width = pctTransito + "%";
   if(invBarMarcas) invBarMarcas.style.width = pctMarcas + "%";
   if(invBarMobiliario) invBarMobiliario.style.width = pctMobiliario + "%";
   if(invValTransito) invValTransito.textContent = formatearMonedaPEN(sumVert);
-  if(invValMarcas) invValMarcas.textContent = formatearMonedaPEN(sumHoriz);
+  if(invValMarcas) invValMarcas.textContent = formatearMonedaPEN(sumMarcas);
   if(invValMobiliario) invValMobiliario.textContent = formatearMonedaPEN(sumMob);
 
   if(invTablaBody){
-    if(!all.length){
+    if(!rows.length){
       invTablaBody.innerHTML = "<tr><td colspan=\"5\">Sin activos registrados.</td></tr>";
     } else {
-      invTablaBody.innerHTML = all.map((s)=>{
-        const nombre = String(s.nombre || s.tipo || "Activo");
-        const tipo = String(s.tipo || (s.icono ? "Senal" : "Activo"));
-        const precio = precioDeSenal("mix", s);
-        return "<tr>"
+      invTablaBody.innerHTML = rows.map((row)=>{
+        const s = row.ref || {};
+        const nombre = (row.kind === "metrado")
+          ? String(s.nombre || "Trazado")
+          : String(s.nombre || s.tipo || "Activo");
+        const tipo = (row.kind === "metrado")
+          ? String(s.pintura_label || etiquetaPinturaMetrado(s.pintura_tipo))
+          : (row.kind === "mobiliario")
+            ? String(s.nombre || "Mobiliario")
+            : String(s.tipo || (s.icono ? "Senal" : "Activo"));
+        const cantidad = (row.kind === "metrado")
+          ? cantidadLabel({ area_m2: row.area_m2 })
+          : cantidadLabel(s);
+        const precio = precioInversionItem(row.kind, s);
+        const idAttr = escapeAttr(String(row.id || ""));
+        const kindAttr = escapeAttr(String(row.kind || ""));
+        return "<tr data-kind=\"" + kindAttr + "\" data-id=\"" + idAttr + "\">"
           + "<td>" + escapeHtml(nombre) + "</td>"
           + "<td>" + escapeHtml(tipo) + "</td>"
-          + "<td>" + cantidadLabel(s) + "</td>"
-          + "<td>" + escapeHtml(labelEstadoSeguro(s.estado)) + "</td>"
-          + "<td>" + formatearMonedaPEN(precio) + "</td>"
+          + "<td>" + escapeHtml(cantidad) + "</td>"
+          + "<td>" + escapeHtml(labelEstadoInversion(row.kind, s)) + "</td>"
+          + "<td class=\"inv-price-cell\">"
+          +   "<span>" + formatearMonedaPEN(precio) + "</span>"
+          +   "<button type=\"button\" class=\"inv-edit-btn\" data-kind=\"" + kindAttr + "\" data-id=\"" + idAttr + "\">Editar</button>"
+          + "</td>"
           + "</tr>";
       }).join("");
     }
   }
 
-  const sinVerif = all.filter(s => !s.inspeccionFoto).reduce((sum, s)=> sum + precioDeSenal("mix", s), 0);
+  const sinVerif = rows.filter(r => !verificadoInversion(r.kind, r.ref))
+    .reduce((sum, r)=> sum + precioInversionItem(r.kind, r.ref), 0);
   const mantenimiento = sumDet;
   const reposicion = sumRepo;
   const totalProx = sinVerif + mantenimiento + reposicion;
@@ -2601,59 +2839,6 @@ function renderApuTabla(){
   if(apuMoneda) apuMoneda.textContent = "Moneda: " + (pack.moneda || "PEN");
   if(apuTotal) apuTotal.textContent = "Items: " + partidas.length;
 
-  function normalizarLista(raw){
-    if(Array.isArray(raw)) return raw;
-    if(raw && Array.isArray(raw.detalle)) return raw.detalle;
-    return [];
-  }
-  function toNumber(value){
-    if(value === null || value === undefined || value === "") return NaN;
-    const num = Number(String(value).replace(",", "."));
-    return Number.isFinite(num) ? num : NaN;
-  }
-  function sumarParciales(items){
-    let total = 0;
-    let has = false;
-    (items || []).forEach((it)=>{
-      const parcialRaw = it.parcial ?? it.parcial_total ?? it.total ?? null;
-      const parcialNum = toNumber(parcialRaw);
-      if(Number.isFinite(parcialNum)){
-        total += parcialNum;
-        has = true;
-        return;
-      }
-      const cantidad = toNumber(it.cantidad ?? it.hh ?? it.factor ?? it.cant ?? "");
-      const precio = toNumber(it.precio_unitario ?? it.precio ?? it.base ?? "");
-      if(Number.isFinite(cantidad) && Number.isFinite(precio)){
-        total += cantidad * precio;
-        has = true;
-      }
-    });
-    return { total, has };
-  }
-  function calcularCostoDirecto(partida){
-    if(!partida) return NaN;
-    let total = 0;
-    let hasAny = false;
-    const materiales = normalizarLista(partida.materiales);
-    const equipos = normalizarLista(partida.equipos);
-    const mano = normalizarLista(partida.mano_obra);
-    const matSum = sumarParciales(materiales);
-    if(matSum.has){ total += matSum.total; hasAny = true; }
-    const eqSum = sumarParciales(equipos);
-    if(eqSum.has){ total += eqSum.total; hasAny = true; }
-    if(mano.length){
-      const moSum = sumarParciales(mano);
-      if(moSum.has){ total += moSum.total; hasAny = true; }
-    } else if(partida.mano_obra && partida.mano_obra.subtotal !== undefined){
-      const moSub = toNumber(partida.mano_obra.subtotal);
-      if(Number.isFinite(moSub)){ total += moSub; hasAny = true; }
-    }
-    if(hasAny) return total;
-    const fallback = toNumber(partida.costo_directo);
-    return Number.isFinite(fallback) ? fallback : NaN;
-  }
-
   if(!partidas.length){
     apuTablaBody.innerHTML = "<tr><td colspan=\"4\">Sin datos para esta partida.</td></tr>";
     renderApuDetalle(null);
@@ -2667,7 +2852,7 @@ function renderApuTabla(){
   apuTablaBody.innerHTML = partidas.map((p)=>{
     const codigo = String(p.codigo || "");
     const isSel = codigo === apuState.selectedCodigo ? " is-selected" : "";
-    const costoDirecto = calcularCostoDirecto(p);
+    const costoDirecto = calcularCostoDirectoPartida(p);
     const costoTexto = Number.isFinite(costoDirecto) ? costoDirecto.toFixed(2) : "-";
     return "<tr class=\"" + isSel + "\" data-codigo=\"" + escapeAttr(codigo) + "\">"
       + "<td>" + escapeHtml(codigo || "-") + "</td>"
@@ -4406,6 +4591,10 @@ if(btnMetradoRegistrar){
     const nombreInput = metradoNombre ? metradoNombre.value.trim() : "";
     const nombreRegistro = nombreInput || ("Trazado " + (metradoRegistros.length + 1));
     const colorRegistro = colorLineaMetrado();
+    const pinturaTipo = metradoTipoPintura ? String(metradoTipoPintura.value || "") : "";
+    const pinturaLabel = metradoTipoPintura
+      ? String((metradoTipoPintura.options[metradoTipoPintura.selectedIndex] || {}).text || "")
+      : "";
     const registro = {
       id: metradoRegistros.length + 1,
       nombre: nombreRegistro,
@@ -4413,6 +4602,8 @@ if(btnMetradoRegistrar){
       distancia_m: Math.round(metradoDistanciaM || 0),
       resultados: metradoUltimoCalculo,
       config: getMetradoConfig(),
+      pintura_tipo: pinturaTipo,
+      pintura_label: pinturaLabel,
       color: colorRegistro,
       highway: metradoSnapHighway || "",
       puntos: metradoPuntos.map(p => [Number(p.lat), Number(p.lng)]),
@@ -4500,6 +4691,35 @@ if(apuTablaBody){
     if(!row) return;
     apuState.selectedCodigo = row.getAttribute("data-codigo") || "";
     renderApuTabla();
+  });
+}
+if(invTablaBody){
+  invTablaBody.addEventListener("click", (e)=>{
+    if(rolActual !== "municipal") return;
+    const btn = e.target && e.target.closest ? e.target.closest(".inv-edit-btn") : null;
+    if(!btn) return;
+    const kind = btn.getAttribute("data-kind") || "";
+    const id = btn.getAttribute("data-id") || "";
+    const item = buscarItemInversion(kind, id);
+    if(!item) return;
+    const actual = precioInversionItem(kind, item);
+    const valor = prompt("Nuevo valor de inversion (S/):", Number.isFinite(actual) ? actual.toFixed(2) : "");
+    if(valor === null) return;
+    const limpio = String(valor).trim();
+    if(!limpio){
+      setOverrideInversion(item, null);
+      updateInversion();
+      if(typeof guardarProyectoActivo === "function"){ guardarProyectoActivo(); }
+      return;
+    }
+    const num = Number(limpio.replace(",", "."));
+    if(!Number.isFinite(num) || num < 0){
+      alert("Ingresa un valor valido.");
+      return;
+    }
+    setOverrideInversion(item, num);
+    updateInversion();
+    if(typeof guardarProyectoActivo === "function"){ guardarProyectoActivo(); }
   });
 }
 if(btnAgregarProyecto){
