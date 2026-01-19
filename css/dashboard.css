@@ -255,6 +255,41 @@
 .inv-card--ok{background:#e8f5ee;}
 .inv-card--warn{background:#fff2e6;}
 .inv-card--danger{background:#fdebea;}
+.inv-scope{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:14px;
+  padding:12px 14px;
+  border-radius:14px;
+  border:1px solid rgba(11,34,48,0.08);
+  background:#fff;
+}
+.inv-scope-label{
+  font-size:13px;
+  color:#0b2230;
+  font-weight:800;
+}
+.inv-scope-select{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.inv-scope-select label{
+  font-size:12px;
+  font-weight:800;
+  color:rgba(11,34,48,0.6);
+}
+.inv-scope-select select{
+  border:1px solid rgba(11,34,48,0.12);
+  border-radius:10px;
+  padding:8px 10px;
+  font-size:12px;
+  font-weight:800;
+  background:#f6f8fb;
+  color:#0b2230;
+}
 
 .inv-block{
   background:var(--dash-card);
@@ -485,6 +520,16 @@
 }
 @media (max-width: 720px){
   .inv-grid{grid-template-columns:1fr;}
+  .inv-scope{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+  .inv-scope-select{
+    width:100%;
+  }
+  .inv-scope-select select{
+    width:100%;
+  }
 }
 .dash-avisos-expanded .reportes-toolbar{
   flex-wrap:wrap;

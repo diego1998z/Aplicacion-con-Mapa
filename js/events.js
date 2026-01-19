@@ -142,6 +142,8 @@ const invValTransito = document.getElementById("invValTransito");
 const invValMarcas = document.getElementById("invValMarcas");
 const invValMobiliario = document.getElementById("invValMobiliario");
 const invTablaBody = document.getElementById("invTablaBody");
+const invDistritoLabel = document.getElementById("invDistritoLabel");
+const invProyectoSelect = document.getElementById("invProyectoSelect");
 const invSinVerif = document.getElementById("invSinVerif");
 const invMantenimiento = document.getElementById("invMantenimiento");
 const invReposicionCrit = document.getElementById("invReposicionCrit");
@@ -2468,6 +2470,74 @@ function cantidadLabel(s){
   return "1 und";
 }
 
+let invProyectoFiltro = "active";
+
+function actualizarInvProyectoSelect(){
+  if(!invProyectoSelect) return;
+  const actual = invProyectoSelect.value || invProyectoFiltro || "active";
+  let html = '<option value="active">Proyecto activo</option>'
+    + '<option value="todos">Todos los proyectos</option>';
+  if(Array.isArray(proyectosCache) && proyectosCache.length){
+    html += '<optgroup label="Proyectos">';
+    html += proyectosCache.map(p => (
+      '<option value="' + escapeAttr(p.id) + '">' + escapeHtml(p.nombre || "Proyecto") + '</option>'
+    )).join("");
+    html += '</optgroup>';
+  }
+  invProyectoSelect.innerHTML = html;
+  const hasProject = Array.isArray(proyectosCache) && proyectosCache.some(p => String(p.id || "") === String(actual));
+  invProyectoSelect.value = (actual === "active" || actual === "todos" || hasProject) ? actual : "active";
+  invProyectoFiltro = invProyectoSelect.value;
+}
+
+function actualizarInvDistritoLabel(){
+  if(!invDistritoLabel) return;
+  let distrito = "";
+  try{
+    const scope = typeof cargarSesionScope === "function" ? cargarSesionScope() : { distrito:"" };
+    distrito = scope && scope.distrito ? scope.distrito : "";
+  }catch(e){}
+  if(!distrito && typeof filtroDistrito !== "undefined") distrito = filtroDistrito || "";
+  invDistritoLabel.textContent = distrito || "Todos";
+}
+
+function obtenerListasInversion(){
+  const filtro = invProyectoSelect ? invProyectoSelect.value : invProyectoFiltro;
+  invProyectoFiltro = filtro || "active";
+  const fallback = ()=>{
+    return {
+      horiz: filtrarPorSeleccion(typeof senalesHorizontal !== "undefined" ? senalesHorizontal : []),
+      vert: filtrarPorSeleccion(typeof senalesVertical !== "undefined" ? senalesVertical : []),
+      mob: filtrarPorSeleccion(typeof senalesMobiliario !== "undefined" ? senalesMobiliario : []),
+      metrado: Array.isArray(metradoRegistros) ? metradoRegistros : []
+    };
+  };
+  if(!filtro || filtro === "active" || !Array.isArray(proyectosCache) || !proyectosCache.length){
+    return fallback();
+  }
+  if(filtro === "todos"){
+    const horiz = [];
+    const vert = [];
+    const mob = [];
+    const metrado = [];
+    proyectosCache.forEach((p)=>{
+      horiz.push(...filtrarPorSeleccion(p.senalesHorizontal || []));
+      vert.push(...filtrarPorSeleccion(p.senalesVertical || []));
+      mob.push(...filtrarPorSeleccion(p.senalesMobiliario || []));
+      if(Array.isArray(p.metradoRegistros)) metrado.push(...p.metradoRegistros);
+    });
+    return { horiz, vert, mob, metrado };
+  }
+  const proj = proyectosCache.find(p => String(p.id || "") === String(filtro));
+  if(!proj) return fallback();
+  return {
+    horiz: filtrarPorSeleccion(proj.senalesHorizontal || []),
+    vert: filtrarPorSeleccion(proj.senalesVertical || []),
+    mob: filtrarPorSeleccion(proj.senalesMobiliario || []),
+    metrado: Array.isArray(proj.metradoRegistros) ? proj.metradoRegistros : []
+  };
+}
+
 function obtenerOverrideInversion(item){
   const raw = item && (item.inversion_override ?? item.inversionOverride);
   const num = Number(raw);
@@ -2546,10 +2616,13 @@ function updateInversion(){
   if(!apuState.loaded){
     cargarApuData().then(()=> updateInversion()).catch(()=>{});
   }
-  const horiz = filtrarPorSeleccion(typeof senalesHorizontal !== "undefined" ? senalesHorizontal : []);
-  const vert = filtrarPorSeleccion(typeof senalesVertical !== "undefined" ? senalesVertical : []);
-  const mob = filtrarPorSeleccion(typeof senalesMobiliario !== "undefined" ? senalesMobiliario : []);
-  const metradoList = Array.isArray(metradoRegistros) ? metradoRegistros : [];
+  actualizarInvProyectoSelect();
+  actualizarInvDistritoLabel();
+  const data = obtenerListasInversion();
+  const horiz = data.horiz;
+  const vert = data.vert;
+  const mob = data.mob;
+  const metradoList = data.metrado;
 
   const sumHorizSenales = horiz.reduce((sum, s)=> sum + precioInversionSenal("horizontal", s), 0);
   const sumMetrado = metradoList.reduce((sum, r)=> sum + precioInversionMetrado(r), 0);
@@ -4667,6 +4740,12 @@ if(selectProyecto){
     btnCambiarProyecto.disabled = !selectProyecto.value;
   });
 }
+if(invProyectoSelect){
+  invProyectoSelect.addEventListener("change", ()=>{
+    invProyectoFiltro = invProyectoSelect.value || "active";
+    updateInversion();
+  });
+}
 if(btnCambiarProyecto){
   btnCambiarProyecto.addEventListener("click", ()=>{
     setProyectoActivoPorId(selectProyecto ? selectProyecto.value : "");
@@ -4708,9 +4787,13 @@ if(invTablaBody){
     const limpio = String(valor).trim();
     if(!limpio){
       setOverrideInversion(item, null);
-      updateInversion();
-      if(typeof guardarProyectoActivo === "function"){ guardarProyectoActivo(); }
-      return;
+    updateInversion();
+    if(typeof guardarProyectos === "function"){
+      guardarProyectos();
+    } else if(typeof guardarProyectoActivo === "function"){
+      guardarProyectoActivo();
+    }
+    return;
     }
     const num = Number(limpio.replace(",", "."));
     if(!Number.isFinite(num) || num < 0){
@@ -4719,7 +4802,11 @@ if(invTablaBody){
     }
     setOverrideInversion(item, num);
     updateInversion();
-    if(typeof guardarProyectoActivo === "function"){ guardarProyectoActivo(); }
+    if(typeof guardarProyectos === "function"){
+      guardarProyectos();
+    } else if(typeof guardarProyectoActivo === "function"){
+      guardarProyectoActivo();
+    }
   });
 }
 if(btnAgregarProyecto){
