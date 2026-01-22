@@ -2220,6 +2220,25 @@ function setProyectoActivoPorId(id){
   aplicarProyecto(proj);
 }
 
+function esProyectoBaseNombre(nombre){
+  const n = String(nombre || "").toLowerCase().trim();
+  return n === "registro senalizacion 2026" || n === "registro senalizacion 2025";
+}
+
+function sincronizarProyectosBase(){
+  let changed = false;
+  (proyectosCache || []).forEach((p)=>{
+    if(!esProyectoBaseNombre(p.nombre)) return;
+    p.senalesHorizontal = cloneSenales(BASE_SENALES.horizontal);
+    p.senalesVertical = cloneSenales(BASE_SENALES.vertical);
+    p.senalesMobiliario = cloneSenales(BASE_SENALES.mobiliario);
+    p.metradoRegistros = [];
+    p.baseSeeded = true;
+    changed = true;
+  });
+  return changed;
+}
+
 function initProyectos(){
   if(rolActual !== "municipal"){
     proyectosCache = [];
@@ -2235,6 +2254,7 @@ function initProyectos(){
 
   const scopeD = (typeof scopeDistrito !== "undefined") ? scopeDistrito : "";
   const scopeLower = String(scopeD || "").toLowerCase();
+  let changed = false;
 
   // Quitar demo si existe (en cualquier distrito)
   const nombreDemo = "Av.Arequipa con Av.Juan Pardo y Jr.Tomas Guido";
@@ -2248,6 +2268,7 @@ function initProyectos(){
     if(proyectoActivoId === "proj-demo-lince"){
       proyectoActivoId = "";
     }
+    changed = true;
   }
 
   // Asegurar proyectos base
@@ -2265,8 +2286,10 @@ function initProyectos(){
     if(!proyectoActivoId){
       proyectoActivoId = nuevos[0].id;
     }
+    changed = true;
   }
-  guardarProyectos();
+  if(sincronizarProyectosBase()) changed = true;
+  if(changed) guardarProyectos();
 
   actualizarSelectProyecto();
   if(!proyectoActivoId || !proyectosCache.some(p => p.id === proyectoActivoId)){
