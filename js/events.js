@@ -2286,6 +2286,28 @@ function aplicarProyecto(proj){
   if(typeof updateReportes === "function") updateReportes();
   if(typeof updateDashboard === "function") updateDashboard();
   if(typeof updateInversion === "function") updateInversion();
+
+  if(proj.id === "proj-demo-lince"){
+    try{
+      const puntos = [];
+      const addPts = (list)=>{
+        (Array.isArray(list) ? list : []).forEach((s)=>{
+          const lat = Number(s.lat);
+          const lng = Number(s.lng);
+          if(Number.isFinite(lat) && Number.isFinite(lng)){
+            puntos.push([lat, lng]);
+          }
+        });
+      };
+      addPts(senalesHorizontal);
+      addPts(senalesVertical);
+      addPts(senalesMobiliario);
+      if(puntos.length && typeof map !== "undefined" && map && typeof L !== "undefined"){
+        const bounds = L.latLngBounds(puntos.map(p => L.latLng(p[0], p[1])));
+        map.fitBounds(bounds, { padding:[50,50] });
+      }
+    }catch(e){}
+  }
 }
 
 function actualizarSelectProyecto(){
