@@ -2119,16 +2119,23 @@ function crearProyectoBase(nombre){
 
 const DEMO_LINCE_ANCHOR = { lat: -12.0978, lng: -77.0328 };
 
-function reubicarProyectoDemoSiLejos(proj){
+function reubicarProyectoDemoSiLejos(proj, force){
   if(!proj || proj.id !== "proj-demo-lince") return false;
-  if(proj.demoRelocated) return false;
+  if(proj.demoRelocated && !force) return false;
   const puntos = [];
+  const distritoDemo = proj.distrito || "Lince";
+  const regionDemo = (typeof regionPorDistrito === "function") ? (regionPorDistrito(distritoDemo) || "Lima Oeste") : "Lima Oeste";
   ["senalesHorizontal", "senalesVertical", "senalesMobiliario"].forEach((key)=>{
     (proj[key] || []).forEach((s)=>{
       const lat = Number(s && s.lat);
       const lng = Number(s && s.lng);
       if(Number.isFinite(lat) && Number.isFinite(lng)){
         puntos.push([lat, lng]);
+      }
+      if(s){
+        s.zona = distritoDemo;
+        s.distrito = distritoDemo;
+        s.region = regionDemo;
       }
     });
   });
@@ -2140,7 +2147,7 @@ function reubicarProyectoDemoSiLejos(proj){
   const dLat = DEMO_LINCE_ANCHOR.lat - center.lat;
   const dLng = DEMO_LINCE_ANCHOR.lng - center.lng;
   const dist = Math.sqrt((dLat * dLat) + (dLng * dLng));
-  if(dist <= 0.02){
+  if(!force && dist <= 0.02){
     proj.demoRelocated = true;
     return false;
   }
@@ -2359,6 +2366,14 @@ function cargarProyectos(){
 function aplicarProyecto(proj){
   if(!proj) return;
   if(proj.id === "proj-demo-lince"){
+    const distritoDemo = proj.distrito || "Lince";
+    const normDistrito = (str)=> String(str || "").trim().toLowerCase();
+    const needsNormalize = ["senalesHorizontal", "senalesVertical", "senalesMobiliario"].some((key)=>{
+      return (proj[key] || []).some((s)=>{
+        const zona = normDistrito(s && (s.distrito || s.zona));
+        return zona && zona !== normDistrito(distritoDemo);
+      });
+    });
     const emptyH = !Array.isArray(proj.senalesHorizontal) || proj.senalesHorizontal.length === 0;
     const emptyV = !Array.isArray(proj.senalesVertical) || proj.senalesVertical.length === 0;
     const emptyM = !Array.isArray(proj.senalesMobiliario) || proj.senalesMobiliario.length === 0;
@@ -2369,7 +2384,7 @@ function aplicarProyecto(proj){
       const idx = proyectosCache.findIndex(p => p.id === proj.id);
       if(idx >= 0) proyectosCache[idx] = proj;
     }
-    const relocated = reubicarProyectoDemoSiLejos(proj);
+    const relocated = reubicarProyectoDemoSiLejos(proj, needsNormalize);
     if(relocated){
       const idx = proyectosCache.findIndex(p => p.id === proj.id);
       if(idx >= 0) proyectosCache[idx] = proj;
