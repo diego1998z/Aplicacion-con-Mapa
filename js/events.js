@@ -3389,16 +3389,8 @@ function setDashView(view){
         if(typeof map !== "undefined" && map && typeof map.invalidateSize === "function"){
           map.invalidateSize();
         }
-        if(typeof zoomADistrito === "function"){
-          const distrito = (typeof scopeDistrito !== "undefined" && scopeDistrito)
-            ? scopeDistrito
-            : ((typeof filtroDistrito !== "undefined" && filtroDistrito) ? filtroDistrito : "");
-          if(distrito){
-            zoomADistrito(distrito);
-          }
-        }
       }catch(e){}
-    }, 120);
+    }, 60);
     return;
   }
 
