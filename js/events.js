@@ -2262,17 +2262,6 @@ function cargarProyectos(){
 
 function aplicarProyecto(proj){
   if(!proj) return;
-  if(proj.id === "proj-demo-lince"){
-    const emptyH = !Array.isArray(proj.senalesHorizontal) || proj.senalesHorizontal.length === 0;
-    const emptyV = !Array.isArray(proj.senalesVertical) || proj.senalesVertical.length === 0;
-    const emptyM = !Array.isArray(proj.senalesMobiliario) || proj.senalesMobiliario.length === 0;
-    if(emptyH && emptyV && emptyM){
-      const demo = crearProyectoDemo(proj.nombre || "Proyecto modelo", proj.distrito || "Lince");
-      proj = Object.assign({}, proj, demo);
-      const idx = proyectosCache.findIndex(p => p.id === proj.id);
-      if(idx >= 0) proyectosCache[idx] = proj;
-    }
-  }
   reemplazarSenales(senalesHorizontal, proj.senalesHorizontal);
   reemplazarSenales(senalesVertical, proj.senalesVertical);
   reemplazarSenales(senalesMobiliario, proj.senalesMobiliario);
