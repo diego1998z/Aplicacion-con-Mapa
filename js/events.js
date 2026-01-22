@@ -2165,33 +2165,6 @@ function crearProyectoDemo(nombre, distrito){
   }
   ajustarLista(mob);
 
-  if(!horiz.length && !vert.length && !mob.length){
-    const demoBase = [
-      { id:"demo-h-1", tipo:"Linea continua", nombre:"Linea guia", estado:"nueva", icono:"pista" },
-      { id:"demo-h-2", tipo:"Paso peatonal", nombre:"Cruce seguro", estado:"antigua", icono:"paso" },
-      { id:"demo-h-3", tipo:"Flecha direccional", nombre:"Direccion obligatoria", estado:"sin_senal", icono:"acceso" }
-    ];
-    const demoVert = [
-      { id:"demo-v-1", tipo:"Reglamentaria", nombre:"R-1", estado:"nueva", icono:"R-1" },
-      { id:"demo-v-2", tipo:"Preventiva", nombre:"P-10A", estado:"antigua", icono:"P-10A" },
-      { id:"demo-v-3", tipo:"Informativa", nombre:"I-22", estado:"sin_senal", icono:"I-22-Servicio-de-informacion" }
-    ];
-    const demoMob = [
-      { id:"demo-m-1", nombre:"Bolardo", estado:"nueva" },
-      { id:"demo-m-2", nombre:"Tachas", estado:"antigua" },
-      { id:"demo-m-3", nombre:"Tachon", estado:"sin_senal" }
-    ];
-    demoBase.forEach((s, idx)=>{ s.lat = baseLat + (idx * 0.0011); s.lng = baseLng + (idx * 0.001); });
-    demoVert.forEach((s, idx)=>{ s.lat = baseLat + (idx * 0.0011); s.lng = baseLng - (idx * 0.001); });
-    demoMob.forEach((s, idx)=>{ s.lat = baseLat - (idx * 0.0011); s.lng = baseLng + (idx * 0.001); });
-    horiz.push(...demoBase);
-    vert.push(...demoVert);
-    mob.push(...demoMob);
-    ajustarLista(horiz);
-    ajustarLista(vert);
-    ajustarLista(mob);
-  }
-
   // Mantener puntos originales del metrado si existen
   return {
     id: nowId,
