@@ -2232,10 +2232,49 @@ function initProyectos(){
     return;
   }
   cargarProyectos();
+
+  const scopeD = (typeof scopeDistrito !== "undefined") ? scopeDistrito : "";
+  const scopeLower = String(scopeD || "").toLowerCase();
+
+  // Quitar demo si existe (en cualquier distrito)
+  const nombreDemo = "Av.Arequipa con Av.Juan Pardo y Jr.Tomas Guido";
+  const idxDemo = proyectosCache.findIndex(p =>
+    (p.id === "proj-demo-lince")
+    || (String(p.nombre || "").toLowerCase() === nombreDemo.toLowerCase())
+    || (p.demoSeeded && p.demoSource === "urbbis-20260122")
+  );
+  if(idxDemo >= 0){
+    proyectosCache.splice(idxDemo, 1);
+    if(proyectoActivoId === "proj-demo-lince"){
+      proyectoActivoId = "";
+    }
+  }
+
+  // Asegurar proyectos base
+  const nombresBase = ["Registro senalizacion 2026", "Registro senalizacion 2025"];
+  const existing = new Set((proyectosCache || []).map(p => String(p.nombre || "").toLowerCase()));
+  const nuevos = [];
+  nombresBase.forEach((nombre)=>{
+    if(existing.has(nombre.toLowerCase())) return;
+    const proj = crearProyectoBase(nombre);
+    if(scopeD) proj.distrito = scopeD;
+    nuevos.push(proj);
+  });
+  if(nuevos.length){
+    proyectosCache.unshift(...nuevos);
+    if(!proyectoActivoId){
+      proyectoActivoId = nuevos[0].id;
+    }
+  }
+  guardarProyectos();
+
   actualizarSelectProyecto();
-  setProyectoActivoPorId(proyectoActivoId);
-  // Crear / actualizar proyecto demo para mostrar a terceros
-  asegurarProyectoDemo();
+  if(!proyectoActivoId || !proyectosCache.some(p => p.id === proyectoActivoId)){
+    proyectoActivoId = proyectosCache[0] ? proyectosCache[0].id : "";
+  }
+  if(proyectoActivoId){
+    setProyectoActivoPorId(proyectoActivoId);
+  }
   updateProjectUI();
 }
 
