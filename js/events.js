@@ -2359,8 +2359,31 @@ function initProyectos(){
   cargarProyectos();
   actualizarSelectProyecto();
   setProyectoActivoPorId(proyectoActivoId);
-  // Crear / actualizar proyecto demo para mostrar a terceros
-  asegurarProyectoDemo();
+  // Crear / actualizar proyecto demo solo para Lince o sin alcance fijo
+  const scopeD = (typeof scopeDistrito !== "undefined") ? scopeDistrito : "";
+  const scopeLower = String(scopeD || "").toLowerCase();
+  if(!scopeLower || scopeLower === "lince"){
+    asegurarProyectoDemo();
+  } else {
+    // Quitar demo si existe para otros distritos
+    const nombreDemo = "Av.Arequipa con Av.Juan Pardo y Jr.Tomas Guido";
+    const idxDemo = proyectosCache.findIndex(p =>
+      (p.id === "proj-demo-lince")
+      || (String(p.nombre || "").toLowerCase() === nombreDemo.toLowerCase())
+      || (p.demoSeeded && p.demoSource === "urbbis-20260122")
+    );
+    if(idxDemo >= 0){
+      proyectosCache.splice(idxDemo, 1);
+      if(proyectoActivoId === "proj-demo-lince"){
+        proyectoActivoId = proyectosCache[0] ? proyectosCache[0].id : "";
+      }
+      guardarProyectos();
+      actualizarSelectProyecto();
+      if(proyectoActivoId){
+        setProyectoActivoPorId(proyectoActivoId);
+      }
+    }
+  }
   updateProjectUI();
 }
 
@@ -3801,6 +3824,21 @@ function obtenerScopePorCorreo(correo){
   if(acc && acc.distrito){
     const region = (typeof regionPorDistrito === "function") ? (regionPorDistrito(acc.distrito) || "") : "";
     return { region, distrito: acc.distrito };
+  }
+  // Fallback: inferir distrito por el usuario del correo (soporta puntos/guiones)
+  const local = String(correo || "").split("@")[0] || "";
+  const slugLocal = slugDistrito(local);
+  if(slugLocal){
+    try{
+      if(typeof MAPA_REGIONES === "object" && MAPA_REGIONES){
+        const all = Object.values(MAPA_REGIONES).flat();
+        const encontrado = all.find(d => slugDistrito(d) === slugLocal);
+        if(encontrado){
+          const region = (typeof regionPorDistrito === "function") ? (regionPorDistrito(encontrado) || "") : "";
+          return { region, distrito: encontrado };
+        }
+      }
+    }catch(e){}
   }
   return { region:"", distrito:"" };
 }
