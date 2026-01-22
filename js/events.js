@@ -2384,7 +2384,7 @@ function aplicarProyecto(proj){
       const idx = proyectosCache.findIndex(p => p.id === proj.id);
       if(idx >= 0) proyectosCache[idx] = proj;
     }
-    const relocated = reubicarProyectoDemoSiLejos(proj, true);
+    const relocated = reubicarProyectoDemoSiLejos(proj, needsNormalize);
     if(relocated){
       const idx = proyectosCache.findIndex(p => p.id === proj.id);
       if(idx >= 0) proyectosCache[idx] = proj;
