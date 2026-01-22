@@ -2121,47 +2121,13 @@ function crearProyectoDemo(nombre, distrito){
   const nowId = "proj-demo-lince";
   const horiz = cloneSenales(typeof senalesHorizontal !== "undefined" ? senalesHorizontal : []);
   const vert = cloneSenales(typeof senalesVertical !== "undefined" ? senalesVertical : []);
-  let mob = cloneSenales(typeof senalesMobiliario !== "undefined" ? senalesMobiliario : []);
-  let met = cloneMetradoRegistros(typeof metradoRegistros !== "undefined" ? metradoRegistros : []);
-  const distritoDemo = distrito || "Lince";
-  const regionDemo = (typeof regionPorDistrito === "function") ? (regionPorDistrito(distritoDemo) || "Lima Oeste") : "Lima Oeste";
-  const baseLat = -12.0978;
-  const baseLng = -77.0328;
-  const stepLat = 0.0012;
-  const stepLng = 0.0013;
-
-  const ajustarLista = (list)=> {
-    (list || []).forEach((s, idx)=>{
-      if(!Number.isFinite(Number(s.lat)) || !Number.isFinite(Number(s.lng))){
-        const row = Math.floor(idx / 4);
-        const col = idx % 4;
-        s.lat = baseLat + (row * stepLat) + (col * 0.0002);
-        s.lng = baseLng + (col * stepLng) - (row * 0.0002);
-      }
-      s.zona = distritoDemo;
-      s.distrito = distritoDemo;
-      s.region = regionDemo;
-    });
-  };
-
-  ajustarLista(horiz);
-  ajustarLista(vert);
-
-  if(!Array.isArray(mob) || !mob.length){
-    mob = [
-      { id:"mob-demo-1", nombre:"Bolardo", estado:"nueva" },
-      { id:"mob-demo-2", nombre:"Tachas", estado:"antigua" },
-      { id:"mob-demo-3", nombre:"Tachon", estado:"sin_senal" }
-    ];
-  }
-  ajustarLista(mob);
-
-  // Mantener puntos originales del metrado si existen
+  const mob = cloneSenales(typeof senalesMobiliario !== "undefined" ? senalesMobiliario : []);
+  const met = cloneMetradoRegistros(typeof metradoRegistros !== "undefined" ? metradoRegistros : []);
   return {
     id: nowId,
     nombre: nombre || "Proyecto modelo",
     creado: hoyISO(),
-    distrito: distritoDemo,
+    distrito: distrito || "Lince",
     senalesHorizontal: horiz,
     senalesVertical: vert,
     senalesMobiliario: mob,
