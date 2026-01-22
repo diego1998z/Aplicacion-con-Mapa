@@ -1637,7 +1637,7 @@ async function zoomADistrito(nombre){
     try{
         const cfg = leerConfigUrbbis();
         const animOn = cfg && cfg.animaciones !== false;
-        const dur = animOn ? (Number.isFinite(cfg.animDur) ? cfg.animDur : 2.0) : 0;
+        const dur = animOn ? (Number.isFinite(cfg.animDur) ? cfg.animDur : 1.2) : 0;
         const url = "https://nominatim.openstreetmap.org/search?format=json&polygon_geojson=1&q=" + encodeURIComponent(nombre + ", Lima, Peru") + "&limit=1";
         const res = await fetch(url);
         const data = await res.json();
@@ -1656,9 +1656,9 @@ async function zoomADistrito(nombre){
                 const bounds = distritoLayer.getBounds();
                 const size = map.getSize();
                 const pad = Math.max(50, Math.min(size.x, size.y) * 0.12); // 12% del menor lado, más respiro
-                map.flyToBounds(bounds, {padding:[pad,pad], duration:Math.max(dur, 1.4), easeLinearity:0.18, maxZoom:16});
+                map.flyToBounds(bounds, {padding:[pad,pad], duration:Math.max(dur, 0.6), easeLinearity:0.2, maxZoom:16});
             } else {
-                map.flyTo([lat, lon], 14, {duration:dur, easeLinearity:0.22});
+                map.flyTo([lat, lon], 14, {duration:dur, easeLinearity:0.25});
             }
         }
     }catch(err){
