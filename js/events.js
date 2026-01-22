@@ -2115,6 +2115,42 @@ function crearProyectoBase(nombre){
   };
 }
 
+function crearProyectoDemo(nombre, distrito){
+  const nowId = "proj-demo-lince";
+  const horiz = cloneSenales(typeof senalesHorizontal !== "undefined" ? senalesHorizontal : []);
+  const vert = cloneSenales(typeof senalesVertical !== "undefined" ? senalesVertical : []);
+  const mob = cloneSenales(typeof senalesMobiliario !== "undefined" ? senalesMobiliario : []);
+  const met = cloneMetradoRegistros(typeof metradoRegistros !== "undefined" ? metradoRegistros : []);
+  return {
+    id: nowId,
+    nombre: nombre || "Proyecto modelo",
+    creado: hoyISO(),
+    distrito: distrito || "Lince",
+    senalesHorizontal: horiz,
+    senalesVertical: vert,
+    senalesMobiliario: mob,
+    metradoRegistros: met
+  };
+}
+
+function asegurarProyectoDemo(){
+  const nombreDemo = "Av.Arequipa con Av.Juan Pardo y Jr.Tomas Guido";
+  const distritoDemo = "Lince";
+  const existsIdx = proyectosCache.findIndex(p => (p.id === "proj-demo-lince") || (String(p.nombre||"").toLowerCase() === nombreDemo.toLowerCase()));
+  const nuevo = crearProyectoDemo(nombreDemo, distritoDemo);
+  if(existsIdx >= 0){
+    proyectosCache[existsIdx] = nuevo;
+  }else{
+    proyectosCache.unshift(nuevo);
+  }
+  proyectoActivoId = nuevo.id;
+  aplicarProyecto(nuevo);
+  guardarProyectos();
+  actualizarSelectProyecto();
+  actualizarInvProyectoSelect();
+  actualizarDashProyectoSelect();
+}
+
 function guardarProyectos(){
   const key = getProjectsKey();
   try{
@@ -2196,6 +2232,8 @@ function initProyectos(){
   cargarProyectos();
   actualizarSelectProyecto();
   setProyectoActivoPorId(proyectoActivoId);
+  // Crear / actualizar proyecto demo para mostrar a terceros
+  asegurarProyectoDemo();
   updateProjectUI();
 }
 
