@@ -2289,10 +2289,21 @@ function cargarProyectos(){
 
 function aplicarProyecto(proj){
   if(!proj) return;
-  reemplazarSenales(senalesHorizontal, proj.senalesHorizontal);
-  reemplazarSenales(senalesVertical, proj.senalesVertical);
-  reemplazarSenales(senalesMobiliario, proj.senalesMobiliario);
-  metradoRegistros = cloneMetradoRegistros(proj.metradoRegistros);
+  let horiz = proj.senalesHorizontal;
+  let vert = proj.senalesVertical;
+  let mob = proj.senalesMobiliario;
+  let met = proj.metradoRegistros;
+  if(esProyectoBaseNombre(proj.nombre)){
+    const year = obtenerAnioProyectoBase(proj.nombre);
+    horiz = filtrarSenalesPorAnioYScope(horiz, year);
+    vert = filtrarSenalesPorAnioYScope(vert, year);
+    mob = filtrarSenalesPorAnioYScope(mob, year);
+    met = filtrarMetradoPorAnio(met, year);
+  }
+  reemplazarSenales(senalesHorizontal, horiz);
+  reemplazarSenales(senalesVertical, vert);
+  reemplazarSenales(senalesMobiliario, mob);
+  metradoRegistros = cloneMetradoRegistros(met);
   actualizarMetradoRegistrosUI();
   try{ limpiarRutaMetrado(); }catch(e){}
   proyectoActivoId = proj.id;
@@ -2320,6 +2331,59 @@ function setProyectoActivoPorId(id){
 function esProyectoBaseNombre(nombre){
   const n = String(nombre || "").toLowerCase().trim();
   return n === "registro senalizacion 2026" || n === "registro senalizacion 2025";
+}
+
+function obtenerAnioProyectoBase(nombre){
+  const m = String(nombre || "").match(/(20\d{2})/);
+  return m ? Number(m[1]) : null;
+}
+
+function normalizarNombreSimple(valor){
+  return String(valor || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function mismoDistrito(a, b){
+  if(!a || !b) return false;
+  try{
+    if(typeof normalizarNombreLugar === "function"){
+      return normalizarNombreLugar(a) === normalizarNombreLugar(b);
+    }
+  }catch(e){}
+  return normalizarNombreSimple(a) === normalizarNombreSimple(b);
+}
+
+function anioDesdeFecha(valor){
+  const m = String(valor || "").match(/^(\d{4})/);
+  return m ? Number(m[1]) : null;
+}
+
+function filtrarSenalesPorAnioYScope(list, year){
+  const base = Array.isArray(list) ? list : [];
+  const scopeD = (typeof scopeDistrito !== "undefined") ? scopeDistrito : "";
+  return base.filter((s)=>{
+    if(scopeD){
+      const dist = s && (s.zona || s.distrito || "");
+      if(dist && !mismoDistrito(dist, scopeD)) return false;
+    }
+    if(!year) return true;
+    const fecha = s && (s.fecha_colocacion || s.fecha || s.fecha_instalacion || s.creado || "");
+    const anio = anioDesdeFecha(fecha);
+    return !anio || anio === year;
+  });
+}
+
+function filtrarMetradoPorAnio(list, year){
+  const base = Array.isArray(list) ? list : [];
+  if(!year) return base;
+  return base.filter((r)=>{
+    const fecha = r && (r.fecha || r.creado || "");
+    const anio = anioDesdeFecha(fecha);
+    return !anio || anio === year;
+  });
 }
 
 function sincronizarProyectosBase(){
