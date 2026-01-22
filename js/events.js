@@ -2230,7 +2230,6 @@ function crearProyectoDemo(nombre, distrito){
     nombre: nombre || "Proyecto modelo",
     creado: hoyISO(),
     distrito: distritoDemo,
-    demoSeeded: true,
     senalesHorizontal: horiz,
     senalesVertical: vert,
     senalesMobiliario: mob,
@@ -2321,10 +2320,9 @@ function aplicarProyecto(proj){
     const emptyH = !Array.isArray(proj.senalesHorizontal) || proj.senalesHorizontal.length === 0;
     const emptyV = !Array.isArray(proj.senalesVertical) || proj.senalesVertical.length === 0;
     const emptyM = !Array.isArray(proj.senalesMobiliario) || proj.senalesMobiliario.length === 0;
-    const shouldSeed = !proj.demoSeeded && emptyH && emptyV && emptyM;
-    if(shouldSeed){
+    if(emptyH && emptyV && emptyM){
       const demo = crearProyectoDemo(proj.nombre || "Proyecto modelo", proj.distrito || "Lince");
-      proj = Object.assign({}, proj, demo, { demoSeeded: true });
+      proj = Object.assign({}, proj, demo);
       const idx = proyectosCache.findIndex(p => p.id === proj.id);
       if(idx >= 0) proyectosCache[idx] = proj;
     }
