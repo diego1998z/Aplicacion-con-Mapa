@@ -2119,9 +2119,18 @@ function crearProyectoBase(nombre){
 
 function crearProyectoDemo(nombre, distrito){
   const nowId = "proj-demo-lince";
-  const horiz = cloneSenales(typeof senalesHorizontal !== "undefined" ? senalesHorizontal : []);
-  const vert = cloneSenales(typeof senalesVertical !== "undefined" ? senalesVertical : []);
-  let mob = cloneSenales(typeof senalesMobiliario !== "undefined" ? senalesMobiliario : []);
+  const baseHoriz = (typeof senalesHorizontal !== "undefined" && Array.isArray(senalesHorizontal) && senalesHorizontal.length)
+    ? senalesHorizontal
+    : (BASE_SENALES && Array.isArray(BASE_SENALES.horizontal) ? BASE_SENALES.horizontal : []);
+  const baseVert = (typeof senalesVertical !== "undefined" && Array.isArray(senalesVertical) && senalesVertical.length)
+    ? senalesVertical
+    : (BASE_SENALES && Array.isArray(BASE_SENALES.vertical) ? BASE_SENALES.vertical : []);
+  const baseMob = (typeof senalesMobiliario !== "undefined" && Array.isArray(senalesMobiliario) && senalesMobiliario.length)
+    ? senalesMobiliario
+    : (BASE_SENALES && Array.isArray(BASE_SENALES.mobiliario) ? BASE_SENALES.mobiliario : []);
+  const horiz = cloneSenales(baseHoriz);
+  const vert = cloneSenales(baseVert);
+  let mob = cloneSenales(baseMob);
   let met = cloneMetradoRegistros(typeof metradoRegistros !== "undefined" ? metradoRegistros : []);
   const distritoDemo = distrito || "Lince";
   const regionDemo = (typeof regionPorDistrito === "function") ? (regionPorDistrito(distritoDemo) || "Lima Oeste") : "Lima Oeste";
