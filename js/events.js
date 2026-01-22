@@ -2152,9 +2152,7 @@ function obtenerSeedProyectos(){
       if(String(meta.distrito).toLowerCase() !== String(scopeD).toLowerCase()) return null;
     }
     const filtered = proyectosSeed.filter((p)=>{
-      const nombre = String(p && p.nombre || "").toLowerCase().trim();
       const pid = String(p && p.id || "");
-      if(nombre === "av.arequipa con av.juan pardo y jr.tomas guido") return false;
       if(pid === "proj-demo-lince") return false;
       return true;
     });
@@ -2372,10 +2370,8 @@ function initProyectos(){
   let changed = false;
 
   // Quitar demo si existe (en cualquier distrito)
-  const nombreDemo = "Av.Arequipa con Av.Juan Pardo y Jr.Tomas Guido";
   const idxDemo = proyectosCache.findIndex(p =>
     (p.id === "proj-demo-lince")
-    || (String(p.nombre || "").toLowerCase() === nombreDemo.toLowerCase())
     || (p.demoSeeded && p.demoSource === "urbbis-20260122")
   );
   if(idxDemo >= 0){
