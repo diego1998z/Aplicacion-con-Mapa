@@ -2169,16 +2169,23 @@ function crearProyectoDemo(nombre, distrito){
   const nowId = "proj-demo-lince";
   const distritoDemo = distrito || "Lince";
   const regionDemo = (typeof regionPorDistrito === "function") ? (regionPorDistrito(distritoDemo) || "Lima Oeste") : "Lima Oeste";
-  const baseHoriz = Array.isArray(senalesHorizontal) ? senalesHorizontal : [];
-  const baseVert = Array.isArray(senalesVertical) ? senalesVertical : [];
-  const baseMob = Array.isArray(senalesMobiliario) ? senalesMobiliario : [];
-  const esDistritoDemo = (s)=> {
-    const zona = (s && (s.zona || s.distrito)) ? String(s.zona || s.distrito) : "";
-    return zona.toLowerCase() === String(distritoDemo || "").toLowerCase();
-  };
-  const horiz = cloneSenales(baseHoriz.filter(esDistritoDemo));
-  const vert = cloneSenales(baseVert.filter(esDistritoDemo));
-  const mob = cloneSenales(baseMob.filter(esDistritoDemo));
+  const baseLat = DEMO_LINCE_ANCHOR.lat;
+  const baseLng = DEMO_LINCE_ANCHOR.lng;
+  const horiz = [
+    { id: "demo-h-1", tipo:"Linea continua", nombre:"Linea guia", estado:"nueva", icono:"pista", lat: baseLat + 0.0008, lng: baseLng - 0.0006 },
+    { id: "demo-h-2", tipo:"Paso peatonal", nombre:"Cruce seguro", estado:"antigua", icono:"paso", lat: baseLat + 0.0016, lng: baseLng + 0.0004 },
+    { id: "demo-h-3", tipo:"Flecha direccional", nombre:"Direccion obligatoria", estado:"sin_senal", icono:"acceso", lat: baseLat - 0.0006, lng: baseLng + 0.0011 }
+  ];
+  const vert = [
+    { id: "demo-v-1", tipo:"Reglamentaria", nombre:"R-1", estado:"nueva", icono:"R-1", lat: baseLat + 0.0004, lng: baseLng + 0.0002 },
+    { id: "demo-v-2", tipo:"Preventiva", nombre:"P-10A", estado:"antigua", icono:"P-10A", lat: baseLat - 0.0009, lng: baseLng - 0.0002 },
+    { id: "demo-v-3", tipo:"Informativa", nombre:"I-22", estado:"sin_senal", icono:"I-22-Servicio-de-informacion", lat: baseLat + 0.0012, lng: baseLng + 0.0014 }
+  ];
+  const mob = [
+    { id:"demo-m-1", nombre:"Bolardo", estado:"nueva", lat: baseLat - 0.0004, lng: baseLng + 0.0009 },
+    { id:"demo-m-2", nombre:"Tachas", estado:"antigua", lat: baseLat + 0.0003, lng: baseLng - 0.0012 },
+    { id:"demo-m-3", nombre:"Tachon", estado:"sin_senal", lat: baseLat + 0.0011, lng: baseLng - 0.0002 }
+  ];
 
   const ajustarLista = (list)=> {
     (list || []).forEach((s)=>{
@@ -2196,7 +2203,6 @@ function crearProyectoDemo(nombre, distrito){
     nombre: nombre || "Proyecto modelo",
     creado: hoyISO(),
     distrito: distritoDemo,
-    demoSource: "urbbis-20260122",
     demoSeeded: true,
     senalesHorizontal: horiz,
     senalesVertical: vert,
@@ -2214,12 +2220,7 @@ function asegurarProyectoDemo(){
     const hasData = (Array.isArray(existente.senalesHorizontal) && existente.senalesHorizontal.length)
       || (Array.isArray(existente.senalesVertical) && existente.senalesVertical.length)
       || (Array.isArray(existente.senalesMobiliario) && existente.senalesMobiliario.length);
-    const tieneDemoIds = (list)=> (Array.isArray(list) ? list : []).some(s => String(s && s.id || "").startsWith("demo-"));
-    const needsRefresh = (!hasData)
-      || tieneDemoIds(existente.senalesHorizontal)
-      || tieneDemoIds(existente.senalesVertical)
-      || tieneDemoIds(existente.senalesMobiliario);
-    if(needsRefresh){
+    if(!hasData){
       const nuevo = crearProyectoDemo(nombreDemo, distritoDemo);
       proyectosCache[existsIdx] = nuevo;
       if(!proyectoActivoId) proyectoActivoId = nuevo.id;
