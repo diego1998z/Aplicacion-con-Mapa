@@ -1291,9 +1291,20 @@ function renderMetradoRegistrosOnMap(){
       lineCap: "round",
       lineJoin: "round",
       className: "metrado-route-saved",
-      interactive: true
+      interactive: false
     };
     const line = L.polyline(registro.puntos.slice(), opts).addTo(layer);
+    const hitWeight = Math.max(weight + 10, 14);
+    const hitLine = L.polyline(registro.puntos.slice(), {
+      color: "#000000",
+      weight: hitWeight,
+      opacity: 0,
+      lineCap: "round",
+      lineJoin: "round",
+      className: "metrado-route-hit",
+      interactive: true,
+      bubblingMouseEvents: false
+    }).addTo(layer);
     line._metradoId = registro.id;
     line._metradoHighway = registro.highway || "";
     line._metradoRecord = registro;
@@ -1304,7 +1315,7 @@ function renderMetradoRegistrosOnMap(){
       dashArray: opts.dashArray
     };
     line.on("add", ()=>{ aplicarSeleccionMetradoLinea(line, registro); });
-    line.on("click", ()=>{
+    hitLine.on("click", ()=>{
       try{
         if(!projectSelectionActive) return;
         if(chkProyectoMetrado && !chkProyectoMetrado.checked) return;
@@ -2127,6 +2138,45 @@ function cloneMetradoRegistros(list){
   }
 }
 
+function obtenerSeedProyectos(){
+  try{
+    if(typeof proyectosSeed === "undefined" || !Array.isArray(proyectosSeed) || !proyectosSeed.length){
+      return null;
+    }
+    const meta = (typeof proyectosSeedMeta === "object" && proyectosSeedMeta) ? proyectosSeedMeta : {};
+    const scopeD = (typeof scopeDistrito !== "undefined") ? scopeDistrito : "";
+    if(meta && meta.distrito){
+      if(!scopeD) return null;
+      if(String(meta.distrito).toLowerCase() !== String(scopeD).toLowerCase()) return null;
+    }
+    const filtered = proyectosSeed.filter((p)=>{
+      const nombre = String(p && p.nombre || "").toLowerCase().trim();
+      const pid = String(p && p.id || "");
+      if(nombre === "av.arequipa con av.juan pardo y jr.tomas guido") return false;
+      if(pid === "proj-demo-lince") return false;
+      return true;
+    });
+    if(!filtered.length) return null;
+    let cloned = null;
+    try{
+      cloned = JSON.parse(JSON.stringify(filtered));
+    }catch(e){
+      cloned = filtered.map(p => Object.assign({}, p));
+    }
+    let active = (typeof proyectoActivoSeedId !== "undefined") ? String(proyectoActivoSeedId || "") : "";
+    if(active && !cloned.some(p => String(p && p.id || "") === active)){
+      active = "";
+    }
+    if(!active){
+      active = cloned[0] ? String(cloned[0].id || "") : "";
+    }
+    cloned.forEach((p)=>{ if(!Array.isArray(p.metradoRegistros)) p.metradoRegistros = []; });
+    return { proyectos: cloned, activo: active };
+  }catch(e){
+    return null;
+  }
+}
+
 function reemplazarSenales(target, source){
   if(!Array.isArray(target)) return;
   target.length = 0;
@@ -2218,6 +2268,16 @@ function cargarProyectos(){
   }catch(e){}
 
   if(!proyectosCache.length){
+    const seed = obtenerSeedProyectos();
+    if(seed && Array.isArray(seed.proyectos) && seed.proyectos.length){
+      proyectosCache = seed.proyectos;
+      proyectoActivoId = seed.activo || "";
+      guardarProyectos();
+      return;
+    }
+  }
+
+  if(!proyectosCache.length){
     proyectosCache = [
       crearProyectoBase("Registro senalizacion 2026"),
       crearProyectoBase("Registro senalizacion 2025")
@@ -2264,12 +2324,28 @@ function esProyectoBaseNombre(nombre){
 
 function sincronizarProyectosBase(){
   let changed = false;
+  const seed = obtenerSeedProyectos();
+  const seedMap = seed && Array.isArray(seed.proyectos)
+    ? new Map(seed.proyectos.map(p => [String(p && p.nombre || "").toLowerCase().trim(), p]))
+    : null;
   (proyectosCache || []).forEach((p)=>{
     if(!esProyectoBaseNombre(p.nombre)) return;
     p.senalesHorizontal = cloneSenales(BASE_SENALES.horizontal);
     p.senalesVertical = cloneSenales(BASE_SENALES.vertical);
     p.senalesMobiliario = cloneSenales(BASE_SENALES.mobiliario);
-    p.metradoRegistros = [];
+    if(!Array.isArray(p.metradoRegistros) || p.metradoRegistros.length === 0){
+      if(seedMap){
+        const key = String(p && p.nombre || "").toLowerCase().trim();
+        const seedProj = seedMap.get(key);
+        if(seedProj && Array.isArray(seedProj.metradoRegistros) && seedProj.metradoRegistros.length){
+          p.metradoRegistros = cloneMetradoRegistros(seedProj.metradoRegistros);
+        } else {
+          p.metradoRegistros = [];
+        }
+      } else {
+        p.metradoRegistros = [];
+      }
+    }
     p.baseSeeded = true;
     changed = true;
   });

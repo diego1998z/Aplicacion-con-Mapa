@@ -1549,6 +1549,15 @@ body.project-select-mode .leaflet-container{
     margin:180px 0 0 0;
     pointer-events:auto;
 }
+#modalProyecto .modal-actions{
+    position:sticky;
+    bottom:0;
+    background:var(--panel);
+    padding-top:10px;
+    margin-top:12px;
+    border-top:1px solid var(--border);
+    z-index:2;
+}
 #modalMetradoRegistros{
     background:transparent;
     justify-content:flex-start;
@@ -1624,8 +1633,9 @@ body.project-select-mode .leaflet-container{
     margin-top:10px;
     border:1px solid var(--border);
     border-radius:12px;
-    overflow:auto;
-    max-height:260px;
+    overflow-y:auto;
+    overflow-x:hidden;
+    max-height:160px;
     background:var(--panel);
 }
 .project-table{
