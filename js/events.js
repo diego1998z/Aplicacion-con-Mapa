@@ -1298,7 +1298,7 @@ function renderMetradoRegistrosOnMap(){
     const hitLine = L.polyline(registro.puntos.slice(), {
       color: "#000000",
       weight: hitWeight,
-      opacity: 0,
+      opacity: 0.01,
       lineCap: "round",
       lineJoin: "round",
       className: "metrado-route-hit",
@@ -1318,7 +1318,9 @@ function renderMetradoRegistrosOnMap(){
     hitLine.on("click", ()=>{
       try{
         if(!projectSelectionActive) return;
-        if(chkProyectoMetrado && !chkProyectoMetrado.checked) return;
+        if(chkProyectoMetrado && !chkProyectoMetrado.checked){
+          chkProyectoMetrado.checked = true;
+        }
         toggleProjectItemSelection("metrado", registro);
         aplicarSeleccionMetradoLinea(line, registro);
       }catch(err){}

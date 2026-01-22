@@ -1642,6 +1642,7 @@ async function zoomADistrito(nombre){
 
             if(data[0].geojson){
                 distritoLayer = L.geoJSON(data[0].geojson, {
+                    interactive: false,
                     style: { color: "#1d70b8", weight: 2, fillOpacity: 0.08 }
                 }).addTo(map);
                 const bounds = distritoLayer.getBounds();
