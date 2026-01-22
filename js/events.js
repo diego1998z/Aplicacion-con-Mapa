@@ -2139,13 +2139,45 @@ function crearProyectoDemo(nombre, distrito){
   const stepLat = 0.0012;
   const stepLng = 0.0013;
 
-  const ajustarLista = (list)=> {
+  const calcularCentro = (list)=>{
+    const puntos = [];
+    (list || []).forEach((s)=>{
+      const lat = Number(s && s.lat);
+      const lng = Number(s && s.lng);
+      if(Number.isFinite(lat) && Number.isFinite(lng)){
+        puntos.push([lat, lng]);
+      }
+    });
+    if(!puntos.length) return null;
+    let sumLat = 0;
+    let sumLng = 0;
+    puntos.forEach((p)=>{ sumLat += p[0]; sumLng += p[1]; });
+    return { lat: sumLat / puntos.length, lng: sumLng / puntos.length };
+  };
+
+  const distanciaCentro = (center)=>{
+    if(!center) return Infinity;
+    const dLat = center.lat - baseLat;
+    const dLng = center.lng - baseLng;
+    return Math.sqrt((dLat * dLat) + (dLng * dLng));
+  };
+
+  const puntosAll = []
+    .concat(horiz || [])
+    .concat(vert || [])
+    .concat(mob || []);
+  const centroAll = calcularCentro(puntosAll);
+  const reubicar = (!centroAll) || (distanciaCentro(centroAll) > 0.02);
+
+  const ajustarLista = (list, offsetLat = 0, offsetLng = 0)=> {
     (list || []).forEach((s, idx)=>{
-      if(!Number.isFinite(Number(s.lat)) || !Number.isFinite(Number(s.lng))){
+      const hasLat = Number.isFinite(Number(s && s.lat));
+      const hasLng = Number.isFinite(Number(s && s.lng));
+      if(reubicar || !hasLat || !hasLng){
         const row = Math.floor(idx / 4);
         const col = idx % 4;
-        s.lat = baseLat + (row * stepLat) + (col * 0.0002);
-        s.lng = baseLng + (col * stepLng) - (row * 0.0002);
+        s.lat = baseLat + offsetLat + (row * stepLat) + (col * 0.0002);
+        s.lng = baseLng + offsetLng + (col * stepLng) - (row * 0.0002);
       }
       s.zona = distritoDemo;
       s.distrito = distritoDemo;
@@ -2153,8 +2185,8 @@ function crearProyectoDemo(nombre, distrito){
     });
   };
 
-  ajustarLista(horiz);
-  ajustarLista(vert);
+  ajustarLista(horiz, 0, 0.0006);
+  ajustarLista(vert, -0.001, -0.0006);
 
   if(!Array.isArray(mob) || !mob.length){
     mob = [
@@ -2163,7 +2195,7 @@ function crearProyectoDemo(nombre, distrito){
       { id:"mob-demo-3", nombre:"Tachon", estado:"sin_senal" }
     ];
   }
-  ajustarLista(mob);
+  ajustarLista(mob, 0.0012, 0);
 
   if(!horiz.length && !vert.length && !mob.length){
     const demoBase = [
@@ -2181,9 +2213,9 @@ function crearProyectoDemo(nombre, distrito){
       { id:"demo-m-2", nombre:"Tachas", estado:"antigua" },
       { id:"demo-m-3", nombre:"Tachon", estado:"sin_senal" }
     ];
-    demoBase.forEach((s, idx)=>{ s.lat = baseLat + (idx * 0.0011); s.lng = baseLng + (idx * 0.001); });
-    demoVert.forEach((s, idx)=>{ s.lat = baseLat + (idx * 0.0011); s.lng = baseLng - (idx * 0.001); });
-    demoMob.forEach((s, idx)=>{ s.lat = baseLat - (idx * 0.0011); s.lng = baseLng + (idx * 0.001); });
+    demoBase.forEach((s, idx)=>{ s.lat = baseLat + 0.0004 + (idx * 0.0011); s.lng = baseLng + 0.0008 + (idx * 0.001); });
+    demoVert.forEach((s, idx)=>{ s.lat = baseLat - 0.0006 + (idx * 0.0011); s.lng = baseLng - 0.0008 - (idx * 0.001); });
+    demoMob.forEach((s, idx)=>{ s.lat = baseLat + 0.0012 - (idx * 0.0011); s.lng = baseLng + 0.0002 + (idx * 0.001); });
     horiz.push(...demoBase);
     vert.push(...demoVert);
     mob.push(...demoMob);
@@ -2209,15 +2241,37 @@ function asegurarProyectoDemo(){
   const nombreDemo = "Av.Arequipa con Av.Juan Pardo y Jr.Tomas Guido";
   const distritoDemo = "Lince";
   const existsIdx = proyectosCache.findIndex(p => (p.id === "proj-demo-lince") || (String(p.nombre||"").toLowerCase() === nombreDemo.toLowerCase()));
-  const nuevo = crearProyectoDemo(nombreDemo, distritoDemo);
   if(existsIdx >= 0){
-    proyectosCache[existsIdx] = nuevo;
-  }else{
+    const existente = proyectosCache[existsIdx];
+    const hasData = (Array.isArray(existente.senalesHorizontal) && existente.senalesHorizontal.length)
+      || (Array.isArray(existente.senalesVertical) && existente.senalesVertical.length)
+      || (Array.isArray(existente.senalesMobiliario) && existente.senalesMobiliario.length);
+    if(!hasData){
+      const nuevo = crearProyectoDemo(nombreDemo, distritoDemo);
+      proyectosCache[existsIdx] = nuevo;
+      if(!proyectoActivoId) proyectoActivoId = nuevo.id;
+      if(proyectoActivoId === nuevo.id){
+        aplicarProyecto(nuevo);
+      }
+      guardarProyectos();
+    } else {
+      // Mantener orden/posiciones del demo existente
+      if(!existente.distrito) existente.distrito = distritoDemo;
+      if(!existente.nombre) existente.nombre = nombreDemo;
+      guardarProyectos();
+      if(proyectoActivoId === existente.id){
+        aplicarProyecto(existente);
+      }
+    }
+  } else {
+    const nuevo = crearProyectoDemo(nombreDemo, distritoDemo);
     proyectosCache.unshift(nuevo);
+    if(!proyectoActivoId) proyectoActivoId = nuevo.id;
+    if(proyectoActivoId === nuevo.id){
+      aplicarProyecto(nuevo);
+    }
+    guardarProyectos();
   }
-  proyectoActivoId = nuevo.id;
-  aplicarProyecto(nuevo);
-  guardarProyectos();
   actualizarSelectProyecto();
   actualizarInvProyectoSelect();
   actualizarDashProyectoSelect();

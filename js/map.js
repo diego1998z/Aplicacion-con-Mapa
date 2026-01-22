@@ -1,3 +1,12 @@
+// Fallbacks si data.js no cargó (evita errores en GitHub Pages)
+if(typeof window.senalesHorizontal === "undefined") window.senalesHorizontal = [];
+if(typeof window.senalesVertical === "undefined") window.senalesVertical = [];
+if(typeof window.senalesMobiliario === "undefined") window.senalesMobiliario = [];
+if(typeof window.avisos === "undefined") window.avisos = [];
+if(typeof window.modoActual === "undefined") window.modoActual = "horizontal";
+if(typeof window.senales === "undefined") window.senales = window.senalesHorizontal;
+if(typeof window.MAPA_REGIONES === "undefined") window.MAPA_REGIONES = {};
+
 function leerConfigUrbbis(){
     try{
         if(typeof window !== "undefined" && window.URBBIS_CONFIG && typeof window.URBBIS_CONFIG === "object"){
