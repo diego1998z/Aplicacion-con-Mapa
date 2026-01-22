@@ -2117,6 +2117,47 @@ function crearProyectoBase(nombre){
   };
 }
 
+const DEMO_LINCE_ANCHOR = { lat: -12.0978, lng: -77.0328 };
+
+function reubicarProyectoDemoSiLejos(proj){
+  if(!proj || proj.id !== "proj-demo-lince") return false;
+  if(proj.demoRelocated) return false;
+  const puntos = [];
+  ["senalesHorizontal", "senalesVertical", "senalesMobiliario"].forEach((key)=>{
+    (proj[key] || []).forEach((s)=>{
+      const lat = Number(s && s.lat);
+      const lng = Number(s && s.lng);
+      if(Number.isFinite(lat) && Number.isFinite(lng)){
+        puntos.push([lat, lng]);
+      }
+    });
+  });
+  if(!puntos.length) return false;
+  let sumLat = 0;
+  let sumLng = 0;
+  puntos.forEach((p)=>{ sumLat += p[0]; sumLng += p[1]; });
+  const center = { lat: sumLat / puntos.length, lng: sumLng / puntos.length };
+  const dLat = DEMO_LINCE_ANCHOR.lat - center.lat;
+  const dLng = DEMO_LINCE_ANCHOR.lng - center.lng;
+  const dist = Math.sqrt((dLat * dLat) + (dLng * dLng));
+  if(dist <= 0.02){
+    proj.demoRelocated = true;
+    return false;
+  }
+  ["senalesHorizontal", "senalesVertical", "senalesMobiliario"].forEach((key)=>{
+    (proj[key] || []).forEach((s)=>{
+      const lat = Number(s && s.lat);
+      const lng = Number(s && s.lng);
+      if(Number.isFinite(lat) && Number.isFinite(lng)){
+        s.lat = lat + dLat;
+        s.lng = lng + dLng;
+      }
+    });
+  });
+  proj.demoRelocated = true;
+  return true;
+}
+
 function crearProyectoDemo(nombre, distrito){
   const nowId = "proj-demo-lince";
   const baseHoriz = (typeof senalesHorizontal !== "undefined" && Array.isArray(senalesHorizontal) && senalesHorizontal.length)
@@ -2134,8 +2175,8 @@ function crearProyectoDemo(nombre, distrito){
   let met = cloneMetradoRegistros(typeof metradoRegistros !== "undefined" ? metradoRegistros : []);
   const distritoDemo = distrito || "Lince";
   const regionDemo = (typeof regionPorDistrito === "function") ? (regionPorDistrito(distritoDemo) || "Lima Oeste") : "Lima Oeste";
-  const baseLat = -12.0978;
-  const baseLng = -77.0328;
+  const baseLat = DEMO_LINCE_ANCHOR.lat;
+  const baseLng = DEMO_LINCE_ANCHOR.lng;
   const stepLat = 0.0012;
   const stepLng = 0.0013;
 
@@ -2325,6 +2366,11 @@ function aplicarProyecto(proj){
     if(shouldSeed){
       const demo = crearProyectoDemo(proj.nombre || "Proyecto modelo", proj.distrito || "Lince");
       proj = Object.assign({}, proj, demo, { demoSeeded: true });
+      const idx = proyectosCache.findIndex(p => p.id === proj.id);
+      if(idx >= 0) proyectosCache[idx] = proj;
+    }
+    const relocated = reubicarProyectoDemoSiLejos(proj);
+    if(relocated){
       const idx = proyectosCache.findIndex(p => p.id === proj.id);
       if(idx >= 0) proyectosCache[idx] = proj;
     }
