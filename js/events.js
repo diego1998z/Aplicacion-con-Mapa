@@ -87,6 +87,7 @@ const inputProyectoFin = document.getElementById("inputProyectoFin");
 const chkProyectoTransito = document.getElementById("chkProyectoTransito");
 const chkProyectoMarcas = document.getElementById("chkProyectoMarcas");
 const chkProyectoMobiliario = document.getElementById("chkProyectoMobiliario");
+const chkProyectoMetrado = document.getElementById("chkProyectoMetrado");
 const projectPreviewName = document.getElementById("projectPreviewName");
 const projectPreviewDates = document.getElementById("projectPreviewDates");
 const projectPreviewCount = document.getElementById("projectPreviewCount");
@@ -1282,26 +1283,60 @@ function renderMetradoRegistrosOnMap(){
     const baseColor = registro.color || "#0c426a";
     const color = pendiente ? "#d93f3f" : baseColor;
     const weight = metradoPesoPorHighway(registro.highway || "");
-      const opts = {
-        color: color,
-        weight: weight,
-        opacity: pendiente ? 0.75 : 0.85,
-        dashArray: pendiente ? "7 10" : null,
-        lineCap: "round",
-        lineJoin: "round",
-        className: "metrado-route-saved",
-        interactive: false
-      };
+    const opts = {
+      color: color,
+      weight: weight,
+      opacity: pendiente ? 0.75 : 0.85,
+      dashArray: pendiente ? "7 10" : null,
+      lineCap: "round",
+      lineJoin: "round",
+      className: "metrado-route-saved",
+      interactive: true
+    };
     const line = L.polyline(registro.puntos.slice(), opts).addTo(layer);
     line._metradoId = registro.id;
     line._metradoHighway = registro.highway || "";
+    line._metradoRecord = registro;
     line._metradoBaseStyle = {
       color: opts.color,
       weight: opts.weight,
       opacity: opts.opacity,
       dashArray: opts.dashArray
     };
+    line.on("add", ()=>{ aplicarSeleccionMetradoLinea(line, registro); });
+    line.on("click", ()=>{
+      try{
+        if(!projectSelectionActive) return;
+        if(chkProyectoMetrado && !chkProyectoMetrado.checked) return;
+        toggleProjectItemSelection("metrado", registro);
+        aplicarSeleccionMetradoLinea(line, registro);
+      }catch(err){}
+    });
+    aplicarSeleccionMetradoLinea(line, registro);
   });
+}
+
+function aplicarSeleccionMetradoLinea(line, registro){
+  if(!line || !line._metradoBaseStyle || !registro) return;
+  const base = line._metradoBaseStyle;
+  const selected = !!(projectSelectionActive && projectSelection && projectSelection.metrado && projectSelection.metrado.has(String(registro.id || "")));
+  const style = selected
+    ? { color: base.color, weight: base.weight + 3, opacity: 1, dashArray: base.dashArray }
+    : { color: base.color, weight: base.weight, opacity: base.opacity, dashArray: base.dashArray };
+  try{
+    if(typeof line.setStyle === "function") line.setStyle(style);
+  }catch(e){}
+}
+
+function aplicarSeleccionMetradoMapa(){
+  if(!metradoRegistrosLayer || typeof metradoRegistrosLayer.eachLayer !== "function") return;
+  try{
+    metradoRegistrosLayer.eachLayer((layer)=>{
+      if(layer && layer._metradoRecord){
+        aplicarSeleccionMetradoLinea(layer, layer._metradoRecord);
+      }
+    });
+  }catch(e){}
 }
 
 function renderMetradoRegistrosList(){
@@ -1346,6 +1381,7 @@ function renderMetradoRegistrosList(){
 function actualizarMetradoRegistrosUI(){
   renderMetradoRegistrosOnMap();
   renderMetradoRegistrosList();
+  aplicarSeleccionMetradoMapa();
 }
 
 function abrirModalMetradoRegistros(){
@@ -1897,7 +1933,8 @@ let projectSelectionActive = false;
 let projectSelection = {
   vertical: new Set(),
   horizontal: new Set(),
-  mobiliario: new Set()
+  mobiliario: new Set(),
+  metrado: new Set()
 };
 let proyectoEditId = "";
 const APU_SOURCES = {
@@ -2328,7 +2365,8 @@ function resetProjectSelection(){
   projectSelection = {
     vertical: new Set(),
     horizontal: new Set(),
-    mobiliario: new Set()
+    mobiliario: new Set(),
+    metrado: new Set()
   };
 }
 
@@ -2343,6 +2381,9 @@ function cargarSeleccionDesdeProyecto(proj){
   }
   if(Array.isArray(proj.senalesMobiliario)){
     proj.senalesMobiliario.forEach(s => projectSelection.mobiliario.add(String(s.id || "")));
+  }
+  if(Array.isArray(proj.metradoRegistros)){
+    proj.metradoRegistros.forEach(r => projectSelection.metrado.add(String(r.id || "")));
   }
 }
 
@@ -2364,6 +2405,7 @@ function toggleProjectItemSelection(modo, item){
   if(modo === "vertical" && chkProyectoTransito && !chkProyectoTransito.checked) return false;
   if(modo === "horizontal" && chkProyectoMarcas && !chkProyectoMarcas.checked) return false;
   if(modo === "mobiliario" && chkProyectoMobiliario && !chkProyectoMobiliario.checked) return false;
+  if(modo === "metrado" && chkProyectoMetrado && !chkProyectoMetrado.checked) return false;
   const set = projectSelection && projectSelection[modo];
   if(!set) return false;
   if(set.has(key)) set.delete(key);
@@ -2420,6 +2462,25 @@ function getProyectoSeleccionadoActivos(){
     const base = typeof senalesMobiliario !== "undefined" ? senalesMobiliario : [];
     addItems(filtrarPorSet(base, projectSelection.mobiliario), "Mobiliario vial", "mobiliario");
   }
+  if(chkProyectoMetrado && chkProyectoMetrado.checked){
+    const base = Array.isArray(metradoRegistros) ? metradoRegistros : [];
+    (filtrarPorSet(base, projectSelection.metrado)).forEach((r)=>{
+      const nombre = nombreRegistroMetrado(r);
+      const insCount = Array.isArray(r.inspecciones) ? r.inspecciones.length : 0;
+      const pendiente = !!r.inspeccion_pendiente || insCount === 0;
+      const estado = pendiente ? "Pendiente" : "Con inspeccion";
+      const ubicacion = r.highway ? ("Via: " + r.highway) : (r.config && r.config.via ? ("Via: " + r.config.via) : "-");
+      items.push({
+        id: String(r.id || ""),
+        modo: "metrado",
+        tipo: "Trazos (lineas y guionadas)",
+        nombre,
+        estado,
+        verificado: !pendiente,
+        ubicacion
+      });
+    });
+  }
   return items;
 }
 
@@ -2441,6 +2502,10 @@ function updateProyectoPreview(){
       projectSelection.mobiliario.clear();
       cleared = true;
     }
+    if(chkProyectoMetrado && !chkProyectoMetrado.checked && projectSelection.metrado.size){
+      projectSelection.metrado.clear();
+      cleared = true;
+    }
   }
   if(projectPreviewName) projectPreviewName.textContent = name || "Sin nombre";
   if(projectPreviewDates){
@@ -2452,6 +2517,7 @@ function updateProyectoPreview(){
       projectPreviewDates.textContent = "Sin fechas";
     }
   }
+  aplicarSeleccionMetradoMapa();
   const data = getProyectoSeleccionadoActivos();
   if(projectPreviewCount) projectPreviewCount.textContent = data.length + " activos";
   const tbody = tablaProyectoPreview ? tablaProyectoPreview.querySelector("tbody") : null;
@@ -2490,6 +2556,7 @@ function abrirModalProyecto(){
   if(chkProyectoTransito) chkProyectoTransito.checked = true;
   if(chkProyectoMarcas) chkProyectoMarcas.checked = true;
   if(chkProyectoMobiliario) chkProyectoMobiliario.checked = true;
+  if(chkProyectoMetrado) chkProyectoMetrado.checked = true;
   updateProyectoPreview();
   modalProyecto.classList.remove("hidden");
   modalProyecto.setAttribute("aria-hidden","false");
@@ -2513,6 +2580,7 @@ function abrirModalProyectoEditar(){
   if(chkProyectoTransito) chkProyectoTransito.checked = (proj.senalesVertical || []).length > 0;
   if(chkProyectoMarcas) chkProyectoMarcas.checked = (proj.senalesHorizontal || []).length > 0;
   if(chkProyectoMobiliario) chkProyectoMobiliario.checked = (proj.senalesMobiliario || []).length > 0;
+  if(chkProyectoMetrado) chkProyectoMetrado.checked = (proj.metradoRegistros || []).length > 0;
   updateProyectoPreview();
   modalProyecto.classList.remove("hidden");
   modalProyecto.setAttribute("aria-hidden","false");
@@ -2526,6 +2594,7 @@ function cerrarModalProyecto(){
   modalProyecto.setAttribute("aria-hidden","true");
   projectSelectionActive = false;
   resetProjectSelection();
+  aplicarSeleccionMetradoMapa();
   try{ document.body.classList.remove("project-select-mode"); }catch(e){}
   try{ if(typeof renderizarTodo === "function"){ renderizarTodo(); } }catch(e){}
 }
@@ -3985,15 +4054,27 @@ if(btnCfgExportar){
   btnCfgExportar.addEventListener("click", ()=>{
     const now = new Date();
     const stamp = now.toISOString().slice(0,10).replace(/-/g,"");
+    try{ if(typeof guardarProyectoActivo === "function") guardarProyectoActivo(); }catch(e){}
+    const correo = (typeof getSessionEmail === "function") ? (getSessionEmail() || "") : "";
+    const scope = (typeof cargarSesionScope === "function") ? cargarSesionScope() : { region:"", distrito:"" };
     const payload = {
       app: "Urbbis",
       version: 1,
       exportedAt: now.toISOString(),
       config: loadUrbbisConfig(),
+      usuario: {
+        correo: correo || "",
+        rol: (typeof rolActual !== "undefined") ? rolActual : "",
+        scope
+      },
       senalesHorizontal: typeof senalesHorizontal !== "undefined" ? senalesHorizontal : [],
       senalesVertical: typeof senalesVertical !== "undefined" ? senalesVertical : [],
+      senalesMobiliario: typeof senalesMobiliario !== "undefined" ? senalesMobiliario : [],
+      metradoRegistros: Array.isArray(metradoRegistros) ? metradoRegistros : [],
       avisos: typeof avisos !== "undefined" ? avisos : [],
-      historialSenales: (typeof historialSenales !== "undefined" && Array.isArray(historialSenales)) ? historialSenales : []
+      historialSenales: (typeof historialSenales !== "undefined" && Array.isArray(historialSenales)) ? historialSenales : [],
+      proyectos: Array.isArray(proyectosCache) ? proyectosCache : [],
+      proyectoActivoId: proyectoActivoId || ""
     };
     descargarJSON("urbbis-datos-" + stamp + ".json", payload);
   });
@@ -4012,6 +4093,8 @@ if(cfgImportar){
 
         const h = Array.isArray(parsed.senalesHorizontal) ? parsed.senalesHorizontal : null;
         const v = Array.isArray(parsed.senalesVertical) ? parsed.senalesVertical : null;
+        const m = Array.isArray(parsed.senalesMobiliario) ? parsed.senalesMobiliario : null;
+        const met = Array.isArray(parsed.metradoRegistros) ? parsed.metradoRegistros : null;
         const a = Array.isArray(parsed.avisos) ? parsed.avisos : null;
         const hist = Array.isArray(parsed.historialSenales) ? parsed.historialSenales : null;
 
@@ -4020,6 +4103,13 @@ if(cfgImportar){
         }
         if(v && typeof senalesVertical !== "undefined"){
           senalesVertical.splice(0, senalesVertical.length, ...v);
+        }
+        if(m && typeof senalesMobiliario !== "undefined"){
+          senalesMobiliario.splice(0, senalesMobiliario.length, ...m);
+        }
+        if(met && typeof metradoRegistros !== "undefined"){
+          metradoRegistros = met;
+          try{ if(typeof actualizarMetradoRegistrosUI === "function") actualizarMetradoRegistrosUI(); }catch(e){}
         }
         if(a && typeof avisos !== "undefined"){
           avisos = a;
@@ -4036,6 +4126,121 @@ if(cfgImportar){
               historialSenalesSeq = Math.max(historialSenalesSeq || 1, maxId + 1);
             }
           }catch(e){}
+        }
+
+        // Proyectos (separar por municipalidad y guardar en su respectiva cuenta)
+        if(Array.isArray(parsed.proyectos)){
+          const incoming = parsed.proyectos;
+          const incomingActive = parsed.proyectoActivoId ? String(parsed.proyectoActivoId) : "";
+
+          const normalizarNombreProyecto = (n)=> String(n || "").toLowerCase().trim();
+          const obtenerDistritoProyecto = (p)=>{
+            if(p && p.distrito) return p.distrito;
+            const lists = [p && p.senalesHorizontal, p && p.senalesVertical, p && p.senalesMobiliario];
+            for(let i=0;i<lists.length;i++){
+              const list = lists[i];
+              if(!Array.isArray(list)) continue;
+              const found = list.find(s => s && (s.zona || s.distrito));
+              if(found) return found.zona || found.distrito || "";
+            }
+            return "";
+          };
+
+          const getProjectsKeyForEmail = (correo)=> LS_PROJECTS_PREFIX + normalizarCorreo(correo || "guest");
+          const getProjectActiveKeyForEmail = (correo)=> LS_PROJECT_ACTIVE_PREFIX + normalizarCorreo(correo || "guest");
+          const cargarProyectosPorCorreo = (correo)=>{
+            try{
+              const raw = localStorage.getItem(getProjectsKeyForEmail(correo));
+              if(raw){
+                const parsedLocal = JSON.parse(raw);
+                if(parsedLocal && Array.isArray(parsedLocal.proyectos)){
+                  return { proyectos: parsedLocal.proyectos, activo: parsedLocal.activo || "" };
+                }
+              }
+            }catch(e){}
+            return { proyectos: [], activo: "" };
+          };
+          const guardarProyectosParaCorreo = (correo, proyectos, activo)=>{
+            try{
+              localStorage.setItem(getProjectsKeyForEmail(correo), JSON.stringify({ activo: activo || "", proyectos: proyectos || [] }));
+            }catch(e){}
+            try{
+              localStorage.setItem(getProjectActiveKeyForEmail(correo), activo || "");
+            }catch(e){}
+          };
+
+          const mergeProyectos = (target, list)=>{
+            const out = Array.isArray(target) ? target.map(p => Object.assign({}, p)) : [];
+            const byId = new Map();
+            out.forEach((p, idx)=>{
+              const key = String(p && p.id || "");
+              if(key) byId.set(key, idx);
+            });
+            (list || []).forEach((p)=>{
+              if(!p || typeof p !== "object") return;
+              if(!Array.isArray(p.senalesHorizontal)) p.senalesHorizontal = [];
+              if(!Array.isArray(p.senalesVertical)) p.senalesVertical = [];
+              if(!Array.isArray(p.senalesMobiliario)) p.senalesMobiliario = [];
+              if(!Array.isArray(p.metradoRegistros)) p.metradoRegistros = [];
+              const pid = String(p.id || "");
+              let idx = pid ? byId.get(pid) : -1;
+              if(typeof idx === "undefined") idx = -1;
+              if(idx < 0 && p.nombre){
+                const targetName = normalizarNombreProyecto(p.nombre);
+                idx = out.findIndex(x => normalizarNombreProyecto(x && x.nombre) === targetName);
+              }
+              if(idx >= 0){
+                const prev = out[idx];
+                out[idx] = Object.assign({}, prev, p);
+                if(prev && prev.id && !out[idx].id) out[idx].id = prev.id;
+              } else {
+                out.push(p);
+              }
+            });
+            return out;
+          };
+
+          const groups = new Map();
+          incoming.forEach((p)=>{
+            const dist = obtenerDistritoProyecto(p);
+            const key = String(dist || "").toLowerCase();
+            if(!groups.has(key)) groups.set(key, { distrito: dist || "", list: [] });
+            groups.get(key).list.push(p);
+          });
+
+          const currentEmail = (typeof getSessionEmail === "function") ? (getSessionEmail() || "") : "";
+          const scopeNow = (typeof cargarSesionScope === "function") ? cargarSesionScope() : { region:"", distrito:"" };
+          const currentDistritoKey = String(scopeNow && scopeNow.distrito || "").toLowerCase();
+          let currentAssigned = false;
+
+          groups.forEach((g)=>{
+            const distrito = g.distrito || "";
+            const correoDestino = distrito ? (slugDistrito(distrito) + "@muni.gob.pe") : (currentEmail || "guest");
+            const stored = cargarProyectosPorCorreo(correoDestino);
+            const merged = mergeProyectos(stored.proyectos, g.list);
+            let activo = stored.activo || "";
+            if(incomingActive && merged.some(p => String(p && p.id || "") === incomingActive)){
+              activo = incomingActive;
+            } else if(!activo || !merged.some(p => String(p && p.id || "") === String(activo))){
+              activo = merged[0] ? merged[0].id : "";
+            }
+            guardarProyectosParaCorreo(correoDestino, merged, activo);
+
+            if(normalizarCorreo(correoDestino) === normalizarCorreo(currentEmail || "")
+              || (currentDistritoKey && String(distrito || "").toLowerCase() === currentDistritoKey)){
+              proyectosCache = merged;
+              proyectoActivoId = activo;
+              currentAssigned = true;
+            }
+          });
+
+          if(currentAssigned){
+            actualizarSelectProyecto();
+            if(proyectoActivoId){
+              setProyectoActivoPorId(proyectoActivoId);
+            }
+            updateProjectUI();
+          }
         }
 
         if(parsed.config && typeof parsed.config === "object"){
@@ -5158,6 +5363,7 @@ if(btnProyectoCancelar){
   if(chkProyectoTransito) chkProyectoTransito.addEventListener(evt, updateProyectoPreview);
   if(chkProyectoMarcas) chkProyectoMarcas.addEventListener(evt, updateProyectoPreview);
   if(chkProyectoMobiliario) chkProyectoMobiliario.addEventListener(evt, updateProyectoPreview);
+  if(chkProyectoMetrado) chkProyectoMetrado.addEventListener(evt, updateProyectoPreview);
 });
 if(btnProyectoGuardar){
   btnProyectoGuardar.addEventListener("click", ()=>{
@@ -5169,7 +5375,8 @@ if(btnProyectoGuardar){
     const includeTransito = !!(chkProyectoTransito && chkProyectoTransito.checked);
     const includeMarcas = !!(chkProyectoMarcas && chkProyectoMarcas.checked);
     const includeMobiliario = !!(chkProyectoMobiliario && chkProyectoMobiliario.checked);
-    if(!includeTransito && !includeMarcas && !includeMobiliario){
+    const includeMetrado = !!(chkProyectoMetrado && chkProyectoMetrado.checked);
+    if(!includeTransito && !includeMarcas && !includeMobiliario && !includeMetrado){
       alert("Selecciona al menos un tipo de activo.");
       return;
     }
@@ -5180,20 +5387,22 @@ if(btnProyectoGuardar){
       return;
     }
 
-    const filtrarSeleccion = (list, set, include)=>{
+    const filtrarSeleccion = (list, set, include, cloner)=>{
       if(!include) return [];
       const base = Array.isArray(list) ? list : [];
-      if(!projectSelectionActive) return cloneSenales(base);
+      const cloneFn = (typeof cloner === "function") ? cloner : cloneSenales;
+      if(!projectSelectionActive) return cloneFn(base);
       if(!set || !set.size) return [];
-      return cloneSenales(base.filter(s => set.has(String(s.id || ""))));
+      return cloneFn(base.filter(s => set.has(String(s.id || ""))));
     };
 
     const seleccionadas = []
-      .concat(filtrarSeleccion(typeof senalesVertical !== "undefined" ? senalesVertical : [], projectSelection.vertical, includeTransito))
-      .concat(filtrarSeleccion(typeof senalesHorizontal !== "undefined" ? senalesHorizontal : [], projectSelection.horizontal, includeMarcas))
-      .concat(filtrarSeleccion(typeof senalesMobiliario !== "undefined" ? senalesMobiliario : [], projectSelection.mobiliario, includeMobiliario));
+      .concat(filtrarSeleccion(typeof senalesVertical !== "undefined" ? senalesVertical : [], projectSelection.vertical, includeTransito, cloneSenales))
+      .concat(filtrarSeleccion(typeof senalesHorizontal !== "undefined" ? senalesHorizontal : [], projectSelection.horizontal, includeMarcas, cloneSenales))
+      .concat(filtrarSeleccion(typeof senalesMobiliario !== "undefined" ? senalesMobiliario : [], projectSelection.mobiliario, includeMobiliario, cloneSenales))
+      .concat(filtrarSeleccion(typeof metradoRegistros !== "undefined" ? metradoRegistros : [], projectSelection.metrado, includeMetrado, cloneMetradoRegistros));
     if(projectSelectionActive && !seleccionadas.length){
-      alert("Selecciona senales en el mapa para el proyecto.");
+      alert("Selecciona senales y trazos en el mapa para el proyecto.");
       return;
     }
 
@@ -5201,9 +5410,10 @@ if(btnProyectoGuardar){
       nombre,
       fecha_inicio: inicio || "",
       fecha_fin: fin || "",
-      senalesHorizontal: filtrarSeleccion(typeof senalesHorizontal !== "undefined" ? senalesHorizontal : [], projectSelection.horizontal, includeMarcas),
-      senalesVertical: filtrarSeleccion(typeof senalesVertical !== "undefined" ? senalesVertical : [], projectSelection.vertical, includeTransito),
-      senalesMobiliario: filtrarSeleccion(typeof senalesMobiliario !== "undefined" ? senalesMobiliario : [], projectSelection.mobiliario, includeMobiliario)
+      senalesHorizontal: filtrarSeleccion(typeof senalesHorizontal !== "undefined" ? senalesHorizontal : [], projectSelection.horizontal, includeMarcas, cloneSenales),
+      senalesVertical: filtrarSeleccion(typeof senalesVertical !== "undefined" ? senalesVertical : [], projectSelection.vertical, includeTransito, cloneSenales),
+      senalesMobiliario: filtrarSeleccion(typeof senalesMobiliario !== "undefined" ? senalesMobiliario : [], projectSelection.mobiliario, includeMobiliario, cloneSenales),
+      metradoRegistros: filtrarSeleccion(typeof metradoRegistros !== "undefined" ? metradoRegistros : [], projectSelection.metrado, includeMetrado, cloneMetradoRegistros)
     };
 
     if(proyectoEditId){
@@ -5252,7 +5462,6 @@ if(tablaProyectoPreview){
     try{ if(typeof renderizarTodo === "function"){ renderizarTodo(); } }catch(err){}
   });
 }
-
 if(btnInspeccionClose){
   btnInspeccionClose.addEventListener("click", cerrarModalInspeccion);
 }
