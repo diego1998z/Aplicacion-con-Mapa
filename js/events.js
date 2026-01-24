@@ -4145,7 +4145,7 @@ if(cfgZoomInicial){
   cfgZoomInicial.addEventListener("change", ()=>{
     const v = parseInt(cfgZoomInicial.value, 10);
     if(Number.isFinite(v)){
-      updateAndPersistConfig({ zoomInicial: Math.max(10, Math.min(19, v)) });
+      updateAndPersistConfig({ zoomInicial: Math.max(10, Math.min(23, v)) });
     }
   });
 }

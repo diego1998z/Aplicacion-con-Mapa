@@ -19,11 +19,15 @@ function leerConfigUrbbis(){
 const _cfgInitUrbbis = leerConfigUrbbis();
 const _zoomInicial = (Number.isFinite(_cfgInitUrbbis.zoomInicial) ? _cfgInitUrbbis.zoomInicial : 13);
 
-const map = L.map("map").setView([-12.0464, -77.0428], _zoomInicial);
+const map = L.map("map", {
+    scrollWheelZoom: true,
+    wheelPxPerZoomLevel: 45
+}).setView([-12.0464, -77.0428], _zoomInicial);
 
 // Base limpia sin iconos; solo vias
 L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png", {
-    maxZoom: 19,
+    maxNativeZoom: 20,
+    maxZoom: 23,
     attribution: '&copy; OpenStreetMap, &copy; CARTO'
 }).addTo(map);
 
@@ -32,7 +36,8 @@ map.createPane('labels');
 map.getPane('labels').style.zIndex = 650;
 map.getPane('labels').style.pointerEvents = 'none';
 L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png", {
-    maxZoom: 19,
+    maxNativeZoom: 20,
+    maxZoom: 23,
     pane: 'labels'
 }).addTo(map);
 
