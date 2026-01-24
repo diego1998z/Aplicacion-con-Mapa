@@ -271,16 +271,24 @@
   overflow:hidden;
   background:#edf1f5;
   border:1px solid rgba(11,34,48,0.06);
+  min-height:44px;
 }
 .dash-state-seg{
   display:flex;
   align-items:center;
   justify-content:center;
-  padding:10px 12px;
-  font-size:12px;
+  padding:12px 10px;
+  font-size:11px;
   font-weight:900;
   color:#fff;
   white-space:nowrap;
+  overflow:hidden;
+}
+.dash-state-seg span{
+  display:block;
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
 }
 .dash-state-opt{background:#2fa84f;}
 .dash-state-mid{background:#f3b52f;}
