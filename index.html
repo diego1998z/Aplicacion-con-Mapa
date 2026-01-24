@@ -52,7 +52,7 @@
             <nav class="dash-nav" aria-label="Navegacion principal">
                 <button type="button" class="dash-link active" data-dash="dashboard">Dashboard</button>
                 <button type="button" class="dash-link" data-dash="mapa">Mapa</button>
-                <button type="button" class="dash-link" data-dash="inversion">Inversion</button>
+                <button type="button" class="dash-link" data-dash="inversion">Inventario</button>
                 <button type="button" class="dash-link" data-dash="reportes">Reportes</button>
                 <button type="button" class="dash-link" data-dash="tareas">Tareas</button>
                 <button type="button" class="dash-link" data-dash="config">Configuracion</button>
@@ -125,12 +125,12 @@
             <div class="dash-page hidden" data-dash-page="inversion">
                 <div class="dash-top">
                     <div>
-                        <div class="dash-entity">Inversion</div>
+                        <div class="dash-entity">Inventario</div>
                         <div class="dash-msg">Resumen de costos y activos por proyecto.</div>
                     </div>
                 </div>
                 <div class="dash-title">
-                    <h1>Inversion <span>/ Resumen</span></h1>
+                    <h1>Inventario <span>/ Resumen</span></h1>
                 </div>
                 <div class="inv-scope">
                     <div class="inv-scope-label">Distrito: <strong id="invDistritoLabel">-</strong></div>
@@ -141,7 +141,7 @@
                 </div>
                 <section class="inv-grid">
                     <article class="inv-card inv-card--total">
-                        <div class="inv-card-title">Inversion total</div>
+                        <div class="inv-card-title">Inventario total</div>
                         <div class="inv-card-value" id="invTotal">S/ 0</div>
                     </article>
                     <article class="inv-card inv-card--ok">
@@ -155,7 +155,7 @@
                         <div class="inv-card-sub" id="invDeterioradosPct">0%</div>
                     </article>
                     <article class="inv-card inv-card--danger">
-                        <div class="inv-card-title">Inversion reposicion</div>
+                        <div class="inv-card-title">Activo por Reponer</div>
                         <div class="inv-card-value" id="invReposicion">S/ 0</div>
                     </article>
                 </section>
