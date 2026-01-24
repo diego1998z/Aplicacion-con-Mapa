@@ -127,6 +127,32 @@ const dashUserName = document.getElementById("dashUserName");
 const dashUserEmail = document.getElementById("dashUserEmail");
 const dashAvatarInitials = document.getElementById("dashAvatarInitials");
 const dashEntity = document.getElementById("dashEntity");
+const dashMuniFoto = document.getElementById("dashMuniFoto");
+const dashMuniNombre = document.getElementById("dashMuniNombre");
+const dashMuniSub = document.getElementById("dashMuniSub");
+const dashMuniSuperficie = document.getElementById("dashMuniSuperficie");
+const dashMuniSubdivisiones = document.getElementById("dashMuniSubdivisiones");
+const dashMuniPoblacion = document.getElementById("dashMuniPoblacion");
+const dashScoreGeneral = document.getElementById("dashScoreGeneral");
+const dashScoreLabel = document.getElementById("dashScoreLabel");
+const dashTotalVertical = document.getElementById("dashTotalVertical");
+const dashTotalMarcas = document.getElementById("dashTotalMarcas");
+const dashTotalPintado = document.getElementById("dashTotalPintado");
+const dashTotalMobiliario = document.getElementById("dashTotalMobiliario");
+const dashPctOpt = document.getElementById("dashPctOpt");
+const dashPctMid = document.getElementById("dashPctMid");
+const dashPctCrit = document.getElementById("dashPctCrit");
+const dashStateOpt = document.getElementById("dashStateOpt");
+const dashStateMid = document.getElementById("dashStateMid");
+const dashStateCrit = document.getElementById("dashStateCrit");
+const dashAlertDeterioradas = document.getElementById("dashAlertDeterioradas");
+const dashAlertAusentes = document.getElementById("dashAlertAusentes");
+const dashInvEjecutada = document.getElementById("dashInvEjecutada");
+const dashInvPlanificada = document.getElementById("dashInvPlanificada");
+const dashEventoFalta = document.getElementById("dashEventoFalta");
+const dashEventoDanada = document.getElementById("dashEventoDanada");
+const dashEventoObstruida = document.getElementById("dashEventoObstruida");
+const dashEventoOtro = document.getElementById("dashEventoOtro");
 const dashProjectSelect = document.getElementById("dashProjectSelect");
 const dashScore = document.getElementById("dashScore");
 const dashTotalSenales = document.getElementById("dashTotalSenales");
@@ -2850,6 +2876,56 @@ function updateDashboard(){
   if(dashUserEmail) dashUserEmail.textContent = correo || "";
   if(dashAvatarInitials) dashAvatarInitials.textContent = inicialesDesdeCorreo(correo);
 
+  let scope = { region:"", distrito:"" };
+  try{
+    if(typeof cargarSesionScope === "function"){
+      scope = cargarSesionScope() || scope;
+    }
+  }catch(e){}
+  let distrito = scope && scope.distrito ? scope.distrito : "";
+  let region = scope && scope.region ? scope.region : "";
+  if(!distrito && typeof filtroDistrito !== "undefined"){
+    distrito = filtroDistrito || "";
+  }
+  if(!region && distrito && typeof regionPorDistrito === "function"){
+    region = regionPorDistrito(distrito) || "";
+  }
+
+  const muniNombre = rolActual === "visitante"
+    ? "Portal ciudadano"
+    : (distrito ? ("Municipalidad de " + distrito) : "Municipalidad Metropolitana de Lima");
+  if(dashMuniNombre) dashMuniNombre.textContent = muniNombre.toUpperCase();
+  if(dashMuniSub) dashMuniSub.textContent = (region || "Lima") + " - Peru";
+  if(dashMuniFoto){
+    const slug = distrito ? slugDistrito(distrito) : "lima";
+    const base = "src/fotos de municipalidades/";
+    const primary = base + "Muni-" + slug + ".jpg";
+    const alt = base + "Muni." + slug + ".jpg";
+    const fallback = base + "Muni-lima.jpg";
+    dashMuniFoto.onerror = function(){
+      if(!dashMuniFoto.dataset.fallback){
+        dashMuniFoto.dataset.fallback = "1";
+        dashMuniFoto.src = encodeURI(alt);
+      } else {
+        dashMuniFoto.src = encodeURI(fallback);
+      }
+    };
+    if(dashMuniFoto.getAttribute("data-src") !== primary){
+      dashMuniFoto.setAttribute("data-src", primary);
+      dashMuniFoto.src = encodeURI(primary);
+    }
+  }
+
+  const MUNICIPAL_INFO = (typeof window !== "undefined" && window.MUNICIPAL_INFO) ? window.MUNICIPAL_INFO : {
+    "Lince": { superficie:"3.03 km2", subdivisiones:"9 sectores", poblacion:"63,854 hab." },
+    "Lima": { superficie:"2,672.0 km2", subdivisiones:"43 distritos", poblacion:"9,674,755 hab." }
+  };
+  const infoKey = distrito || "Lima";
+  const info = MUNICIPAL_INFO[infoKey] || MUNICIPAL_INFO[slugDistrito(infoKey)] || {};
+  if(dashMuniSuperficie) dashMuniSuperficie.textContent = info.superficie || "-";
+  if(dashMuniSubdivisiones) dashMuniSubdivisiones.textContent = info.subdivisiones || "-";
+  if(dashMuniPoblacion) dashMuniPoblacion.textContent = info.poblacion || "-";
+
   if(dashEntity){
     if(rolActual === "visitante"){
       dashEntity.textContent = "Entidad: Portal ciudadano";
@@ -2887,6 +2963,119 @@ function updateDashboard(){
   if(dashTotalSenales) dashTotalSenales.textContent = String(total);
   if(dashAtencion) dashAtencion.textContent = String(atencion);
   if(dashInversion) dashInversion.textContent = formatearMonedaPEN(inversion);
+
+  // Totales municipales (todos los proyectos del distrito)
+  let projects = Array.isArray(proyectosCache) ? proyectosCache.slice() : [];
+  if(distrito){
+    const low = String(distrito).toLowerCase();
+    projects = projects.filter(p=>{
+      const pd = String(p && p.distrito || "").toLowerCase();
+      return !pd || pd === low;
+    });
+  }
+  let aggVert = [];
+  let aggHoriz = [];
+  let aggMob = [];
+  let aggMetrado = [];
+  if(projects.length){
+    projects.forEach((p)=>{
+      if(Array.isArray(p.senalesVertical)) aggVert.push(...p.senalesVertical);
+      if(Array.isArray(p.senalesHorizontal)) aggHoriz.push(...p.senalesHorizontal);
+      if(Array.isArray(p.senalesMobiliario)) aggMob.push(...p.senalesMobiliario);
+      if(Array.isArray(p.metradoRegistros)) aggMetrado.push(...p.metradoRegistros);
+    });
+  } else {
+    aggVert = Array.isArray(senalesVertical) ? senalesVertical.slice() : [];
+    aggHoriz = Array.isArray(senalesHorizontal) ? senalesHorizontal.slice() : [];
+    aggMob = Array.isArray(senalesMobiliario) ? senalesMobiliario.slice() : [];
+    aggMetrado = Array.isArray(metradoRegistros) ? metradoRegistros.slice() : [];
+  }
+  const totalVert = aggVert.length;
+  const totalHoriz = aggHoriz.length;
+  const totalMob = aggMob.length;
+  const totalMl = aggMetrado.reduce((sum, r)=>{
+    if(r && r.resultados && Number.isFinite(Number(r.resultados.total))){
+      return sum + Number(r.resultados.total);
+    }
+    if(Number.isFinite(Number(r && r.distancia_m))){
+      return sum + Number(r.distancia_m);
+    }
+    return sum;
+  }, 0);
+  if(dashTotalVertical) dashTotalVertical.textContent = String(totalVert);
+  if(dashTotalMarcas) dashTotalMarcas.textContent = String(totalHoriz);
+  if(dashTotalMobiliario) dashTotalMobiliario.textContent = String(totalMob);
+  if(dashTotalPintado){
+    if(typeof formatoML === "function"){
+      dashTotalPintado.textContent = formatoML(totalMl);
+    } else {
+      dashTotalPintado.textContent = Math.round(totalMl).toLocaleString("es-PE") + " ml";
+    }
+  }
+
+  const aggSignals = aggVert.concat(aggHoriz, aggMob);
+  const aggTotal = aggSignals.length;
+  const aggNueva = aggSignals.filter(s => s && s.estado === "nueva").length;
+  const aggAntigua = aggSignals.filter(s => s && s.estado === "antigua").length;
+  const aggSin = aggSignals.filter(s => s && s.estado === "sin_senal").length;
+  const pctOpt = aggTotal ? Math.round((aggNueva / aggTotal) * 100) : 0;
+  const pctMid = aggTotal ? Math.round((aggAntigua / aggTotal) * 100) : 0;
+  const pctCrit = aggTotal ? Math.round((aggSin / aggTotal) * 100) : 0;
+  if(dashPctOpt) dashPctOpt.textContent = String(pctOpt);
+  if(dashPctMid) dashPctMid.textContent = String(pctMid);
+  if(dashPctCrit) dashPctCrit.textContent = String(pctCrit);
+  if(dashStateOpt) dashStateOpt.style.width = pctOpt + "%";
+  if(dashStateMid) dashStateMid.style.width = pctMid + "%";
+  if(dashStateCrit) dashStateCrit.style.width = pctCrit + "%";
+
+  const scoreGeneral = aggTotal ? Math.round(((aggNueva * 1.0) + (aggAntigua * 0.6) + (aggSin * 0.0)) / aggTotal * 100) : 0;
+  if(dashScoreGeneral) dashScoreGeneral.textContent = String(scoreGeneral);
+  if(dashScoreLabel){
+    let label = "Regular";
+    if(scoreGeneral >= 80) label = "Optimo";
+    else if(scoreGeneral >= 60) label = "Bueno";
+    else if(scoreGeneral >= 40) label = "Regular";
+    else label = "Critico";
+    dashScoreLabel.textContent = label;
+  }
+
+  if(dashAlertDeterioradas) dashAlertDeterioradas.textContent = String(aggAntigua);
+  if(dashAlertAusentes) dashAlertAusentes.textContent = String(aggSin);
+
+  const resumen = (function(){
+    try{
+      if(!window.inversionPlanResumen && typeof updateInversionPlanes === "function"){
+        updateInversionPlanes();
+      }
+      return window.inversionPlanResumen || null;
+    }catch(e){
+      return null;
+    }
+  })();
+  const ejecutada = resumen && Number.isFinite(Number(resumen.ejecutado)) ? Number(resumen.ejecutado) : 0;
+  const planificada = resumen && Number.isFinite(Number(resumen.planificacion)) ? Number(resumen.planificacion) : 0;
+  if(dashInvEjecutada) dashInvEjecutada.textContent = formatearMonedaPEN(ejecutada);
+  if(dashInvPlanificada) dashInvPlanificada.textContent = formatearMonedaPEN(planificada);
+
+  const eventos = Array.isArray(avisos) ? avisos.slice() : [];
+  let eventosFiltrados = eventos;
+  if(distrito){
+    eventosFiltrados = eventos.filter(a => (a.distrito || a.zona || "") === distrito);
+  }
+  const counts = { falta:0, danada:0, obstruida:0, otro:0 };
+  eventosFiltrados.forEach((a)=>{
+    if(a && a.estado && a.estado === "atendido") return;
+    const tipo = a && a.tipo ? a.tipo : "otro";
+    if(counts.hasOwnProperty(tipo)){
+      counts[tipo] += 1;
+    } else {
+      counts.otro += 1;
+    }
+  });
+  if(dashEventoFalta) dashEventoFalta.textContent = String(counts.falta || 0);
+  if(dashEventoDanada) dashEventoDanada.textContent = String(counts.danada || 0);
+  if(dashEventoObstruida) dashEventoObstruida.textContent = String(counts.obstruida || 0);
+  if(dashEventoOtro) dashEventoOtro.textContent = String(counts.otro || 0);
 }
 
 window.updateDashboard = updateDashboard;

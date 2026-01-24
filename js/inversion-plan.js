@@ -380,6 +380,13 @@
     invTotalPlanificacion.textContent = formatMoney(totals.planificacion || 0);
     invTotalEjecucion.textContent = formatMoney(totals.ejecucion || 0);
     invTotalEjecutado.textContent = formatMoney(totals.ejecutado || 0);
+    try{
+      window.inversionPlanResumen = {
+        planificacion: totals.planificacion || 0,
+        ejecucion: totals.ejecucion || 0,
+        ejecutado: totals.ejecutado || 0
+      };
+    }catch(e){}
   }
 
   function updateInversionPlanes(){

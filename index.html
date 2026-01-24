@@ -64,10 +64,101 @@
 
         <main class="dash-main">
             <div class="dash-page" data-dash-page="dashboard">
+                <section class="dash-overview" aria-label="Resumen municipal">
+                    <div class="dash-overview-top">
+                        <article class="dash-muni-card">
+                            <div class="dash-muni-photo">
+                                <img id="dashMuniFoto" src="src/fotos de municipalidades/Muni-lima.jpg" alt="Municipalidad">
+                            </div>
+                            <div class="dash-muni-body">
+                                <div class="dash-muni-title" id="dashMuniNombre">Municipalidad</div>
+                                <div class="dash-muni-sub" id="dashMuniSub">Lima - Peru</div>
+                                <div class="dash-muni-meta">
+                                    <div>Superficie: <strong id="dashMuniSuperficie">-</strong></div>
+                                    <div>Subdivisiones: <strong id="dashMuniSubdivisiones">-</strong></div>
+                                    <div>Poblacion: <strong id="dashMuniPoblacion">-</strong></div>
+                                </div>
+                            </div>
+                        </article>
+                        <article class="dash-score-card">
+                            <div class="dash-score-title">Indice de Estado Vial - Urbbis</div>
+                            <div class="dash-score-value"><span id="dashScoreGeneral">0</span></div>
+                            <div class="dash-score-label" id="dashScoreLabel">-</div>
+                            <div class="dash-score-sub">Infraestructura en buen estado.</div>
+                        </article>
+                    </div>
+
+                    <div class="dash-metrics-row">
+                        <article class="dash-mini-card">
+                            <div class="dash-mini-title">Se&ntilde;ales Verticales Registradas</div>
+                            <div class="dash-mini-value" id="dashTotalVertical">0</div>
+                        </article>
+                        <article class="dash-mini-card">
+                            <div class="dash-mini-title">Marcas Viales registradas</div>
+                            <div class="dash-mini-value" id="dashTotalMarcas">0</div>
+                        </article>
+                        <article class="dash-mini-card">
+                            <div class="dash-mini-title">Pintado de Autopistas</div>
+                            <div class="dash-mini-value" id="dashTotalPintado">0 ml</div>
+                        </article>
+                        <article class="dash-mini-card">
+                            <div class="dash-mini-title">Mobiliario Urbano</div>
+                            <div class="dash-mini-value" id="dashTotalMobiliario">0</div>
+                        </article>
+                    </div>
+
+                    <div class="dash-state-card">
+                        <div class="dash-state-title">Estado de la Infraestructura Vial</div>
+                        <div class="dash-state-bar">
+                            <div class="dash-state-seg dash-state-opt" id="dashStateOpt">
+                                <span><strong id="dashPctOpt">0</strong>% Optimo / Nuevo</span>
+                            </div>
+                            <div class="dash-state-seg dash-state-mid" id="dashStateMid">
+                                <span><strong id="dashPctMid">0</strong>% Operativo - Por vencer</span>
+                            </div>
+                            <div class="dash-state-seg dash-state-crit" id="dashStateCrit">
+                                <span><strong id="dashPctCrit">0</strong>% Critico - Requiere intervencion</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dash-overview-lower">
+                        <article class="dash-alert-card">
+                            <div class="dash-card-kicker">Alertas Criticas</div>
+                            <ul class="dash-list">
+                                <li><span class="dash-dot dash-dot--warn"></span><strong id="dashAlertDeterioradas">0</strong> Se&ntilde;ales deterioradas</li>
+                                <li><span class="dash-dot dash-dot--danger"></span><strong id="dashAlertAusentes">0</strong> Se&ntilde;ales ausentes</li>
+                            </ul>
+                        </article>
+                        <div class="dash-overview-side">
+                            <article class="dash-inv-card">
+                                <div class="dash-card-kicker">Inversion en Infraestructura Vial</div>
+                                <div class="dash-inv-grid">
+                                    <div class="dash-inv-item">
+                                        <span>Ejecutada</span>
+                                        <strong id="dashInvEjecutada">S/ 0</strong>
+                                    </div>
+                                    <div class="dash-inv-item">
+                                        <span>Planificada</span>
+                                        <strong id="dashInvPlanificada">S/ 0</strong>
+                                    </div>
+                                </div>
+                            </article>
+                            <article class="dash-event-card">
+                                <div class="dash-card-kicker">Requiere Atencion</div>
+                                <ul class="dash-list">
+                                    <li><span class="dash-dot dash-dot--danger"></span><strong id="dashEventoFalta">0</strong> Falta se&ntilde;al</li>
+                                    <li><span class="dash-dot dash-dot--warn"></span><strong id="dashEventoDanada">0</strong> Se&ntilde;al da&ntilde;ada</li>
+                                    <li><span class="dash-dot dash-dot--info"></span><strong id="dashEventoObstruida">0</strong> Obstruida</li>
+                                    <li><span class="dash-dot"></span><strong id="dashEventoOtro">0</strong> Otros</li>
+                                </ul>
+                            </article>
+                        </div>
+                    </div>
+                </section>
+
                 <div class="dash-top">
                     <div>
-                        <div class="dash-entity" id="dashEntity">Entidad: Municipalidad</div>
-                        <div class="dash-msg">Hoy es un gran dia para mejorar la seguridad vial.</div>
                         <div class="dash-scope">
                             <label for="dashProjectSelect">Proyecto a analizar</label>
                             <select id="dashProjectSelect"></select>
