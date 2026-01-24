@@ -440,6 +440,327 @@
   background:#f7edd1;
 }
 
+/* Inversion - Gestion anual */
+.inv-annual-card{
+  background:var(--dash-card);
+  border-radius:18px;
+  padding:18px;
+  border:1px solid rgba(11,34,48,0.08);
+  box-shadow:0 12px 26px rgba(11,34,48,0.08);
+  margin-bottom:20px;
+}
+.inv-annual-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.inv-annual-title{
+  font-weight:900;
+  font-size:14px;
+}
+.inv-annual-period{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.inv-annual-period select{
+  border:1px solid rgba(11,34,48,0.12);
+  border-radius:10px;
+  padding:6px 10px;
+  font-size:12px;
+  font-weight:800;
+  background:#f6f8fb;
+  color:#0b2230;
+}
+.inv-annual-edit{
+  width:32px;
+  height:32px;
+  border-radius:10px;
+  border:1px solid rgba(11,34,48,0.12);
+  background:#f6f8fb;
+  font-weight:900;
+  cursor:pointer;
+}
+.inv-annual-total{
+  margin-top:10px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+.inv-annual-total strong{
+  font-size:26px;
+  font-weight:900;
+}
+.inv-annual-total-sub{
+  font-size:12px;
+  color:rgba(11,34,48,0.6);
+  font-weight:800;
+}
+.inv-annual-bar{
+  margin-top:14px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+.inv-annual-track{
+  flex:1;
+  height:14px;
+  background:#edf1f5;
+  border-radius:999px;
+  overflow:hidden;
+  display:flex;
+}
+.inv-annual-seg{
+  height:100%;
+}
+.inv-annual-pct{
+  font-weight:900;
+  font-size:16px;
+}
+.inv-annual-legend{
+  margin-top:12px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:14px 18px;
+  font-size:12px;
+  font-weight:800;
+  color:rgba(11,34,48,0.7);
+}
+.inv-annual-legend-item{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.inv-annual-dot{
+  width:12px;
+  height:12px;
+  border-radius:50%;
+  display:inline-block;
+}
+.inv-annual-footer{
+  margin-top:12px;
+  font-size:12px;
+  font-weight:800;
+  color:#0b2230;
+}
+.plan-color-1{background:#95a4bb;}
+.plan-color-2{background:#4f7b52;}
+.plan-color-3{background:#7aa6e6;}
+.plan-color-4{background:#d88a4f;}
+.plan-color-total{background:#5c8bdc;}
+.plan-color-remaining{background:#d8dde2;}
+
+.inv-plan-card{
+  background:var(--dash-card);
+  border-radius:18px;
+  padding:18px;
+  border:1px solid rgba(11,34,48,0.08);
+  box-shadow:0 12px 26px rgba(11,34,48,0.08);
+  margin-bottom:20px;
+}
+.inv-plan-head h3{
+  margin:0 0 14px;
+  font-size:14px;
+  font-weight:900;
+}
+.inv-plan-table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:12px;
+}
+.inv-plan-table th,
+.inv-plan-table td{
+  padding:10px 8px;
+  border-bottom:1px solid rgba(11,34,48,0.08);
+  text-align:left;
+}
+.inv-plan-table th{
+  color:#6a7a85;
+  font-weight:900;
+  text-transform:uppercase;
+  font-size:11px;
+}
+.inv-plan-table td.empty{
+  text-align:center;
+  color:#6a7a85;
+  font-weight:700;
+}
+.plan-group-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.plan-group-info{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-weight:900;
+}
+.plan-toggle{
+  width:26px;
+  height:26px;
+  border-radius:8px;
+  border:1px solid rgba(11,34,48,0.14);
+  background:#f2f6fa;
+  font-weight:900;
+  cursor:pointer;
+}
+.plan-toggle.is-collapsed{
+  transform:rotate(-90deg);
+}
+.plan-group-meta{
+  font-size:12px;
+  color:rgba(11,34,48,0.6);
+  font-weight:800;
+}
+.plan-actions{
+  display:flex;
+  gap:8px;
+}
+.plan-action{
+  border:1px solid rgba(11,34,48,0.18);
+  background:#f2f6fa;
+  color:#0b2230;
+  border-radius:999px;
+  padding:4px 10px;
+  font-size:11px;
+  font-weight:800;
+  cursor:pointer;
+}
+.plan-action--delete{
+  background:#fdebea;
+  border-color:rgba(154,42,42,0.2);
+  color:#9a2a2a;
+}
+.plan-progress{
+  margin-top:8px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.plan-progress-track{
+  flex:1;
+  height:10px;
+  background:#edf1f5;
+  border-radius:999px;
+  overflow:hidden;
+}
+.plan-progress-fill{
+  height:100%;
+  background:#2f6fed;
+  border-radius:999px;
+  width:0%;
+}
+.plan-progress-label{
+  font-size:11px;
+  font-weight:800;
+  color:#0b2230;
+}
+.plan-project-row td{
+  background:#fafbfc;
+}
+.plan-mini-bar{
+  width:120px;
+  height:10px;
+  background:#e5ebf1;
+  border-radius:999px;
+  overflow:hidden;
+}
+.plan-mini-bar span{
+  display:block;
+  height:100%;
+  width:0%;
+  background:#7aa6e6;
+}
+.plan-mini{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.plan-mini-label{
+  font-size:11px;
+  font-weight:900;
+  padding:2px 8px;
+  border-radius:999px;
+  background:#dbe7f7;
+  color:#0b2230;
+}
+.plan-project-row.is-hidden{
+  display:none;
+}
+
+.inv-plan-summary{
+  max-width:520px;
+  background:#e9eef1;
+  border-radius:18px;
+  padding:14px;
+  border:1px solid rgba(11,34,48,0.08);
+}
+
+/* Modales de planes */
+.plan-modal{
+  width:520px;
+  max-width:94vw;
+}
+.plan-modal--sm{
+  width:360px;
+}
+.plan-modal-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:6px;
+}
+.plan-form label{
+  display:block;
+  margin:10px 0 6px;
+  font-size:12px;
+  font-weight:800;
+  color:rgba(11,34,48,0.74);
+}
+.plan-grid{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:10px;
+}
+.plan-projects{
+  margin-top:12px;
+  padding-top:10px;
+  border-top:1px solid rgba(11,34,48,0.08);
+}
+.plan-projects-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  font-size:12px;
+  font-weight:800;
+  color:#0b2230;
+  margin-bottom:8px;
+}
+.plan-projects-list{
+  border:1px solid rgba(11,34,48,0.1);
+  border-radius:12px;
+  padding:10px;
+  max-height:180px;
+  overflow:auto;
+  background:#fff;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.plan-project-item{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:12px;
+  font-weight:700;
+  color:#0b2230;
+}
+
+
 .apu-panel{
   display:flex;
   flex-direction:column;
@@ -569,6 +890,7 @@
   .inv-grid{grid-template-columns: repeat(2, minmax(0, 1fr));}
   .inv-bar{grid-template-columns:120px 1fr 90px;}
   .apu-controls{grid-template-columns:1fr;}
+  .plan-grid{grid-template-columns:1fr;}
 }
 @media (max-width: 720px){
   .inv-grid{grid-template-columns:1fr;}
@@ -581,6 +903,16 @@
   }
   .inv-scope-select select{
     width:100%;
+  }
+  .inv-annual-bar{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+  .inv-annual-pct{
+    align-self:flex-end;
+  }
+  .plan-mini-bar{
+    width:90px;
   }
 }
 .dash-avisos-expanded .reportes-toolbar{

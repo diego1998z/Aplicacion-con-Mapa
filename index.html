@@ -52,6 +52,7 @@
             <nav class="dash-nav" aria-label="Navegacion principal">
                 <button type="button" class="dash-link active" data-dash="dashboard">Dashboard</button>
                 <button type="button" class="dash-link" data-dash="mapa">Mapa</button>
+                <button type="button" class="dash-link" data-dash="inversion-plan">Inversion</button>
                 <button type="button" class="dash-link" data-dash="inversion">Inventario</button>
                 <button type="button" class="dash-link" data-dash="reportes">Reportes</button>
                 <button type="button" class="dash-link" data-dash="tareas">Tareas</button>
@@ -210,6 +211,61 @@
                         <div class="ai-chat-footer">Soporte: +51 993931475</div>
                     </div>
                 </div>
+            </div>
+
+            <div class="dash-page hidden" data-dash-page="inversion-plan">
+                <div class="dash-top">
+                    <div>
+                        <div class="dash-entity">Inversion</div>
+                        <div class="dash-msg">Gestion presupuestaria anual y planes por municipalidad.</div>
+                    </div>
+                    <button type="button" id="btnPlanNuevo" class="dash-btn">Registrar Nuevo plan</button>
+                </div>
+                <div class="dash-title">
+                    <h1>Inversion <span>/ Gestion Presupuestaria anual</span></h1>
+                </div>
+
+                <section class="inv-annual-card" aria-label="Gestion presupuestaria anual">
+                    <div class="inv-annual-head">
+                        <div class="inv-annual-title">Gestion Presupuestaria anual</div>
+                        <div class="inv-annual-period">
+                            <button type="button" id="btnPresupuestoEditar" class="inv-annual-edit" title="Editar gestion anual">&#9998;</button>
+                            <select id="invAnualSelect" aria-label="Periodo anual"></select>
+                        </div>
+                    </div>
+                    <div class="inv-annual-total">
+                        <strong id="invAnualTotal">S/ 0</strong>
+                        <span class="inv-annual-total-sub" id="invAnualSub">Monto anual definido</span>
+                    </div>
+                    <div class="inv-annual-bar">
+                        <div class="inv-annual-track" id="invAnualTrack"></div>
+                        <div class="inv-annual-pct"><span id="invAnualPct">0</span>%</div>
+                    </div>
+                    <div class="inv-annual-legend" id="invAnualLegend"></div>
+                    <div class="inv-annual-footer">
+                        <span>Ejecutado a la fecha:</span>
+                        <strong id="invAnualEjecutado">S/ 0</strong>
+                        <span>(<span id="invAnualEjecutadoPct">0</span>%)</span>
+                    </div>
+                </section>
+
+                <section class="inv-plan-card" aria-label="Cartera de proyectos viales">
+                    <div class="inv-plan-head">
+                        <h3>Cartera de Proyectos Viales</h3>
+                    </div>
+                    <table class="inv-plan-table">
+                        <thead>
+                            <tr><th>Proyecto</th><th>Periodo</th><th>Estado</th><th>%Avance</th><th>Costo Vial</th></tr>
+                        </thead>
+                        <tbody id="invPlanTablaBody"></tbody>
+                    </table>
+                </section>
+
+                <section class="inv-plan-summary" aria-label="Resumen de gestion">
+                    <div class="inv-summary-row"><span>Total en planificacion</span><strong id="invTotalPlanificacion">S/ 0</strong></div>
+                    <div class="inv-summary-row"><span>Total ejecutado</span><strong id="invTotalEjecutado">S/ 0</strong></div>
+                    <div class="inv-summary-row"><span>Total en ejecucion</span><strong id="invTotalEjecucion">S/ 0</strong></div>
+                </section>
             </div>
 
             <div class="dash-page hidden" data-dash-page="apu">
@@ -1019,6 +1075,73 @@
         </div>
     </div>
 
+    <div id="modalPresupuestoAnual" class="modal hidden" aria-hidden="true">
+        <div class="modal-content plan-modal plan-modal--sm">
+            <div class="plan-modal-head">
+                <h3>Gestion presupuestaria anual</h3>
+                <button id="btnPresupuestoClose" type="button" class="inspeccion-close">&times;</button>
+            </div>
+            <label for="presupuestoAnio">A&ntilde;o</label>
+            <input id="presupuestoAnio" type="number" min="2000" step="1" placeholder="2025">
+            <label for="presupuestoTotal">Monto total (S/)</label>
+            <input id="presupuestoTotal" type="number" min="0" step="1" placeholder="300000">
+            <div class="modal-actions">
+                <button id="btnPresupuestoCancelar" type="button" class="map-panel-btn map-panel-btn--ghost">Cancelar</button>
+                <button id="btnPresupuestoGuardar" type="button" class="map-panel-btn">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalPlan" class="modal hidden" aria-hidden="true">
+        <div class="modal-content plan-modal">
+            <div class="plan-modal-head">
+                <h3 id="planModalTitle">Registrar plan</h3>
+                <button id="btnPlanClose" type="button" class="inspeccion-close">&times;</button>
+            </div>
+            <div class="plan-form">
+                <label for="planNombre">Nombre del plan</label>
+                <input id="planNombre" type="text" placeholder="Ej: Plan vial 2025">
+                <div class="plan-grid">
+                    <div>
+                        <label for="planAnio">A&ntilde;o</label>
+                        <input id="planAnio" type="text" disabled>
+                    </div>
+                    <div>
+                        <label for="planPlazo">Plazo</label>
+                        <input id="planPlazo" type="text" placeholder="Ej: Ene-Dic 2025">
+                    </div>
+                </div>
+                <div class="plan-grid">
+                    <div>
+                        <label for="planEstado">Estado</label>
+                        <select id="planEstado">
+                            <option value="planificacion">En planificacion</option>
+                            <option value="ejecucion">Ejecucion</option>
+                            <option value="ejecutado">Ejecutado</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="planMonto">Monto asignado (S/)</label>
+                        <input id="planMonto" type="number" min="0" step="1">
+                    </div>
+                </div>
+                <label for="planEjecutado">Avance ejecutado (S/)</label>
+                <input id="planEjecutado" type="number" min="0" step="1">
+                <div class="plan-projects">
+                    <div class="plan-projects-head">
+                        <span>Proyectos disponibles</span>
+                        <span id="planProjectsCount">0 seleccionados</span>
+                    </div>
+                    <div id="planProjectsList" class="plan-projects-list"></div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button id="btnPlanCancelar" type="button" class="map-panel-btn map-panel-btn--ghost">Cancelar</button>
+                <button id="btnPlanGuardar" type="button" class="map-panel-btn">Guardar</button>
+            </div>
+        </div>
+    </div>
+
     <div id="modalMetradoRegistros" class="modal hidden" aria-hidden="true">
         <div class="modal-content inspeccion-modal inspeccion-modal--list">
             <div class="inspeccion-head">
@@ -1035,6 +1158,7 @@
     <script src="js/ui.js"></script>
     <script src="js/filters.js"></script>
     <script src="js/events.js"></script>
+    <script src="js/inversion-plan.js"></script>
     <script src="js/reportes.js"></script>
     <script src="js/chat.js"></script>
 </body>

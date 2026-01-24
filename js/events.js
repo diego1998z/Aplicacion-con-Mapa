@@ -3506,6 +3506,9 @@ function setDashView(view){
   if(view === "inversion"){
     updateInversion();
   }
+  if(view === "inversion-plan"){
+    if(typeof updateInversionPlanes === "function") updateInversionPlanes();
+  }
   if(view === "apu"){
     updateApu();
   }

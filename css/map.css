@@ -1538,6 +1538,9 @@ body.project-select-mode .leaflet-container{
     justify-content:center;
     z-index:2000;
 }
+body.dash-shell .modal{
+    z-index:3200;
+}
 #modalProyecto{
     background:transparent;
     justify-content:flex-start;
