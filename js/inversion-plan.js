@@ -29,6 +29,9 @@
   const planEstado = document.getElementById("planEstado");
   const planMonto = document.getElementById("planMonto");
   const planEjecutado = document.getElementById("planEjecutado");
+  const planMontoLabel = document.getElementById("planMontoLabel");
+  const planEjecutadoLabel = document.getElementById("planEjecutadoLabel");
+  const planAvancePct = document.getElementById("planAvancePct");
   const planProjectsList = document.getElementById("planProjectsList");
   const planProjectsCount = document.getElementById("planProjectsCount");
   const btnPlanClose = document.getElementById("btnPlanClose");
@@ -52,6 +55,93 @@
   let presupuestoCache = null;
   let planEditId = "";
   let collapsedPlans = new Set();
+
+  function toPositiveNumber(value){
+    const n = Number(value);
+    if(!Number.isFinite(n)) return 0;
+    return Math.max(0, n);
+  }
+
+  function normalizeProyecto(proyecto, fallbackEstado){
+    const base = (typeof proyecto === "string")
+      ? { id: proyecto, nombre: proyecto }
+      : Object.assign({ id: "", nombre: "Proyecto" }, proyecto || {});
+    const estado = base.estado || fallbackEstado || "planificacion";
+    const montoAsignado = toPositiveNumber(base.montoAsignado ?? base.monto ?? 0);
+    let ejecutado = toPositiveNumber(base.ejecutado ?? 0);
+    if(estado === "planificacion"){
+      ejecutado = 0;
+    } else if(estado === "ejecutado"){
+      ejecutado = montoAsignado;
+    } else if(montoAsignado > 0){
+      ejecutado = Math.min(ejecutado, montoAsignado);
+    }
+    return {
+      id: String(base.id || ""),
+      nombre: String(base.nombre || "Proyecto"),
+      estado,
+      montoAsignado,
+      ejecutado
+    };
+  }
+
+  function proyectosHasDetalles(proyectos, fallbackEstado){
+    if(!Array.isArray(proyectos) || !proyectos.length) return false;
+    const fallback = fallbackEstado || "planificacion";
+    return proyectos.some((p)=>{
+      const monto = toPositiveNumber(p && (p.montoAsignado ?? p.monto) || 0);
+      const ejec = toPositiveNumber(p && p.ejecutado || 0);
+      const hasEstadoProp = !!(p && typeof p === "object" && Object.prototype.hasOwnProperty.call(p, "estado"));
+      const estado = hasEstadoProp ? String(p.estado || "planificacion") : fallback;
+      return monto > 0 || ejec > 0 || (hasEstadoProp && estado !== "planificacion");
+    });
+  }
+
+  function calcPlanFromProyectos(proyectos){
+    const list = Array.isArray(proyectos) ? proyectos : [];
+    if(!list.length){
+      return { monto: 0, ejecutado: 0, estado: "planificacion" };
+    }
+    let monto = 0;
+    let ejecutado = 0;
+    let allEjecutado = true;
+    let anyEjecucion = false;
+    list.forEach((p)=>{
+      const estado = p.estado || "planificacion";
+      const montoP = toPositiveNumber(p.montoAsignado ?? p.monto ?? 0);
+      const ejecRaw = toPositiveNumber(p.ejecutado ?? 0);
+      // Reglas por estado: planificacion = 0, ejecutado = monto (100%).
+      let ejecP = ejecRaw;
+      if(estado === "planificacion"){
+        ejecP = 0;
+      } else if(estado === "ejecutado"){
+        ejecP = montoP;
+      }
+      const ejecClamped = montoP > 0 ? Math.min(ejecP, montoP) : ejecP;
+      monto += montoP;
+      ejecutado += ejecClamped;
+      if(estado === "ejecucion" || estado === "ejecutado" || ejecClamped > 0){
+        anyEjecucion = true;
+      }
+      if(estado !== "ejecutado"){
+        allEjecutado = false;
+      }
+    });
+    let estadoPlan = "planificacion";
+    if(allEjecutado){
+      estadoPlan = "ejecutado";
+    } else if(anyEjecucion){
+      estadoPlan = "ejecucion";
+    }
+    return { monto, ejecutado, estado: estadoPlan };
+  }
+
+  function planTieneDetalles(plan){
+    if(plan && typeof plan._proyectosConDetalles === "boolean"){
+      return plan._proyectosConDetalles;
+    }
+    return proyectosHasDetalles(plan && plan.proyectos, plan && plan.estado);
+  }
 
   function escapeHtml(value){
     return String(value ?? "")
@@ -102,15 +192,16 @@
     out.monto = Number(out.monto || 0);
     out.ejecutado = Number(out.ejecutado || 0);
     if(!Array.isArray(out.proyectos)) out.proyectos = [];
-    out.proyectos = out.proyectos.map((p)=>{
-      if(typeof p === "string"){
-        return { id: p, nombre: p };
-      }
-      if(p && typeof p === "object"){
-        return Object.assign({ id: "", nombre: "Proyecto" }, p);
-      }
-      return { id: "", nombre: "Proyecto" };
-    });
+    const hasDetalles = proyectosHasDetalles(out.proyectos, out.estado);
+    out._proyectosConDetalles = hasDetalles;
+    const fallbackEstado = out.estado || "planificacion";
+    out.proyectos = out.proyectos.map((p)=> normalizeProyecto(p, fallbackEstado));
+    if(hasDetalles){
+      const derived = calcPlanFromProyectos(out.proyectos);
+      out.monto = derived.monto;
+      out.ejecutado = derived.ejecutado;
+      out.estado = derived.estado;
+    }
     return out;
   }
 
@@ -210,25 +301,153 @@
     return plan.proyectos;
   }
 
+  function calcProyectoPct(proyecto){
+    const estado = String(proyecto && proyecto.estado || "planificacion");
+    const monto = toPositiveNumber(proyecto && (proyecto.montoAsignado ?? proyecto.monto) || 0);
+    const ejecRaw = toPositiveNumber(proyecto && proyecto.ejecutado || 0);
+    if(estado === "planificacion") return 0;
+    if(estado === "ejecutado") return monto > 0 ? 100 : 0;
+    const ejec = monto > 0 ? Math.min(ejecRaw, monto) : ejecRaw;
+    if(monto <= 0) return 0;
+    return Math.max(0, Math.min(100, Math.round((ejec / monto) * 100)));
+  }
+
+  function syncProjectExecutionField(item){
+    if(!item || !item.querySelector) return;
+    const estadoEl = item.querySelector("select[data-field=\"estado\"]");
+    const montoEl = item.querySelector("input[data-field=\"monto\"]");
+    const ejecEl = item.querySelector("input[data-field=\"ejecutado\"]");
+    if(!estadoEl || !montoEl || !ejecEl) return;
+    const estado = estadoEl.value || "planificacion";
+    const monto = toPositiveNumber(montoEl.value);
+    if(estado === "planificacion"){
+      ejecEl.value = "";
+      ejecEl.disabled = true;
+      return;
+    }
+    if(estado === "ejecutado"){
+      ejecEl.value = monto > 0 ? String(monto) : "";
+      ejecEl.disabled = true;
+    } else {
+      ejecEl.disabled = false;
+      const ejecActual = toPositiveNumber(ejecEl.value);
+      if(monto > 0 && ejecActual > monto){
+        ejecEl.value = String(monto);
+      }
+    }
+  }
+
+  function gatherProyectosSeleccionados(){
+    const proyectos = [];
+    if(!planProjectsList) return proyectos;
+    const items = planProjectsList.querySelectorAll(".plan-project-item");
+    items.forEach((item)=>{
+      const checkbox = item.querySelector("input[type=\"checkbox\"]");
+      if(!checkbox || !checkbox.checked) return;
+      const id = String(checkbox.value || "");
+      const nombre = String(checkbox.dataset.name || "Proyecto");
+      const estadoEl = item.querySelector("select[data-field=\"estado\"]");
+      const montoEl = item.querySelector("input[data-field=\"monto\"]");
+      const ejecEl = item.querySelector("input[data-field=\"ejecutado\"]");
+      const estado = estadoEl ? estadoEl.value : "planificacion";
+      const montoAsignado = toPositiveNumber(montoEl ? montoEl.value : 0);
+      const ejecutadoRaw = toPositiveNumber(ejecEl ? ejecEl.value : 0);
+      let ejecutado = ejecutadoRaw;
+      if(estado === "planificacion"){
+        ejecutado = 0;
+      } else if(estado === "ejecutado"){
+        ejecutado = montoAsignado;
+      } else if(montoAsignado > 0){
+        ejecutado = Math.min(ejecutadoRaw, montoAsignado);
+      }
+      proyectos.push({ id, nombre, estado, montoAsignado, ejecutado });
+    });
+    return proyectos;
+  }
+
+  function updatePlanTotalsFromProjects(){
+    const proyectos = gatherProyectosSeleccionados();
+    const derived = calcPlanFromProyectos(proyectos);
+    const monto = toPositiveNumber(derived.monto);
+    const ejecutado = toPositiveNumber(derived.ejecutado);
+    const ejecutadoDisplay = monto > 0 ? Math.min(ejecutado, monto) : ejecutado;
+    const pct = monto > 0 ? Math.round((ejecutadoDisplay / monto) * 100) : 0;
+    const pctSafe = Math.max(0, Math.min(100, pct));
+    if(planMonto){
+      planMonto.value = String(monto);
+    }
+    if(planEjecutado){
+      planEjecutado.value = String(ejecutadoDisplay);
+    }
+    if(planMontoLabel){
+      planMontoLabel.textContent = formatMoney(monto);
+    }
+    if(planEjecutadoLabel){
+      planEjecutadoLabel.textContent = formatMoney(ejecutadoDisplay);
+    }
+    if(planAvancePct){
+      planAvancePct.textContent = String(pctSafe);
+    }
+    if(planEstado){
+      planEstado.value = derived.estado || "planificacion";
+    }
+  }
+
+  function toggleProjectDetails(checkbox){
+    if(!checkbox || !checkbox.closest) return;
+    const item = checkbox.closest(".plan-project-item");
+    if(!item) return;
+    const details = item.querySelector(".plan-project-details");
+    if(!details) return;
+    if(checkbox.checked){
+      details.classList.remove("is-hidden");
+    } else {
+      details.classList.add("is-hidden");
+    }
+  }
+
   function renderProyectosList(selected){
     if(!planProjectsList) return;
     const list = obtenerProyectosMunicipales();
-    const selectedSet = new Set((selected || []).map(s => String(s && s.id || s)));
+    const fallbackEstado = planEstado ? planEstado.value : "planificacion";
+    const selectedMap = new Map((selected || []).map((s)=>{
+      const id = String(s && s.id || s || "");
+      return [id, normalizeProyecto(s, fallbackEstado)];
+    }));
     if(!list.length){
       planProjectsList.innerHTML = "<div class=\"plan-project-item\">Sin proyectos disponibles.</div>";
       updateProjectsCount();
+      updatePlanTotalsFromProjects();
       return;
     }
     planProjectsList.innerHTML = list.map((p)=>{
       const id = String(p.id || "");
       const name = String(p.nombre || "Proyecto");
-      const checked = selectedSet.has(id) ? "checked" : "";
-      return "<label class=\"plan-project-item\">"
+      const selectedProj = selectedMap.get(id);
+      const checked = selectedProj ? "checked" : "";
+      const estadoVal = selectedProj ? selectedProj.estado : "planificacion";
+      const montoVal = selectedProj && selectedProj.montoAsignado > 0 ? String(selectedProj.montoAsignado) : "";
+      const ejecVal = (selectedProj && selectedProj.estado !== "planificacion" && selectedProj.ejecutado > 0)
+        ? String(selectedProj.ejecutado)
+        : "";
+      const detailsHidden = selectedProj ? "" : " is-hidden";
+      const estadoOptions = Object.keys(PLAN_ESTADOS).map((key)=>{
+        const sel = key === estadoVal ? " selected" : "";
+        return "<option value=\"" + escapeHtml(key) + "\"" + sel + ">" + escapeHtml(PLAN_ESTADOS[key]) + "</option>";
+      }).join("");
+      return "<label class=\"plan-project-item\" data-project-id=\"" + escapeHtml(id) + "\">"
         + "<input type=\"checkbox\" value=\"" + escapeHtml(id) + "\" data-name=\"" + escapeHtml(name) + "\" " + checked + "> "
-        + escapeHtml(name)
+        + "<span class=\"plan-project-name\">" + escapeHtml(name) + "</span>"
+        + "<div class=\"plan-project-details" + detailsHidden + "\">"
+        +   "<select data-field=\"estado\" aria-label=\"Estado de " + escapeHtml(name) + "\">" + estadoOptions + "</select>"
+        +   "<input data-field=\"monto\" type=\"number\" min=\"0\" step=\"1\" placeholder=\"Monto\" value=\"" + escapeHtml(montoVal) + "\" aria-label=\"Monto asignado a " + escapeHtml(name) + "\">"
+        +   "<input data-field=\"ejecutado\" type=\"number\" min=\"0\" step=\"1\" placeholder=\"Ejecutado\" value=\"" + escapeHtml(ejecVal) + "\" aria-label=\"Avance ejecutado de " + escapeHtml(name) + "\">"
+        + "</div>"
         + "</label>";
     }).join("");
+    planProjectsList.querySelectorAll(".plan-project-item").forEach((item)=> syncProjectExecutionField(item));
     updateProjectsCount();
+    updatePlanTotalsFromProjects();
   }
 
   function updateProjectsCount(){
@@ -237,11 +456,27 @@
     planProjectsCount.textContent = checked + " seleccionados";
   }
 
+  function calcPlanTotals(plan){
+    const estadoBase = (plan && plan.estado) || "planificacion";
+    let monto = toPositiveNumber(plan && plan.monto || 0);
+    let ejecutado = toPositiveNumber(plan && plan.ejecutado || 0);
+    let estado = estadoBase;
+    const proyectos = obtenerProyectosPlan(plan);
+    if(planTieneDetalles(plan)){
+      const normalized = proyectos.map((p)=> normalizeProyecto(p, estadoBase));
+      const derived = calcPlanFromProyectos(normalized);
+      monto = toPositiveNumber(derived.monto);
+      ejecutado = toPositiveNumber(derived.ejecutado);
+      estado = derived.estado || estadoBase;
+    }
+    const ejecutadoClamped = monto > 0 ? Math.min(ejecutado, monto) : ejecutado;
+    return { monto, ejecutado: ejecutadoClamped, estado };
+  }
+
   function calcPlanPct(plan){
-    const monto = Number(plan.monto || 0);
-    const ejec = Number(plan.ejecutado || 0);
-    if(monto <= 0) return 0;
-    return Math.max(0, Math.min(100, Math.round((ejec / monto) * 100)));
+    const totals = calcPlanTotals(plan);
+    if(totals.monto <= 0) return 0;
+    return Math.max(0, Math.min(100, Math.round((totals.ejecutado / totals.monto) * 100)));
   }
 
   function renderAnual(plans, presupuesto){
@@ -252,11 +487,12 @@
     if(invAnualSelect){
       invAnualSelect.innerHTML = "<option value=\"" + escapeHtml(anio) + "\">" + escapeHtml(periodoLabel(anio)) + "</option>";
     }
-    const sumPlanes = plans.reduce((sum, p)=> sum + Number(p.monto || 0), 0);
-    const sumEjecutado = plans.reduce((sum, p)=>{
-      const monto = Number(p.monto || 0);
-      const ejec = Number(p.ejecutado || 0);
-      return sum + Math.min(ejec, monto);
+    const planTotals = plans.map((plan)=> ({ plan, totals: calcPlanTotals(plan) }));
+    const sumPlanes = planTotals.reduce((sum, item)=> sum + toPositiveNumber(item.totals.monto), 0);
+    const sumEjecutado = planTotals.reduce((sum, item)=>{
+      const montoPlan = toPositiveNumber(item.totals.monto);
+      const ejecPlan = toPositiveNumber(item.totals.ejecutado);
+      return sum + (montoPlan > 0 ? Math.min(ejecPlan, montoPlan) : ejecPlan);
     }, 0);
     const pct = total > 0 ? Math.round((sumPlanes / total) * 100) : 0;
     if(invAnualPct) invAnualPct.textContent = Math.max(0, Math.min(100, pct));
@@ -267,8 +503,8 @@
     if(invAnualTrack){
       invAnualTrack.innerHTML = "";
       if(total > 0 && plans.length){
-        plans.forEach((plan, idx)=>{
-          const width = Math.max(0, (Number(plan.monto || 0) / total) * 100);
+        planTotals.forEach((item, idx)=>{
+          const width = total > 0 ? Math.max(0, (toPositiveNumber(item.totals.monto) / total) * 100) : 0;
           if(width <= 0) return;
           const seg = document.createElement("div");
           seg.className = "inv-annual-seg " + PLAN_COLORS[idx % PLAN_COLORS.length];
@@ -315,11 +551,12 @@
     plans.forEach((plan, idx)=>{
       const id = String(plan.id || "");
       const collapsed = collapsedPlans.has(id);
-      const pct = calcPlanPct(plan);
-      const monto = Number(plan.monto || 0);
-      const ejecutado = Number(plan.ejecutado || 0);
-      const estado = estadoLabel(plan.estado);
-      const plazoLabel = plan.plazo ? (" | " + escapeHtml(plan.plazo)) : "";
+      const totals = calcPlanTotals(plan);
+      const pct = totals.monto > 0 ? Math.max(0, Math.min(100, Math.round((totals.ejecutado / totals.monto) * 100))) : 0;
+      const monto = totals.monto;
+      const ejecutado = totals.ejecutado;
+      const plazoLabel = plan.plazo ? escapeHtml(plan.plazo) : "";
+      const metaHtml = plazoLabel ? ("<span class=\"plan-group-meta\">" + plazoLabel + "</span>") : "";
 
       rows.push(
         "<tr class=\"plan-group\" data-plan-id=\"" + escapeHtml(id) + "\">"
@@ -328,7 +565,7 @@
         +     "<div class=\"plan-group-info\">"
         +       "<button type=\"button\" class=\"plan-toggle" + (collapsed ? " is-collapsed" : "") + "\" data-plan-action=\"toggle\" data-plan-id=\"" + escapeHtml(id) + "\">&#9662;</button>"
         +       "<span>" + escapeHtml(plan.nombre || "Plan") + "</span>"
-        +       "<span class=\"plan-group-meta\">" + escapeHtml(estado) + plazoLabel + "</span>"
+        +       metaHtml
         +     "</div>"
         +     "<div class=\"plan-actions\">"
         +       "<button type=\"button\" class=\"plan-action\" data-plan-action=\"edit\" data-plan-id=\"" + escapeHtml(id) + "\">Editar</button>"
@@ -353,16 +590,24 @@
         return;
       }
 
-      const costoUnitario = monto && proyectos.length ? (monto / proyectos.length) : 0;
+      const hasDetalles = planTieneDetalles(plan);
+      const costoUnitario = (!hasDetalles && monto && proyectos.length) ? (monto / proyectos.length) : 0;
+      const ejecUnitario = (!hasDetalles && ejecutado && proyectos.length) ? (ejecutado / proyectos.length) : 0;
       proyectos.forEach((proj)=>{
-        const nombre = proj && proj.nombre ? proj.nombre : "Proyecto";
+        const normalized = normalizeProyecto(proj, plan.estado);
+        const nombre = normalized.nombre || "Proyecto";
+        const estadoProj = hasDetalles ? normalized.estado : totals.estado;
+        const estadoProjLabel = estadoLabel(estadoProj);
+        const montoProj = hasDetalles ? normalized.montoAsignado : costoUnitario;
+        const ejecProj = hasDetalles ? normalized.ejecutado : ejecUnitario;
+        const pctProj = montoProj > 0 ? calcProyectoPct({ estado: estadoProj, montoAsignado: montoProj, ejecutado: ejecProj }) : pct;
         rows.push(
           "<tr class=\"plan-project-row" + (collapsed ? " is-hidden" : "") + "\" data-plan-id=\"" + escapeHtml(id) + "\">"
           + "<td>" + escapeHtml(nombre) + "</td>"
           + "<td>" + escapeHtml(String(plan.anio || "")) + "</td>"
-          + "<td>" + escapeHtml(estado) + "</td>"
-          + "<td><div class=\"plan-mini\"><div class=\"plan-mini-bar\"><span style=\"width:" + pct + "%\"></span></div><span class=\"plan-mini-label\">" + pct + "%</span></div></td>"
-          + "<td>" + escapeHtml(formatMoney(costoUnitario)) + "</td>"
+          + "<td>" + escapeHtml(estadoProjLabel) + "</td>"
+          + "<td><div class=\"plan-mini\"><div class=\"plan-mini-bar\"><span style=\"width:" + pctProj + "%\"></span></div><span class=\"plan-mini-label\">" + pctProj + "%</span></div></td>"
+          + "<td>" + escapeHtml(formatMoney(montoProj)) + "</td>"
           + "</tr>"
         );
       });
@@ -374,8 +619,17 @@
     if(!invTotalPlanificacion || !invTotalEjecutado || !invTotalEjecucion) return;
     const totals = { planificacion:0, ejecucion:0, ejecutado:0 };
     plans.forEach((plan)=>{
-      const estado = plan.estado || "planificacion";
-      totals[estado] = (totals[estado] || 0) + Number(plan.monto || 0);
+      const proyectos = obtenerProyectosPlan(plan);
+      if(Array.isArray(proyectos) && proyectos.length && planTieneDetalles(plan)){
+        proyectos.forEach((proj)=>{
+          const normalized = normalizeProyecto(proj, plan.estado);
+          const estado = normalized.estado || "planificacion";
+          totals[estado] = (totals[estado] || 0) + toPositiveNumber(normalized.montoAsignado);
+        });
+        return;
+      }
+      const estadoPlan = plan.estado || "planificacion";
+      totals[estadoPlan] = (totals[estadoPlan] || 0) + toPositiveNumber(plan.monto || 0);
     });
     invTotalPlanificacion.textContent = formatMoney(totals.planificacion || 0);
     invTotalEjecucion.textContent = formatMoney(totals.ejecucion || 0);
@@ -399,6 +653,26 @@
     renderResumen(plans);
   }
 
+  function prepararProyectosParaModal(plan){
+    if(!plan || !Array.isArray(plan.proyectos)) return [];
+    const hasDetalles = planTieneDetalles(plan);
+    const proyectos = plan.proyectos.map((p)=> normalizeProyecto(p, plan.estado));
+    if(!proyectos.length) return proyectos;
+    if(hasDetalles) return proyectos;
+    const montoPlan = toPositiveNumber(plan.monto || 0);
+    const ejecPlan = toPositiveNumber(plan.ejecutado || 0);
+    if(montoPlan <= 0 && ejecPlan <= 0) return proyectos;
+    const count = proyectos.length || 1;
+    const montoUnit = montoPlan / count;
+    const ejecUnit = ejecPlan / count;
+    const estadoFallback = plan.estado || "planificacion";
+    return proyectos.map((p)=> Object.assign({}, p, {
+      estado: p.estado || estadoFallback,
+      montoAsignado: p.montoAsignado > 0 ? p.montoAsignado : montoUnit,
+      ejecutado: p.ejecutado > 0 ? p.ejecutado : ejecUnit
+    }));
+  }
+
   function abrirModalPlan(plan){
     const presupuesto = getPresupuesto();
     if(!presupuesto || !Number(presupuesto.total || 0)){
@@ -413,7 +687,8 @@
     if(planEstado) planEstado.value = plan ? (plan.estado || "planificacion") : "planificacion";
     if(planMonto) planMonto.value = plan ? Number(plan.monto || 0) : "";
     if(planEjecutado) planEjecutado.value = plan ? Number(plan.ejecutado || 0) : "";
-    renderProyectosList(plan ? plan.proyectos : []);
+    const proyectosModal = plan ? prepararProyectosParaModal(plan) : [];
+    renderProyectosList(proyectosModal);
     mostrarModal(modalPlan);
   }
 
@@ -448,31 +723,39 @@
     const presupuesto = getPresupuesto();
     const nombre = planNombre ? planNombre.value.trim() : "";
     const plazo = planPlazo ? planPlazo.value.trim() : "";
-    const estado = planEstado ? planEstado.value : "planificacion";
-    const monto = Number(planMonto ? planMonto.value : 0);
-    const ejecutado = Number(planEjecutado ? planEjecutado.value : 0);
     if(!nombre){
       alert("Ingresa un nombre para el plan.");
       return;
     }
-    if(!monto || monto <= 0){
-      alert("Ingresa un monto valido para el plan.");
-      return;
-    }
-    if(ejecutado < 0 || ejecutado > monto){
-      alert("El avance ejecutado debe estar entre 0 y el monto asignado.");
-      return;
-    }
-    const seleccionados = [];
-    if(planProjectsList){
-      planProjectsList.querySelectorAll("input[type=\"checkbox\"]:checked").forEach((input)=>{
-        seleccionados.push({ id: String(input.value || ""), nombre: String(input.dataset.name || "Proyecto") });
-      });
-    }
+    const seleccionados = gatherProyectosSeleccionados();
     if(!seleccionados.length){
       alert("Selecciona al menos un proyecto.");
       return;
     }
+    for(let i=0;i<seleccionados.length;i++){
+      const proj = seleccionados[i];
+      const montoProj = toPositiveNumber(proj.montoAsignado);
+      const ejecProj = toPositiveNumber(proj.ejecutado);
+      if(montoProj <= 0){
+        alert("Ingresa el monto asignado para \"" + (proj.nombre || "Proyecto") + "\".");
+        return;
+      }
+      if(ejecProj < 0 || ejecProj > montoProj){
+        alert("El avance ejecutado de \"" + (proj.nombre || "Proyecto") + "\" debe estar entre 0 y su monto asignado.");
+        return;
+      }
+    }
+    const derived = calcPlanFromProyectos(seleccionados);
+    const monto = derived.monto;
+    const ejecutado = derived.ejecutado;
+    const estado = derived.estado || "planificacion";
+    if(monto <= 0){
+      alert("Asigna un monto valido en los proyectos del plan.");
+      return;
+    }
+    if(planMonto) planMonto.value = String(monto);
+    if(planEjecutado) planEjecutado.value = String(ejecutado);
+    if(planEstado) planEstado.value = estado;
     const base = {
       id: planEditId || ("plan-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,6)),
       nombre,
@@ -549,7 +832,31 @@
   if(btnPlanClose) btnPlanClose.addEventListener("click", cerrarModalPlan);
   if(btnPlanCancelar) btnPlanCancelar.addEventListener("click", cerrarModalPlan);
   if(btnPlanGuardar) btnPlanGuardar.addEventListener("click", guardarPlanDesdeModal);
-  if(planProjectsList) planProjectsList.addEventListener("change", updateProjectsCount);
+  if(planProjectsList){
+    planProjectsList.addEventListener("change", (e)=>{
+      const target = e.target;
+      if(target && target.matches && target.matches("input[type=\"checkbox\"]")){
+        toggleProjectDetails(target);
+        const item = target.closest(".plan-project-item");
+        syncProjectExecutionField(item);
+      }
+      if(target && target.matches && target.matches("select[data-field=\"estado\"]")){
+        const item = target.closest(".plan-project-item");
+        syncProjectExecutionField(item);
+      }
+      updateProjectsCount();
+      updatePlanTotalsFromProjects();
+    });
+    planProjectsList.addEventListener("input", (e)=>{
+      const target = e.target;
+      if(!target || !target.matches) return;
+      if(target.matches("input[data-field=\"monto\"]")){
+        const item = target.closest(".plan-project-item");
+        syncProjectExecutionField(item);
+      }
+      if(target.matches("input[data-field], select[data-field]")) updatePlanTotalsFromProjects();
+    });
+  }
 
   if(btnPresupuestoEditar) btnPresupuestoEditar.addEventListener("click", abrirModalPresupuesto);
   if(btnPresupuestoClose) btnPresupuestoClose.addEventListener("click", cerrarModalPresupuesto);

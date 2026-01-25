@@ -1202,22 +1202,23 @@
                         <input id="planPlazo" type="text" placeholder="Ej: Ene-Dic 2025">
                     </div>
                 </div>
-                <div class="plan-grid">
-                    <div>
-                        <label for="planEstado">Estado</label>
-                        <select id="planEstado">
-                            <option value="planificacion">En planificacion</option>
-                            <option value="ejecucion">Ejecucion</option>
-                            <option value="ejecutado">Ejecutado</option>
-                        </select>
+                <div class="plan-summary" aria-live="polite">
+                    <div class="plan-summary-item">
+                        <span class="plan-summary-label">Total asignado</span>
+                        <strong id="planMontoLabel">S/ 0</strong>
                     </div>
-                    <div>
-                        <label for="planMonto">Monto asignado (S/)</label>
-                        <input id="planMonto" type="number" min="0" step="1">
+                    <div class="plan-summary-item">
+                        <span class="plan-summary-label">Ejecutado</span>
+                        <strong id="planEjecutadoLabel">S/ 0</strong>
+                    </div>
+                    <div class="plan-summary-item">
+                        <span class="plan-summary-label">Avance</span>
+                        <strong><span id="planAvancePct">0</span>%</strong>
                     </div>
                 </div>
-                <label for="planEjecutado">Avance ejecutado (S/)</label>
-                <input id="planEjecutado" type="number" min="0" step="1">
+                <input id="planMonto" class="plan-hidden-field" type="number" min="0" step="1" readonly>
+                <input id="planEjecutado" class="plan-hidden-field" type="number" min="0" step="1" readonly>
+                <div class="plan-help">El estado, monto y avance del plan se calculan desde cada proyecto seleccionado.</div>
                 <div class="plan-projects">
                     <div class="plan-projects-head">
                         <span>Proyectos disponibles</span>
