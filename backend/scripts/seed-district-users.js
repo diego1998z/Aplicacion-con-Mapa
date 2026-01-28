@@ -43,29 +43,29 @@ async function main() {
   entries.push({ email: "admin@muni.gob.pe", district: "", region: "", role: "admin" });
 
   let created = 0;
-  let skipped = 0;
+  let updated = 0;
 
   for (const entry of entries) {
     const email = entry.email;
     const exists = await prisma.user.findUnique({ where: { email } });
+    const data = {
+      email,
+      passwordHash,
+      role: entry.role || "municipal",
+      district: entry.district || undefined,
+      region: entry.region || undefined
+    };
     if (exists) {
-      skipped += 1;
-      continue;
+      await prisma.user.update({ where: { email }, data });
+      updated += 1;
+    } else {
+      await prisma.user.create({ data });
+      created += 1;
     }
-    await prisma.user.create({
-      data: {
-        email,
-        passwordHash,
-        role: entry.role || "municipal",
-        district: entry.district || undefined,
-        region: entry.region || undefined
-      }
-    });
-    created += 1;
   }
 
   await prisma.$disconnect();
-  console.log(`Seeded users. created=${created} skipped=${skipped}`);
+  console.log(`Seeded users. created=${created} updated=${updated}`);
 }
 
 main().catch((err) => {
