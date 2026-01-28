@@ -286,6 +286,19 @@ function yearFromProyecto(proj){
   return match ? Number(match[1]) : null;
 }
 
+function proyectoDataPayload(proj){
+  return {
+    creado: proj.creado || "",
+    fecha_inicio: proj.fecha_inicio || "",
+    fecha_fin: proj.fecha_fin || "",
+    distrito: proj.distrito || "",
+    senalesHorizontal: Array.isArray(proj.senalesHorizontal) ? proj.senalesHorizontal : [],
+    senalesVertical: Array.isArray(proj.senalesVertical) ? proj.senalesVertical : [],
+    senalesMobiliario: Array.isArray(proj.senalesMobiliario) ? proj.senalesMobiliario : [],
+    metradoRegistros: Array.isArray(proj.metradoRegistros) ? proj.metradoRegistros : []
+  };
+}
+
 function proyectoToApiPayload(proj){
   if(!proj) return null;
   return {
@@ -294,8 +307,29 @@ function proyectoToApiPayload(proj){
     year: yearFromProyecto(proj) || undefined,
     startDate: proj.fecha_inicio || "",
     endDate: proj.fecha_fin || "",
-    district: proj.distrito || ""
+    district: proj.distrito || "",
+    data: proyectoDataPayload(proj)
   };
+}
+
+function proyectoFromApi(p){
+  if(!p) return null;
+  const data = p.data && typeof p.data === "object" ? p.data : {};
+  const proj = {
+    id: p.legacyId || p.id,
+    dbId: p.id,
+    nombre: p.name || "Proyecto",
+    creado: data.creado || (p.createdAt ? String(p.createdAt).slice(0,10) : hoyISO()),
+    fecha_inicio: data.fecha_inicio || (p.startDate ? String(p.startDate).slice(0,10) : ""),
+    fecha_fin: data.fecha_fin || (p.endDate ? String(p.endDate).slice(0,10) : ""),
+    distrito: p.district || data.distrito || "",
+    senalesHorizontal: Array.isArray(data.senalesHorizontal) ? data.senalesHorizontal : [],
+    senalesVertical: Array.isArray(data.senalesVertical) ? data.senalesVertical : [],
+    senalesMobiliario: Array.isArray(data.senalesMobiliario) ? data.senalesMobiliario : [],
+    metradoRegistros: Array.isArray(data.metradoRegistros) ? data.metradoRegistros : []
+  };
+  if(!Array.isArray(proj.metradoRegistros)) proj.metradoRegistros = [];
+  return proj;
 }
 
 function syncProyectoBackend(proj){
@@ -2322,50 +2356,42 @@ function asegurarProyectoDemo(){
 }
 
 function guardarProyectos(){
-  const key = getProjectsKey();
-  try{
-    localStorage.setItem(key, JSON.stringify({ activo: proyectoActivoId, proyectos: proyectosCache }));
-  }catch(e){}
-  try{
-    localStorage.setItem(getProjectActiveKey(), proyectoActivoId || "");
-  }catch(e){}
+  if(!window.UrbbisApi || typeof syncProyectoBackend !== "function") return;
+  proyectosCache.forEach((p)=> syncProyectoBackend(p));
 }
 
-function cargarProyectos(){
+async function cargarProyectos(){
   proyectosCache = [];
   proyectoActivoId = "";
-  try{
-    const raw = localStorage.getItem(getProjectsKey());
-    if(raw){
-      const parsed = JSON.parse(raw);
-      if(parsed && Array.isArray(parsed.proyectos)){
-        proyectosCache = parsed.proyectos;
-        proyectoActivoId = parsed.activo || "";
-        proyectosCache.forEach((p)=>{
-          if(!Array.isArray(p.metradoRegistros)) p.metradoRegistros = [];
-        });
+  const canApi = window.UrbbisApi && typeof window.UrbbisApi.getProjects === "function";
+  if(canApi){
+    try{
+      const items = await window.UrbbisApi.getProjects();
+      if(Array.isArray(items) && items.length){
+        proyectosCache = items.map(proyectoFromApi).filter(Boolean);
+        proyectoActivoId = proyectosCache[0] ? proyectosCache[0].id : "";
+        try{ window.__projectsBackendLoaded = true; }catch(e){}
+        return;
       }
-    }
-  }catch(e){}
-
-  if(!proyectosCache.length){
-    const seed = obtenerSeedProyectos();
-    if(seed && Array.isArray(seed.proyectos) && seed.proyectos.length){
-      proyectosCache = seed.proyectos;
-      proyectoActivoId = seed.activo || "";
-      guardarProyectos();
-      return;
+    }catch(e){
+      console.warn("No se pudo cargar proyectos desde backend.", e);
     }
   }
 
-  if(!proyectosCache.length){
-    proyectosCache = [
-      crearProyectoBase("Registro senalizacion 2026"),
-      crearProyectoBase("Registro senalizacion 2025")
-    ];
-    proyectoActivoId = proyectosCache[0].id;
+  const seed = obtenerSeedProyectos();
+  if(seed && Array.isArray(seed.proyectos) && seed.proyectos.length){
+    proyectosCache = seed.proyectos;
+    proyectoActivoId = seed.activo || "";
     guardarProyectos();
+    return;
   }
+
+  proyectosCache = [
+    crearProyectoBase("Registro senalizacion 2026"),
+    crearProyectoBase("Registro senalizacion 2025")
+  ];
+  proyectoActivoId = proyectosCache[0].id;
+  guardarProyectos();
 }
 
 function aplicarProyecto(proj){
@@ -2497,7 +2523,7 @@ function sincronizarProyectosBase(){
   return changed;
 }
 
-function initProyectos(){
+async function initProyectos(){
   if(rolActual !== "municipal"){
     proyectosCache = [];
     proyectoActivoId = "";
@@ -2508,7 +2534,7 @@ function initProyectos(){
     updateProjectUI();
     return;
   }
-  cargarProyectos();
+  await cargarProyectos();
 
   const scopeD = (typeof scopeDistrito !== "undefined") ? scopeDistrito : "";
   const scopeLower = String(scopeD || "").toLowerCase();

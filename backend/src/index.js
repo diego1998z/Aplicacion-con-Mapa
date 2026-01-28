@@ -41,7 +41,7 @@ app.get("/projects", async (req, res, next) => {
 
 app.post("/projects", async (req, res, next) => {
   try {
-    const { name, year, startDate, endDate, legacyId, district } = req.body || {};
+    const { name, year, startDate, endDate, legacyId, district, data } = req.body || {};
     if (!name) return res.status(400).json({ error: "name is required" });
     if (legacyId) {
       const created = await prisma.project.upsert({
@@ -51,7 +51,8 @@ app.post("/projects", async (req, res, next) => {
           year: toNumber(year) ?? undefined,
           startDate: toDate(startDate) ?? undefined,
           endDate: toDate(endDate) ?? undefined,
-          district: district ? String(district) : undefined
+          district: district ? String(district) : undefined,
+          data: data ?? undefined
         },
         create: {
           legacyId: String(legacyId),
@@ -59,7 +60,8 @@ app.post("/projects", async (req, res, next) => {
           year: toNumber(year) ?? undefined,
           startDate: toDate(startDate) ?? undefined,
           endDate: toDate(endDate) ?? undefined,
-          district: district ? String(district) : undefined
+          district: district ? String(district) : undefined,
+          data: data ?? undefined
         }
       });
       return res.status(201).json(created);
@@ -70,7 +72,8 @@ app.post("/projects", async (req, res, next) => {
         year: toNumber(year) ?? undefined,
         startDate: toDate(startDate) ?? undefined,
         endDate: toDate(endDate) ?? undefined,
-        district: district ? String(district) : undefined
+        district: district ? String(district) : undefined,
+        data: data ?? undefined
       }
     });
     res.status(201).json(created);
@@ -82,7 +85,7 @@ app.post("/projects", async (req, res, next) => {
 app.put("/projects/:id", async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, year, startDate, endDate, legacyId, district } = req.body || {};
+    const { name, year, startDate, endDate, legacyId, district, data } = req.body || {};
     const updated = await prisma.project.update({
       where: { id },
       data: {
@@ -91,7 +94,8 @@ app.put("/projects/:id", async (req, res, next) => {
         startDate: toDate(startDate) ?? undefined,
         endDate: toDate(endDate) ?? undefined,
         legacyId: legacyId ? String(legacyId) : undefined,
-        district: district ? String(district) : undefined
+        district: district ? String(district) : undefined,
+        data: data ?? undefined
       }
     });
     res.json(updated);
