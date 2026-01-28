@@ -2053,8 +2053,6 @@ function nombreDesdeCorreo(correo){
   return name || capitalizeWord(user) || "Usuario";
 }
 
-const LS_PROJECTS_PREFIX = "urbbisProjects:";
-const LS_PROJECT_ACTIVE_PREFIX = "urbbisProjectActive:";
 let proyectosCache = [];
 let proyectoActivoId = "";
 let projectSelectionActive = false;
@@ -2229,16 +2227,6 @@ function obtenerApuRelacion(kind, item){
     return { categoria: "marcas", codigo };
   }
   return null;
-}
-
-function getProjectsKey(){
-  const correo = getSessionEmail() || "guest";
-  return LS_PROJECTS_PREFIX + normalizarCorreo(correo);
-}
-
-function getProjectActiveKey(){
-  const correo = getSessionEmail() || "guest";
-  return LS_PROJECT_ACTIVE_PREFIX + normalizarCorreo(correo);
 }
 
 function cloneSenales(list){
@@ -4539,124 +4527,87 @@ if(cfgImportar){
           }catch(e){}
         }
 
-        // Proyectos (separar por municipalidad y guardar en su respectiva cuenta)
+        // Proyectos: ahora se sincronizan solo con backend (sin localStorage).
         if(Array.isArray(parsed.proyectos)){
-          const incoming = parsed.proyectos;
-          const incomingActive = parsed.proyectoActivoId ? String(parsed.proyectoActivoId) : "";
-
-          const normalizarNombreProyecto = (n)=> String(n || "").toLowerCase().trim();
-          const obtenerDistritoProyecto = (p)=>{
-            if(p && p.distrito) return p.distrito;
-            const lists = [p && p.senalesHorizontal, p && p.senalesVertical, p && p.senalesMobiliario];
-            for(let i=0;i<lists.length;i++){
-              const list = lists[i];
-              if(!Array.isArray(list)) continue;
-              const found = list.find(s => s && (s.zona || s.distrito));
-              if(found) return found.zona || found.distrito || "";
-            }
-            return "";
-          };
-
-          const getProjectsKeyForEmail = (correo)=> LS_PROJECTS_PREFIX + normalizarCorreo(correo || "guest");
-          const getProjectActiveKeyForEmail = (correo)=> LS_PROJECT_ACTIVE_PREFIX + normalizarCorreo(correo || "guest");
-          const cargarProyectosPorCorreo = (correo)=>{
-            try{
-              const raw = localStorage.getItem(getProjectsKeyForEmail(correo));
-              if(raw){
-                const parsedLocal = JSON.parse(raw);
-                if(parsedLocal && Array.isArray(parsedLocal.proyectos)){
-                  return { proyectos: parsedLocal.proyectos, activo: parsedLocal.activo || "" };
-                }
-              }
-            }catch(e){}
-            return { proyectos: [], activo: "" };
-          };
-          const guardarProyectosParaCorreo = (correo, proyectos, activo)=>{
-            try{
-              localStorage.setItem(getProjectsKeyForEmail(correo), JSON.stringify({ activo: activo || "", proyectos: proyectos || [] }));
-            }catch(e){}
-            try{
-              localStorage.setItem(getProjectActiveKeyForEmail(correo), activo || "");
-            }catch(e){}
-          };
-
-          const mergeProyectos = (target, list)=>{
-            const out = Array.isArray(target) ? target.map(p => Object.assign({}, p)) : [];
-            const byId = new Map();
-            out.forEach((p, idx)=>{
-              const key = String(p && p.id || "");
-              if(key) byId.set(key, idx);
-            });
-            (list || []).forEach((p)=>{
-              if(!p || typeof p !== "object") return;
-              if(!Array.isArray(p.senalesHorizontal)) p.senalesHorizontal = [];
-              if(!Array.isArray(p.senalesVertical)) p.senalesVertical = [];
-              if(!Array.isArray(p.senalesMobiliario)) p.senalesMobiliario = [];
-              if(!Array.isArray(p.metradoRegistros)) p.metradoRegistros = [];
-              const pid = String(p.id || "");
-              let idx = pid ? byId.get(pid) : -1;
-              if(typeof idx === "undefined") idx = -1;
-              if(idx < 0 && p.nombre){
-                const targetName = normalizarNombreProyecto(p.nombre);
-                idx = out.findIndex(x => normalizarNombreProyecto(x && x.nombre) === targetName);
-              }
-              if(idx >= 0){
-                const prev = out[idx];
-                out[idx] = Object.assign({}, prev, p);
-                if(prev && prev.id && !out[idx].id) out[idx].id = prev.id;
-              } else {
-                out.push(p);
-              }
-            });
-            return out;
-          };
-
-          const groups = new Map();
-          incoming.forEach((p)=>{
-            const dist = obtenerDistritoProyecto(p);
-            const key = String(dist || "").toLowerCase();
-            if(!groups.has(key)) groups.set(key, { distrito: dist || "", list: [] });
-            groups.get(key).list.push(p);
+          const incoming = parsed.proyectos.map((p)=>{
+            const base = Object.assign({}, p || {});
+            if(!Array.isArray(base.senalesHorizontal)) base.senalesHorizontal = [];
+            if(!Array.isArray(base.senalesVertical)) base.senalesVertical = [];
+            if(!Array.isArray(base.senalesMobiliario)) base.senalesMobiliario = [];
+            if(!Array.isArray(base.metradoRegistros)) base.metradoRegistros = [];
+            return base;
           });
-
-          const currentEmail = (typeof getSessionEmail === "function") ? (getSessionEmail() || "") : "";
-          const scopeNow = (typeof cargarSesionScope === "function") ? cargarSesionScope() : { region:"", distrito:"" };
-          const currentDistritoKey = String(scopeNow && scopeNow.distrito || "").toLowerCase();
-          let currentAssigned = false;
-
-          groups.forEach((g)=>{
-            const distrito = g.distrito || "";
-            const correoDestino = distrito ? (slugDistrito(distrito) + "@muni.gob.pe") : (currentEmail || "guest");
-            const stored = cargarProyectosPorCorreo(correoDestino);
-            const merged = mergeProyectos(stored.proyectos, g.list);
-            let activo = stored.activo || "";
-            if(incomingActive && merged.some(p => String(p && p.id || "") === incomingActive)){
-              activo = incomingActive;
-            } else if(!activo || !merged.some(p => String(p && p.id || "") === String(activo))){
-              activo = merged[0] ? merged[0].id : "";
-            }
-            guardarProyectosParaCorreo(correoDestino, merged, activo);
-
-            if(normalizarCorreo(correoDestino) === normalizarCorreo(currentEmail || "")
-              || (currentDistritoKey && String(distrito || "").toLowerCase() === currentDistritoKey)){
-              proyectosCache = merged;
-              proyectoActivoId = activo;
-              currentAssigned = true;
-            }
-          });
-
-          if(currentAssigned){
-            actualizarSelectProyecto();
-            if(proyectoActivoId){
-              setProyectoActivoPorId(proyectoActivoId);
-            }
-            updateProjectUI();
+          proyectosCache = incoming;
+          proyectoActivoId = parsed.proyectoActivoId ? String(parsed.proyectoActivoId) : (incoming[0] ? incoming[0].id : "");
+          guardarProyectos();
+          actualizarSelectProyecto();
+          if(proyectoActivoId){
+            setProyectoActivoPorId(proyectoActivoId);
           }
+          updateProjectUI();
         }
 
         if(parsed.config && typeof parsed.config === "object"){
           updateAndPersistConfig(parsed.config);
         }
+
+        // Sincronizar importacion con backend (activos, avisos y proyectos)
+        (async ()=>{
+          if(!window.UrbbisApi) return;
+          try{
+            const pushAsset = async (item, type)=>{
+              if(!item) return;
+              const payload = {
+                legacyId: Number.isFinite(Number(item.id)) ? Number(item.id) : undefined,
+                type,
+                name: item.nombre || "",
+                category: item.tipo || "",
+                icon: item.icono || "",
+                state: item.estado || "",
+                statePhysical: item.estado_fisico || "",
+                lat: item.lat,
+                lng: item.lng,
+                district: item.distrito || item.zona || "",
+                region: item.region || "",
+                price: typeof item.precio === "number" ? item.precio : undefined,
+                installedAt: item.fecha_colocacion || "",
+                width: item.dimensiones && Number.isFinite(Number(item.dimensiones.ancho)) ? Number(item.dimensiones.ancho) : undefined,
+                length: item.dimensiones && Number.isFinite(Number(item.dimensiones.largo)) ? Number(item.dimensiones.largo) : undefined,
+                areaM2: typeof item.area_m2 === "number" ? item.area_m2 : undefined,
+                photoUrl: item.inspeccionFoto || null
+              };
+              const remote = await window.UrbbisApi.createAsset(payload);
+              if(remote && remote.id) item.dbId = remote.id;
+            };
+
+            const pushReport = async (item)=>{
+              if(!item) return;
+              const payload = {
+                legacyId: Number.isFinite(Number(item.id)) ? Number(item.id) : undefined,
+                type: item.tipo || "otro",
+                description: item.descripcion || "",
+                status: item.estado || "pendiente",
+                lat: item.lat,
+                lng: item.lng,
+                district: item.distrito || "",
+                region: item.region || "",
+                userName: item.usuarioNombre || "",
+                userEmail: item.usuarioEmail || "",
+                userDni: item.usuarioDni || "",
+                photoUrl: item.foto || null
+              };
+              const remote = await window.UrbbisApi.createReport(payload);
+              if(remote && remote.id) item.dbId = remote.id;
+            };
+
+            for(const item of (h || [])){ await pushAsset(item, "horizontal"); }
+            for(const item of (v || [])){ await pushAsset(item, "vertical"); }
+            for(const item of (m || [])){ await pushAsset(item, "mobiliario"); }
+            for(const item of (a || [])){ await pushReport(item); }
+          }catch(syncErr){
+            console.warn("No se pudo sincronizar importacion con backend.", syncErr);
+          }
+        })();
 
         try{
           if(typeof aplicarFiltros === "function"){ aplicarFiltros(); }

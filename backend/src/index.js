@@ -143,28 +143,37 @@ app.post("/assets", async (req, res, next) => {
     if (lat === null || lng === null) {
       return res.status(400).json({ error: "lat and lng are required" });
     }
-    const created = await prisma.asset.create({
-      data: {
-        legacyId: toNumber(body.legacyId) ?? undefined,
-        projectId: body.projectId ? String(body.projectId) : undefined,
-        type: String(body.type),
-        name: body.name ? String(body.name) : undefined,
-        category: body.category ? String(body.category) : undefined,
-        icon: body.icon ? String(body.icon) : undefined,
-        state: body.state ? String(body.state) : undefined,
-        statePhysical: body.statePhysical ? String(body.statePhysical) : undefined,
-        lat,
-        lng,
-        district: body.district ? String(body.district) : undefined,
-        region: body.region ? String(body.region) : undefined,
-        price: toNumber(body.price) ?? undefined,
-        installedAt: toDate(body.installedAt) ?? undefined,
-        width: toNumber(body.width) ?? undefined,
-        length: toNumber(body.length) ?? undefined,
-        areaM2: toNumber(body.areaM2) ?? undefined,
-        photoUrl: body.photoUrl ? String(body.photoUrl) : undefined
-      }
-    });
+    const data = {
+      legacyId: toNumber(body.legacyId) ?? undefined,
+      projectId: body.projectId ? String(body.projectId) : undefined,
+      type: String(body.type),
+      name: body.name ? String(body.name) : undefined,
+      category: body.category ? String(body.category) : undefined,
+      icon: body.icon ? String(body.icon) : undefined,
+      state: body.state ? String(body.state) : undefined,
+      statePhysical: body.statePhysical ? String(body.statePhysical) : undefined,
+      lat,
+      lng,
+      district: body.district ? String(body.district) : undefined,
+      region: body.region ? String(body.region) : undefined,
+      price: toNumber(body.price) ?? undefined,
+      installedAt: toDate(body.installedAt) ?? undefined,
+      width: toNumber(body.width) ?? undefined,
+      length: toNumber(body.length) ?? undefined,
+      areaM2: toNumber(body.areaM2) ?? undefined,
+      photoUrl: body.photoUrl ? String(body.photoUrl) : undefined
+    };
+
+    if (data.legacyId !== undefined && data.legacyId !== null) {
+      const created = await prisma.asset.upsert({
+        where: { legacyId: data.legacyId },
+        update: data,
+        create: data
+      });
+      return res.status(201).json(created);
+    }
+
+    const created = await prisma.asset.create({ data });
     res.status(201).json(created);
   } catch (err) {
     next(err);
@@ -246,24 +255,33 @@ app.post("/reports", async (req, res, next) => {
     if (lat === null || lng === null) {
       return res.status(400).json({ error: "lat and lng are required" });
     }
-    const created = await prisma.report.create({
-      data: {
-        legacyId: toNumber(body.legacyId) ?? undefined,
-        projectId: body.projectId ? String(body.projectId) : undefined,
-        userId: body.userId ? String(body.userId) : undefined,
-        type: String(body.type),
-        description: body.description ? String(body.description) : undefined,
-        status: body.status ? String(body.status) : undefined,
-        lat,
-        lng,
-        district: body.district ? String(body.district) : undefined,
-        region: body.region ? String(body.region) : undefined,
-        userName: body.userName ? String(body.userName) : undefined,
-        userEmail: body.userEmail ? String(body.userEmail) : undefined,
-        userDni: body.userDni ? String(body.userDni) : undefined,
-        photoUrl: body.photoUrl ? String(body.photoUrl) : undefined
-      }
-    });
+    const data = {
+      legacyId: toNumber(body.legacyId) ?? undefined,
+      projectId: body.projectId ? String(body.projectId) : undefined,
+      userId: body.userId ? String(body.userId) : undefined,
+      type: String(body.type),
+      description: body.description ? String(body.description) : undefined,
+      status: body.status ? String(body.status) : undefined,
+      lat,
+      lng,
+      district: body.district ? String(body.district) : undefined,
+      region: body.region ? String(body.region) : undefined,
+      userName: body.userName ? String(body.userName) : undefined,
+      userEmail: body.userEmail ? String(body.userEmail) : undefined,
+      userDni: body.userDni ? String(body.userDni) : undefined,
+      photoUrl: body.photoUrl ? String(body.photoUrl) : undefined
+    };
+
+    if (data.legacyId !== undefined && data.legacyId !== null) {
+      const created = await prisma.report.upsert({
+        where: { legacyId: data.legacyId },
+        update: data,
+        create: data
+      });
+      return res.status(201).json(created);
+    }
+
+    const created = await prisma.report.create({ data });
     res.status(201).json(created);
   } catch (err) {
     next(err);

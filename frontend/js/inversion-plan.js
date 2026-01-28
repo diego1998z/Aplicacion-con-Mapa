@@ -42,8 +42,6 @@
     return;
   }
 
-  const LS_PLANES_PREFIX = "urbbisPlanes:";
-  const LS_PRESUPUESTO_PREFIX = "urbbisPresupuestoAnual:";
   const PLAN_COLORS = ["plan-color-1","plan-color-2","plan-color-3","plan-color-4"];
   const PLAN_ESTADOS = {
     planificacion: "En planificacion",
@@ -206,39 +204,16 @@
   }
 
   function cargarPlanes(){
-    planesCache = [];
-    try{
-      const raw = localStorage.getItem(storageKey(LS_PLANES_PREFIX));
-      if(raw){
-        const parsed = JSON.parse(raw);
-        if(Array.isArray(parsed)){
-          planesCache = parsed.map(normalizePlan);
-        }
-      }
-    }catch(e){
+    if(!Array.isArray(planesCache)){
       planesCache = [];
     }
   }
 
   function guardarPlanes(){
-    try{
-      localStorage.setItem(storageKey(LS_PLANES_PREFIX), JSON.stringify(planesCache));
-    }catch(e){}
+    // Persistencia solo en backend; aqui solo mantenemos memoria.
   }
 
   function cargarPresupuesto(){
-    presupuestoCache = null;
-    try{
-      const raw = localStorage.getItem(storageKey(LS_PRESUPUESTO_PREFIX));
-      if(raw){
-        const parsed = JSON.parse(raw);
-        if(parsed && typeof parsed === "object"){
-          presupuestoCache = parsed;
-        }
-      }
-    }catch(e){
-      presupuestoCache = null;
-    }
     if(!presupuestoCache){
       presupuestoCache = { year: new Date().getFullYear(), total: 0 };
     }
@@ -246,9 +221,6 @@
 
   function guardarPresupuesto(next){
     presupuestoCache = Object.assign({}, next || {});
-    try{
-      localStorage.setItem(storageKey(LS_PRESUPUESTO_PREFIX), JSON.stringify(presupuestoCache));
-    }catch(e){}
   }
 
   function getPresupuesto(){
