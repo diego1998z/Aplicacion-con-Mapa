@@ -1,6 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 const { PrismaClient } = require("@prisma/client");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 require("dotenv").config();
 
 const app = express();
@@ -22,8 +24,93 @@ function toDate(value) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+function getJwtSecret() {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("JWT_SECRET no configurado");
+  }
+  return secret;
+}
+
+function signToken(payload) {
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: "12h" });
+}
+
+function authRequired(req, res, next) {
+  const header = req.headers.authorization || "";
+  const token = header.startsWith("Bearer ") ? header.slice(7) : "";
+  if (!token) return res.status(401).json({ error: "Token requerido" });
+  try {
+    const decoded = jwt.verify(token, getJwtSecret());
+    req.user = decoded;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: "Token invalido" });
+  }
+}
+
 app.get("/health", (req, res) => {
   res.json({ ok: true, service: "urbbis-backend" });
+});
+
+// Auth
+app.post("/auth/register", async (req, res, next) => {
+  try {
+    const { email, password, name, role } = req.body || {};
+    if (!email || !password) {
+      return res.status(400).json({ error: "email y password son requeridos" });
+    }
+    const normalized = String(email).trim().toLowerCase();
+    const exists = await prisma.user.findUnique({ where: { email: normalized } });
+    if (exists) {
+      return res.status(409).json({ error: "Email ya registrado" });
+    }
+    const passwordHash = await bcrypt.hash(String(password), 10);
+    const user = await prisma.user.create({
+      data: {
+        email: normalized,
+        passwordHash,
+        name: name ? String(name) : undefined,
+        role: role ? String(role) : "user"
+      }
+    });
+    const token = signToken({ sub: user.id, email: user.email, role: user.role });
+    res.status(201).json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.post("/auth/login", async (req, res, next) => {
+  try {
+    const { email, password } = req.body || {};
+    if (!email || !password) {
+      return res.status(400).json({ error: "email y password son requeridos" });
+    }
+    const normalized = String(email).trim().toLowerCase();
+    const user = await prisma.user.findUnique({ where: { email: normalized } });
+    if (!user) {
+      return res.status(401).json({ error: "Credenciales invalidas" });
+    }
+    const ok = await bcrypt.compare(String(password), user.passwordHash);
+    if (!ok) {
+      return res.status(401).json({ error: "Credenciales invalidas" });
+    }
+    const token = signToken({ sub: user.id, email: user.email, role: user.role });
+    res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.get("/auth/me", authRequired, async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.user.sub } });
+    if (!user) return res.status(404).json({ error: "Usuario no encontrado" });
+    res.json({ id: user.id, email: user.email, name: user.name, role: user.role });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // Projects
