@@ -21,15 +21,57 @@ model User {
 
 model Project {
   id        String   @id @default(cuid())
+  legacyId  String?  @unique
   name      String
   year      Int?
   startDate DateTime?
   endDate   DateTime?
+  district  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   assets    Asset[]
   reports   Report[]
+}
+
+model Plan {
+  id        String        @id @default(cuid())
+  ownerKey  String
+  name      String
+  year      Int
+  deadline  String?
+  status    String
+  amount    Float
+  executed  Float
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  projects  PlanProject[]
+}
+
+model PlanProject {
+  id             String   @id @default(cuid())
+  planId         String
+  projectLegacyId String?
+  name           String
+  status         String
+  assignedAmount Float
+  executedAmount Float
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  plan Plan @relation(fields: [planId], references: [id])
+}
+
+model AnnualBudget {
+  id        String   @id @default(cuid())
+  ownerKey  String
+  year      Int
+  total     Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([ownerKey, year])
 }
 
 model Asset {

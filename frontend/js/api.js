@@ -60,7 +60,21 @@
     },
     createReport: (data) => request("/reports", { method: "POST", ...jsonBody(data) }),
     updateReport: (id, data) => request(`/reports/${id}`, { method: "PUT", ...jsonBody(data) }),
-    deleteReport: (id) => request(`/reports/${id}`, { method: "DELETE" })
+    deleteReport: (id) => request(`/reports/${id}`, { method: "DELETE" }),
+    getPlans: (params = {}) => {
+      const qs = new URLSearchParams(params);
+      const suffix = qs.toString() ? `?${qs.toString()}` : "";
+      return request(`/plans${suffix}`);
+    },
+    createPlan: (data) => request("/plans", { method: "POST", ...jsonBody(data) }),
+    updatePlan: (id, data) => request(`/plans/${id}`, { method: "PUT", ...jsonBody(data) }),
+    deletePlan: (id) => request(`/plans/${id}`, { method: "DELETE" }),
+    getBudgets: (params = {}) => {
+      const qs = new URLSearchParams(params);
+      const suffix = qs.toString() ? `?${qs.toString()}` : "";
+      return request(`/budgets${suffix}`);
+    },
+    upsertBudget: (data) => request("/budgets", { method: "POST", ...jsonBody(data) })
   };
 
   window.UrbbisApi = api;

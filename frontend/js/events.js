@@ -273,6 +273,53 @@ function maxNumericId(list){
   }, 0);
 }
 
+function yearFromProyecto(proj){
+  if(!proj) return null;
+  try{
+    if(typeof obtenerAnioProyectoBase === "function"){
+      const y = obtenerAnioProyectoBase(proj.nombre || "");
+      if(Number.isFinite(y)) return y;
+    }
+  }catch(e){}
+  const raw = proj.fecha_inicio || proj.fecha_fin || "";
+  const match = String(raw).match(/^(\d{4})/);
+  return match ? Number(match[1]) : null;
+}
+
+function proyectoToApiPayload(proj){
+  if(!proj) return null;
+  return {
+    legacyId: String(proj.id || ""),
+    name: String(proj.nombre || "Proyecto"),
+    year: yearFromProyecto(proj) || undefined,
+    startDate: proj.fecha_inicio || "",
+    endDate: proj.fecha_fin || "",
+    district: proj.distrito || ""
+  };
+}
+
+function syncProyectoBackend(proj){
+  if(!proj || !window.UrbbisApi) return;
+  const payload = proyectoToApiPayload(proj);
+  if(!payload || !payload.legacyId) return;
+  if(proj.dbId){
+    if(typeof window.UrbbisApi.updateProject === "function"){
+      window.UrbbisApi.updateProject(proj.dbId, payload)
+        .catch((err)=> console.warn("No se pudo actualizar el proyecto en backend.", err));
+    }
+    return;
+  }
+  if(typeof window.UrbbisApi.createProject === "function"){
+    window.UrbbisApi.createProject(payload)
+      .then((remote)=>{
+        if(remote && remote.id){
+          proj.dbId = remote.id;
+        }
+      })
+      .catch((err)=> console.warn("No se pudo crear el proyecto en backend.", err));
+  }
+}
+
 function cerrarRegistroPanel(){
   if(registroPanel){
     registroPanel.classList.add("hidden");
@@ -5814,6 +5861,7 @@ if(btnProyectoGuardar){
         proyectosCache[idx].id = prev.id;
         proyectosCache[idx].creado = prev.creado || hoyISO();
         setProyectoActivoPorId(proyectosCache[idx].id);
+        syncProyectoBackend(proyectosCache[idx]);
       } else {
         const nuevo = Object.assign({
           id: "proj-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,6),
@@ -5821,6 +5869,7 @@ if(btnProyectoGuardar){
         }, base);
         proyectosCache.push(nuevo);
         setProyectoActivoPorId(nuevo.id);
+        syncProyectoBackend(nuevo);
       }
     } else {
       const nuevo = Object.assign({
@@ -5829,6 +5878,7 @@ if(btnProyectoGuardar){
       }, base);
       proyectosCache.push(nuevo);
       setProyectoActivoPorId(nuevo.id);
+      syncProyectoBackend(nuevo);
     }
     guardarProyectos();
     actualizarSelectProyecto();

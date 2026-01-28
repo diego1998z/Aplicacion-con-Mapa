@@ -258,6 +258,102 @@
     return presupuestoCache;
   }
 
+  function planToApiPayload(plan){
+    return {
+      ownerKey: getEmailKey(),
+      name: plan.nombre || "Plan",
+      year: Number(plan.anio || new Date().getFullYear()),
+      deadline: plan.plazo || "",
+      status: plan.estado || "planificacion",
+      amount: Number(plan.monto || 0),
+      executed: Number(plan.ejecutado || 0),
+      projects: (plan.proyectos || []).map((p)=>({
+        projectLegacyId: p.id || "",
+        name: p.nombre || "Proyecto",
+        status: p.estado || "planificacion",
+        assignedAmount: Number(p.montoAsignado ?? p.monto ?? 0),
+        executedAmount: Number(p.ejecutado ?? 0)
+      }))
+    };
+  }
+
+  function planFromApiPayload(plan){
+    return normalizePlan({
+      id: plan.legacyId || plan.id,
+      dbId: plan.id,
+      nombre: plan.name || "Plan",
+      anio: plan.year || new Date().getFullYear(),
+      plazo: plan.deadline || "",
+      estado: plan.status || "planificacion",
+      monto: Number(plan.amount || 0),
+      ejecutado: Number(plan.executed || 0),
+      proyectos: Array.isArray(plan.projects) ? plan.projects.map((p)=>({
+        id: p.projectLegacyId || "",
+        nombre: p.name || "Proyecto",
+        estado: p.status || "planificacion",
+        montoAsignado: Number(p.assignedAmount || 0),
+        ejecutado: Number(p.executedAmount || 0)
+      })) : []
+    });
+  }
+
+  async function cargarPlanesApi(){
+    if(!window.UrbbisApi || typeof window.UrbbisApi.getPlans !== "function") return;
+    try{
+      const remote = await window.UrbbisApi.getPlans({ ownerKey: getEmailKey() });
+      if(Array.isArray(remote)){
+        planesCache = remote.map(planFromApiPayload);
+        guardarPlanes();
+      }
+    }catch(e){
+      console.warn("No se pudo cargar planes desde backend.", e);
+    }
+  }
+
+  async function cargarPresupuestoApi(){
+    if(!window.UrbbisApi || typeof window.UrbbisApi.getBudgets !== "function") return;
+    try{
+      const remote = await window.UrbbisApi.getBudgets({ ownerKey: getEmailKey() });
+      if(Array.isArray(remote) && remote.length){
+        const current = remote[0];
+        presupuestoCache = { year: current.year, total: Number(current.total || 0) };
+        guardarPresupuesto(presupuestoCache);
+      }
+    }catch(e){
+      console.warn("No se pudo cargar presupuesto desde backend.", e);
+    }
+  }
+
+  function syncPlanToBackend(plan){
+    if(!window.UrbbisApi) return;
+    const payload = planToApiPayload(plan);
+    if(plan.dbId){
+      if(typeof window.UrbbisApi.updatePlan === "function"){
+        window.UrbbisApi.updatePlan(plan.dbId, payload)
+          .catch((err)=> console.warn("No se pudo actualizar plan en backend.", err));
+      }
+      return;
+    }
+    if(typeof window.UrbbisApi.createPlan === "function"){
+      window.UrbbisApi.createPlan(payload)
+        .then((remote)=>{
+          if(remote && remote.id){
+            plan.dbId = remote.id;
+          }
+        })
+        .catch((err)=> console.warn("No se pudo crear plan en backend.", err));
+    }
+  }
+
+  function syncPresupuestoToBackend(presupuesto){
+    if(!window.UrbbisApi || typeof window.UrbbisApi.upsertBudget !== "function") return;
+    window.UrbbisApi.upsertBudget({
+      ownerKey: getEmailKey(),
+      year: Number(presupuesto.year || new Date().getFullYear()),
+      total: Number(presupuesto.total || 0)
+    }).catch((err)=> console.warn("No se pudo guardar presupuesto en backend.", err));
+  }
+
   function periodoLabel(year){
     return "Ene-Dic " + year;
   }
@@ -770,9 +866,12 @@
       const idx = planesCache.findIndex(p => p.id === planEditId);
       if(idx >= 0){
         planesCache[idx] = normalizePlan(Object.assign({}, planesCache[idx], base));
+        syncPlanToBackend(planesCache[idx]);
       }
     } else {
-      planesCache.push(normalizePlan(base));
+      const nuevo = normalizePlan(base);
+      planesCache.push(nuevo);
+      syncPlanToBackend(nuevo);
     }
     guardarPlanes();
     cerrarModalPlan();
@@ -791,6 +890,7 @@
       return;
     }
     guardarPresupuesto({ year: anio, total: total });
+    syncPresupuestoToBackend({ year: anio, total: total });
     cerrarModalPresupuesto();
     updateInversionPlanes();
   }
@@ -821,6 +921,10 @@
       const ok = confirm("Eliminar el plan \"" + (plan.nombre || "Plan") + "\"?");
       if(!ok) return;
       planesCache = planesCache.filter(p => String(p.id || "") !== String(planId));
+      if(window.UrbbisApi && typeof window.UrbbisApi.deletePlan === "function" && plan.dbId){
+        window.UrbbisApi.deletePlan(plan.dbId)
+          .catch((err)=> console.warn("No se pudo eliminar plan en backend.", err));
+      }
       guardarPlanes();
       updateInversionPlanes();
     }
@@ -867,4 +971,8 @@
 
   window.updateInversionPlanes = updateInversionPlanes;
   updateInversionPlanes();
+  if(window.UrbbisApi){
+    cargarPresupuestoApi().then(()=> updateInversionPlanes());
+    cargarPlanesApi().then(()=> updateInversionPlanes());
+  }
 })();

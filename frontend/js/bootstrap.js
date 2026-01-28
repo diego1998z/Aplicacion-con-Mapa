@@ -108,5 +108,60 @@
     }
   }
 
+  async function syncProjectsFromBackend() {
+    try {
+      const projects = await window.UrbbisApi.getProjects();
+      if (!Array.isArray(projects)) return;
+      if (typeof proyectosCache === "undefined") return;
+      const local = Array.isArray(proyectosCache) ? proyectosCache : [];
+      if (!local.length) {
+        projects.forEach((p) => {
+          const legacyId = p.legacyId || p.id;
+          local.push({
+            id: legacyId,
+            dbId: p.id,
+            nombre: p.name || "Proyecto",
+            fecha_inicio: p.startDate ? String(p.startDate).slice(0, 10) : "",
+            fecha_fin: p.endDate ? String(p.endDate).slice(0, 10) : "",
+            distrito: p.district || "",
+            creado: p.createdAt ? String(p.createdAt).slice(0, 10) : "",
+            senalesHorizontal: [],
+            senalesVertical: [],
+            senalesMobiliario: [],
+            metradoRegistros: []
+          });
+        });
+        if (typeof actualizarSelectProyecto === "function") actualizarSelectProyecto();
+        if (typeof actualizarInvProyectoSelect === "function") actualizarInvProyectoSelect();
+        if (typeof actualizarDashProyectoSelect === "function") actualizarDashProyectoSelect();
+        if (typeof updateProjectUI === "function") updateProjectUI();
+        return;
+      }
+
+      const byLegacy = new Map();
+      projects.forEach((p) => {
+        if (p.legacyId) byLegacy.set(String(p.legacyId), p);
+      });
+      local.forEach((proj) => {
+        const remote = byLegacy.get(String(proj.id || ""));
+        if (!remote) return;
+        proj.dbId = remote.id;
+        if (!proj.fecha_inicio && remote.startDate) proj.fecha_inicio = String(remote.startDate).slice(0, 10);
+        if (!proj.fecha_fin && remote.endDate) proj.fecha_fin = String(remote.endDate).slice(0, 10);
+        if (!proj.distrito && remote.district) proj.distrito = remote.district;
+      });
+
+      // Crear en backend los proyectos locales que aun no existen.
+      if (typeof syncProyectoBackend === "function") {
+        local.forEach((proj) => {
+          if (!proj.dbId) syncProyectoBackend(proj);
+        });
+      }
+    } catch (err) {
+      console.warn("No se pudo sincronizar proyectos desde backend.", err);
+    }
+  }
+
   syncRemoteData();
+  syncProjectsFromBackend();
 })();

@@ -29,7 +29,10 @@ app.get("/health", (req, res) => {
 // Projects
 app.get("/projects", async (req, res, next) => {
   try {
-    const items = await prisma.project.findMany({ orderBy: { createdAt: "desc" } });
+    const { legacyId } = req.query || {};
+    const where = {};
+    if (legacyId) where.legacyId = String(legacyId);
+    const items = await prisma.project.findMany({ where, orderBy: { createdAt: "desc" } });
     res.json(items);
   } catch (err) {
     next(err);
@@ -38,14 +41,36 @@ app.get("/projects", async (req, res, next) => {
 
 app.post("/projects", async (req, res, next) => {
   try {
-    const { name, year, startDate, endDate } = req.body || {};
+    const { name, year, startDate, endDate, legacyId, district } = req.body || {};
     if (!name) return res.status(400).json({ error: "name is required" });
+    if (legacyId) {
+      const created = await prisma.project.upsert({
+        where: { legacyId: String(legacyId) },
+        update: {
+          name: String(name),
+          year: toNumber(year) ?? undefined,
+          startDate: toDate(startDate) ?? undefined,
+          endDate: toDate(endDate) ?? undefined,
+          district: district ? String(district) : undefined
+        },
+        create: {
+          legacyId: String(legacyId),
+          name: String(name),
+          year: toNumber(year) ?? undefined,
+          startDate: toDate(startDate) ?? undefined,
+          endDate: toDate(endDate) ?? undefined,
+          district: district ? String(district) : undefined
+        }
+      });
+      return res.status(201).json(created);
+    }
     const created = await prisma.project.create({
       data: {
         name: String(name),
         year: toNumber(year) ?? undefined,
         startDate: toDate(startDate) ?? undefined,
-        endDate: toDate(endDate) ?? undefined
+        endDate: toDate(endDate) ?? undefined,
+        district: district ? String(district) : undefined
       }
     });
     res.status(201).json(created);
@@ -57,14 +82,16 @@ app.post("/projects", async (req, res, next) => {
 app.put("/projects/:id", async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, year, startDate, endDate } = req.body || {};
+    const { name, year, startDate, endDate, legacyId, district } = req.body || {};
     const updated = await prisma.project.update({
       where: { id },
       data: {
         name: name ? String(name) : undefined,
         year: toNumber(year) ?? undefined,
         startDate: toDate(startDate) ?? undefined,
-        endDate: toDate(endDate) ?? undefined
+        endDate: toDate(endDate) ?? undefined,
+        legacyId: legacyId ? String(legacyId) : undefined,
+        district: district ? String(district) : undefined
       }
     });
     res.json(updated);
@@ -234,6 +261,150 @@ app.post("/reports", async (req, res, next) => {
       }
     });
     res.status(201).json(created);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Plans
+function normalizePlanPayload(body) {
+  const projects = Array.isArray(body.projects) ? body.projects : [];
+  return {
+    ownerKey: String(body.ownerKey || ""),
+    name: String(body.name || ""),
+    year: Number(body.year || 0),
+    deadline: body.deadline ? String(body.deadline) : undefined,
+    status: String(body.status || "planificacion"),
+    amount: toNumber(body.amount) ?? 0,
+    executed: toNumber(body.executed) ?? 0,
+    projects: projects.map((p) => ({
+      projectLegacyId: p.projectLegacyId ? String(p.projectLegacyId) : undefined,
+      name: String(p.name || "Proyecto"),
+      status: String(p.status || "planificacion"),
+      assignedAmount: toNumber(p.assignedAmount) ?? 0,
+      executedAmount: toNumber(p.executedAmount) ?? 0
+    }))
+  };
+}
+
+app.get("/plans", async (req, res, next) => {
+  try {
+    const { ownerKey } = req.query || {};
+    const where = {};
+    if (ownerKey) where.ownerKey = String(ownerKey);
+    const items = await prisma.plan.findMany({
+      where,
+      include: { projects: true },
+      orderBy: { createdAt: "desc" }
+    });
+    res.json(items);
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.post("/plans", async (req, res, next) => {
+  try {
+    const payload = normalizePlanPayload(req.body || {});
+    if (!payload.ownerKey) return res.status(400).json({ error: "ownerKey is required" });
+    if (!payload.name) return res.status(400).json({ error: "name is required" });
+    const created = await prisma.plan.create({
+      data: {
+        ownerKey: payload.ownerKey,
+        name: payload.name,
+        year: payload.year,
+        deadline: payload.deadline,
+        status: payload.status,
+        amount: payload.amount,
+        executed: payload.executed,
+        projects: {
+          create: payload.projects
+        }
+      },
+      include: { projects: true }
+    });
+    res.status(201).json(created);
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.put("/plans/:id", async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const payload = normalizePlanPayload(req.body || {});
+    const updated = await prisma.plan.update({
+      where: { id },
+      data: {
+        ownerKey: payload.ownerKey || undefined,
+        name: payload.name || undefined,
+        year: payload.year || undefined,
+        deadline: payload.deadline,
+        status: payload.status || undefined,
+        amount: payload.amount ?? undefined,
+        executed: payload.executed ?? undefined,
+        projects: {
+          deleteMany: {},
+          create: payload.projects
+        }
+      },
+      include: { projects: true }
+    });
+    res.json(updated);
+  } catch (err) {
+    if (err && err.code === "P2025") {
+      return res.status(404).json({ error: "Plan not found" });
+    }
+    next(err);
+  }
+});
+
+app.delete("/plans/:id", async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    await prisma.plan.delete({ where: { id } });
+    res.status(204).send();
+  } catch (err) {
+    if (err && err.code === "P2025") {
+      return res.status(404).json({ error: "Plan not found" });
+    }
+    next(err);
+  }
+});
+
+// Budgets
+app.get("/budgets", async (req, res, next) => {
+  try {
+    const { ownerKey } = req.query || {};
+    const where = {};
+    if (ownerKey) where.ownerKey = String(ownerKey);
+    const items = await prisma.annualBudget.findMany({
+      where,
+      orderBy: { year: "desc" }
+    });
+    res.json(items);
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.post("/budgets", async (req, res, next) => {
+  try {
+    const { ownerKey, year, total } = req.body || {};
+    if (!ownerKey) return res.status(400).json({ error: "ownerKey is required" });
+    const parsedYear = Number(year || 0);
+    if (!parsedYear) return res.status(400).json({ error: "year is required" });
+    const data = {
+      ownerKey: String(ownerKey),
+      year: parsedYear,
+      total: toNumber(total) ?? 0
+    };
+    const upserted = await prisma.annualBudget.upsert({
+      where: { ownerKey_year: { ownerKey: data.ownerKey, year: data.year } },
+      update: { total: data.total },
+      create: data
+    });
+    res.status(201).json(upserted);
   } catch (err) {
     next(err);
   }
