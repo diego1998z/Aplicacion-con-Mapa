@@ -1,5 +1,5 @@
 (() => {
-  const DEFAULT_BASE = "http://localhost:3001";
+  const DEFAULT_BASE = "https://aplicacion-con-mapa-production.up.railway.app";
 
   function getBaseUrl() {
     try {
