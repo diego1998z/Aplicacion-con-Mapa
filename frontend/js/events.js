@@ -3961,13 +3961,7 @@ if(btnUbicacion){
 // Cambiar rol
 if(btnToggleRol){
   btnToggleRol.addEventListener("click", ()=>{
-    const nuevo = rolActual === "municipal" ? "visitante" : "municipal";
-    setRol(nuevo);
-    guardarSesionRol(nuevo);
-    updateMobileBanner();
-    if(nuevo === "visitante" && typeof dashViewActual !== "undefined" && dashViewActual === "reportes"){
-      setDashView("dashboard");
-    }
+    alert("El rol ahora se define por autenticación. Usa una cuenta con el rol correcto.");
   });
   // init
   setRol(rolActual);
@@ -4236,27 +4230,42 @@ function guardarSesionRol(rol){
 
 function cargarSesionRol(){
   try{
-    const rol = localStorage.getItem("rolActual");
     const correo = localStorage.getItem("correoActual");
     if(correo && inputCorreo) inputCorreo.value = correo;
-    if(rol){
-      setRol(rol);
-      // Aplicar alcance guardado o inferido por correo (para cuentas municipales por distrito)
-      try{
-        const scopeSaved = cargarSesionScope();
-        const scope = (scopeSaved && (scopeSaved.region || scopeSaved.distrito)) ? scopeSaved : obtenerScopePorCorreo(correo || "");
-        if(typeof setScopeGeografico === "function"){
-          setScopeGeografico(scope.region || "", scope.distrito || "");
-        }
-      }catch(e){}
-      try{ initProyectos(); }catch(e){}
-      updateMobileBanner();
-      if(loginOverlay) loginOverlay.classList.add("hidden");
-      try{ document.body.classList.add("dash-shell"); }catch(e){}
-      abrirDashboard();
-      return;
-    }
   }catch(e){}
+
+  if(window.UrbbisApi && typeof window.UrbbisApi.me === "function" && window.UrbbisApi.getToken){
+    const token = window.UrbbisApi.getToken();
+    if(token){
+      window.UrbbisApi.me()
+        .then((user)=>{
+          if(!user) return;
+          const role = user.role || "user";
+          setRol(role);
+          try{
+            if(inputCorreo) inputCorreo.value = user.email || "";
+            if(user.email) localStorage.setItem("correoActual", user.email);
+          }catch(e){}
+          const scope = (role === "municipal")
+            ? { region: user.region || (obtenerScopePorCorreo(user.email || "").region || ""), distrito: user.district || (obtenerScopePorCorreo(user.email || "").distrito || "") }
+            : { region:"", distrito:"" };
+          guardarSesionScope(scope.region || "", scope.distrito || "");
+          try{
+            if(typeof setScopeGeografico === "function"){
+              setScopeGeografico(scope.region || "", scope.distrito || "");
+            }
+          }catch(e){}
+          try{ initProyectos(); }catch(e){}
+          updateMobileBanner();
+          if(loginOverlay) loginOverlay.classList.add("hidden");
+          try{ document.body.classList.add("dash-shell"); }catch(e){}
+          abrirDashboard();
+        })
+        .catch(()=> {
+          if(window.UrbbisApi) window.UrbbisApi.clearToken();
+        });
+    }
+  }
 }
 
 if(formLogin){
@@ -4265,52 +4274,41 @@ if(formLogin){
     const correo = inputCorreo ? inputCorreo.value.trim() : "";
     const clave = inputClave ? inputClave.value : "";
     if(!correo || !clave) return;
-
-    const low = normalizarCorreo(correo);
-    const cuentaMunicipal = buscarCuentaMunicipal(low);
-    const esVisitanteDemo = (low === normalizarCorreo(VISITANTE_ACCOUNT.email));
-
-    let rol = null;
-    let scope = { region:"", distrito:"" };
-
-    // Si el correo corresponde a una cuenta demo, validar clave
-    if(cuentaMunicipal){
-      if(clave !== cuentaMunicipal.pass){
-        alert("Contraseña incorrecta.");
-        return;
-      }
-      rol = "municipal";
-      if(cuentaMunicipal.distrito){
-        scope = obtenerScopePorCorreo(correo);
-      }
-    } else if(esVisitanteDemo){
-      if(clave !== VISITANTE_ACCOUNT.pass){
-        alert("Contraseña incorrecta.");
-        return;
-      }
-      rol = "visitante";
-    } else {
-      // Modo demo: permitir acceso, rol inferido por correo
-      rol = detectarRolPorCorreo(correo);
-      // Si cae en municipal y el correo coincide con una cuenta por distrito, aplicar scope
-      if(rol === "municipal"){
-        scope = obtenerScopePorCorreo(correo);
-      }
+    if(!window.UrbbisApi || typeof window.UrbbisApi.login !== "function"){
+      alert("Backend no disponible para autenticación.");
+      return;
     }
 
-    setRol(rol);
-    guardarSesionRol(rol);
-    guardarSesionScope(scope.region || "", scope.distrito || "");
-    try{
-      if(typeof setScopeGeografico === "function"){
-        setScopeGeografico(scope.region || "", scope.distrito || "");
-      }
-    }catch(e){}
-    try{ initProyectos(); }catch(e){}
-    if(loginOverlay) loginOverlay.classList.add("hidden");
-    updateMobileBanner();
-    try{ document.body.classList.add("dash-shell"); }catch(e){}
-    abrirDashboard();
+    window.UrbbisApi.login({ email: correo, password: clave })
+      .then((resp)=>{
+        if(!resp || !resp.token || !resp.user){
+          alert("Respuesta inválida del servidor.");
+          return;
+        }
+        window.UrbbisApi.setToken(resp.token);
+        const role = resp.user.role || "user";
+        setRol(role);
+        try{
+          if(resp.user.email) localStorage.setItem("correoActual", resp.user.email);
+        }catch(e){}
+        const scope = (role === "municipal")
+          ? { region: resp.user.region || (obtenerScopePorCorreo(resp.user.email || "").region || ""), distrito: resp.user.district || (obtenerScopePorCorreo(resp.user.email || "").distrito || "") }
+          : { region:"", distrito:"" };
+        guardarSesionScope(scope.region || "", scope.distrito || "");
+        try{
+          if(typeof setScopeGeografico === "function"){
+            setScopeGeografico(scope.region || "", scope.distrito || "");
+          }
+        }catch(e){}
+        try{ initProyectos(); }catch(e){}
+        if(loginOverlay) loginOverlay.classList.add("hidden");
+        updateMobileBanner();
+        try{ document.body.classList.add("dash-shell"); }catch(e){}
+        abrirDashboard();
+      })
+      .catch(()=>{
+        alert("Credenciales incorrectas.");
+      });
   });
 }
 
@@ -4323,6 +4321,9 @@ function ejecutarLogout(){
     localStorage.removeItem("rolActual");
     localStorage.removeItem("correoActual");
     limpiarSesionScope();
+  }catch(e){}
+  try{
+    if(window.UrbbisApi) window.UrbbisApi.clearToken();
   }catch(e){}
   cerrarModalProyecto();
   proyectosCache = [];

@@ -159,6 +159,22 @@
   }
 
   function getEmailKey(){
+    const normalizeKey = (value)=> String(value || "")
+      .trim()
+      .toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+      .replace(/[^a-z0-9]+/g,"-")
+      .replace(/^-+|-+$/g,"");
+
+    try{
+      if(typeof rolActual !== "undefined" && rolActual === "municipal"){
+        const scope = (typeof cargarSesionScope === "function") ? cargarSesionScope() : { distrito:"" };
+        if(scope && scope.distrito){
+          return normalizeKey(scope.distrito);
+        }
+      }
+    }catch(e){}
+
     let email = "";
     try{
       if(typeof getSessionEmail === "function"){
@@ -173,7 +189,7 @@
     if(typeof normalizarCorreo === "function"){
       return normalizarCorreo(email || "guest");
     }
-    return String(email || "guest").trim().toLowerCase();
+    return normalizeKey(email || "guest");
   }
 
   function storageKey(prefix){

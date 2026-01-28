@@ -32,6 +32,16 @@ function getJwtSecret() {
   return secret;
 }
 
+function normalizeKey(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 function signToken(payload) {
   return jwt.sign(payload, getJwtSecret(), { expiresIn: "12h" });
 }
@@ -49,6 +59,39 @@ function authRequired(req, res, next) {
   }
 }
 
+function requireRole(roles = []) {
+  return (req, res, next) => {
+    const role = req.user && req.user.role ? String(req.user.role) : "";
+    if (!roles.length || roles.includes(role)) {
+      return next();
+    }
+    return res.status(403).json({ error: "No autorizado" });
+  };
+}
+
+function getScopeFromUser(user) {
+  if (!user) return { role: "", district: "", region: "", scopeKey: "" };
+  const role = String(user.role || "");
+  const district = String(user.district || "");
+  const region = String(user.region || "");
+  let scopeKey = "";
+  if (role === "municipal" && district) {
+    scopeKey = normalizeKey(district);
+  } else if (user.email) {
+    scopeKey = normalizeKey(user.email);
+  }
+  return { role, district, region, scopeKey };
+}
+
+function matchesDistrict(record, district) {
+  if (!district) return true;
+  const recDist = String(record && record.district || "");
+  if (recDist && recDist.toLowerCase() === district.toLowerCase()) return true;
+  const data = record && record.data && typeof record.data === "object" ? record.data : null;
+  if (data && data.distrito && String(data.distrito).toLowerCase() === district.toLowerCase()) return true;
+  return false;
+}
+
 app.get("/health", (req, res) => {
   res.json({ ok: true, service: "urbbis-backend" });
 });
@@ -56,7 +99,7 @@ app.get("/health", (req, res) => {
 // Auth
 app.post("/auth/register", async (req, res, next) => {
   try {
-    const { email, password, name, role } = req.body || {};
+    const { email, password, name, role, district, region } = req.body || {};
     if (!email || !password) {
       return res.status(400).json({ error: "email y password son requeridos" });
     }
@@ -71,11 +114,29 @@ app.post("/auth/register", async (req, res, next) => {
         email: normalized,
         passwordHash,
         name: name ? String(name) : undefined,
-        role: role ? String(role) : "user"
+        role: role ? String(role) : "user",
+        district: district ? String(district) : undefined,
+        region: region ? String(region) : undefined
       }
     });
-    const token = signToken({ sub: user.id, email: user.email, role: user.role });
-    res.status(201).json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+    const token = signToken({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      district: user.district || "",
+      region: user.region || ""
+    });
+    res.status(201).json({
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        district: user.district || "",
+        region: user.region || ""
+      }
+    });
   } catch (err) {
     next(err);
   }
@@ -96,8 +157,24 @@ app.post("/auth/login", async (req, res, next) => {
     if (!ok) {
       return res.status(401).json({ error: "Credenciales invalidas" });
     }
-    const token = signToken({ sub: user.id, email: user.email, role: user.role });
-    res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+    const token = signToken({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      district: user.district || "",
+      region: user.region || ""
+    });
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        district: user.district || "",
+        region: user.region || ""
+      }
+    });
   } catch (err) {
     next(err);
   }
@@ -107,18 +184,35 @@ app.get("/auth/me", authRequired, async (req, res, next) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.user.sub } });
     if (!user) return res.status(404).json({ error: "Usuario no encontrado" });
-    res.json({ id: user.id, email: user.email, name: user.name, role: user.role });
+    res.json({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      district: user.district || "",
+      region: user.region || ""
+    });
   } catch (err) {
     next(err);
   }
 });
 
 // Projects
-app.get("/projects", async (req, res, next) => {
+app.get("/projects", authRequired, async (req, res, next) => {
   try {
     const { legacyId } = req.query || {};
+    const scope = getScopeFromUser(req.user || {});
     const where = {};
     if (legacyId) where.legacyId = String(legacyId);
+    if (scope.role !== "admin" && scope.district) {
+      where.OR = [
+        { district: scope.district },
+        {
+          district: null,
+          data: { path: ["distrito"], equals: scope.district }
+        }
+      ];
+    }
     const items = await prisma.project.findMany({ where, orderBy: { createdAt: "desc" } });
     res.json(items);
   } catch (err) {
@@ -126,10 +220,12 @@ app.get("/projects", async (req, res, next) => {
   }
 });
 
-app.post("/projects", async (req, res, next) => {
+app.post("/projects", authRequired, requireRole(["admin", "municipal"]), async (req, res, next) => {
   try {
     const { name, year, startDate, endDate, legacyId, district, data } = req.body || {};
     if (!name) return res.status(400).json({ error: "name is required" });
+    const scope = getScopeFromUser(req.user || {});
+    const enforcedDistrict = (scope.role === "municipal" && scope.district) ? scope.district : (district ? String(district) : undefined);
     if (legacyId) {
       const created = await prisma.project.upsert({
         where: { legacyId: String(legacyId) },
@@ -138,7 +234,7 @@ app.post("/projects", async (req, res, next) => {
           year: toNumber(year) ?? undefined,
           startDate: toDate(startDate) ?? undefined,
           endDate: toDate(endDate) ?? undefined,
-          district: district ? String(district) : undefined,
+          district: enforcedDistrict,
           data: data ?? undefined
         },
         create: {
@@ -147,7 +243,7 @@ app.post("/projects", async (req, res, next) => {
           year: toNumber(year) ?? undefined,
           startDate: toDate(startDate) ?? undefined,
           endDate: toDate(endDate) ?? undefined,
-          district: district ? String(district) : undefined,
+          district: enforcedDistrict,
           data: data ?? undefined
         }
       });
@@ -159,7 +255,7 @@ app.post("/projects", async (req, res, next) => {
         year: toNumber(year) ?? undefined,
         startDate: toDate(startDate) ?? undefined,
         endDate: toDate(endDate) ?? undefined,
-        district: district ? String(district) : undefined,
+        district: enforcedDistrict,
         data: data ?? undefined
       }
     });
@@ -169,10 +265,18 @@ app.post("/projects", async (req, res, next) => {
   }
 });
 
-app.put("/projects/:id", async (req, res, next) => {
+app.put("/projects/:id", authRequired, requireRole(["admin", "municipal"]), async (req, res, next) => {
   try {
     const { id } = req.params;
     const { name, year, startDate, endDate, legacyId, district, data } = req.body || {};
+    const scope = getScopeFromUser(req.user || {});
+    if (scope.role !== "admin" && scope.district) {
+      const current = await prisma.project.findUnique({ where: { id } });
+      if (!current) return res.status(404).json({ error: "Project not found" });
+      if (!matchesDistrict(current, scope.district)) {
+        return res.status(403).json({ error: "No autorizado" });
+      }
+    }
     const updated = await prisma.project.update({
       where: { id },
       data: {
@@ -181,7 +285,7 @@ app.put("/projects/:id", async (req, res, next) => {
         startDate: toDate(startDate) ?? undefined,
         endDate: toDate(endDate) ?? undefined,
         legacyId: legacyId ? String(legacyId) : undefined,
-        district: district ? String(district) : undefined,
+        district: (scope.role === "municipal" && scope.district) ? scope.district : (district ? String(district) : undefined),
         data: data ?? undefined
       }
     });
@@ -194,9 +298,17 @@ app.put("/projects/:id", async (req, res, next) => {
   }
 });
 
-app.delete("/projects/:id", async (req, res, next) => {
+app.delete("/projects/:id", authRequired, requireRole(["admin", "municipal"]), async (req, res, next) => {
   try {
     const { id } = req.params;
+    const scope = getScopeFromUser(req.user || {});
+    if (scope.role !== "admin" && scope.district) {
+      const current = await prisma.project.findUnique({ where: { id } });
+      if (!current) return res.status(404).json({ error: "Project not found" });
+      if (!matchesDistrict(current, scope.district)) {
+        return res.status(403).json({ error: "No autorizado" });
+      }
+    }
     await prisma.project.delete({ where: { id } });
     res.status(204).send();
   } catch (err) {
@@ -208,12 +320,16 @@ app.delete("/projects/:id", async (req, res, next) => {
 });
 
 // Assets (señales / marcas / mobiliario)
-app.get("/assets", async (req, res, next) => {
+app.get("/assets", authRequired, async (req, res, next) => {
   try {
     const { projectId, type } = req.query || {};
+    const scope = getScopeFromUser(req.user || {});
     const where = {};
     if (projectId) where.projectId = String(projectId);
     if (type) where.type = String(type);
+    if (scope.role !== "admin" && scope.district) {
+      where.district = scope.district;
+    }
     const items = await prisma.asset.findMany({ where, orderBy: { createdAt: "desc" } });
     res.json(items);
   } catch (err) {
@@ -221,7 +337,7 @@ app.get("/assets", async (req, res, next) => {
   }
 });
 
-app.post("/assets", async (req, res, next) => {
+app.post("/assets", authRequired, requireRole(["admin", "municipal"]), async (req, res, next) => {
   try {
     const body = req.body || {};
     if (!body.type) return res.status(400).json({ error: "type is required" });
@@ -230,6 +346,7 @@ app.post("/assets", async (req, res, next) => {
     if (lat === null || lng === null) {
       return res.status(400).json({ error: "lat and lng are required" });
     }
+    const scope = getScopeFromUser(req.user || {});
     const data = {
       legacyId: toNumber(body.legacyId) ?? undefined,
       projectId: body.projectId ? String(body.projectId) : undefined,
@@ -241,7 +358,7 @@ app.post("/assets", async (req, res, next) => {
       statePhysical: body.statePhysical ? String(body.statePhysical) : undefined,
       lat,
       lng,
-      district: body.district ? String(body.district) : undefined,
+      district: (scope.role === "municipal" && scope.district) ? scope.district : (body.district ? String(body.district) : undefined),
       region: body.region ? String(body.region) : undefined,
       price: toNumber(body.price) ?? undefined,
       installedAt: toDate(body.installedAt) ?? undefined,
@@ -267,12 +384,20 @@ app.post("/assets", async (req, res, next) => {
   }
 });
 
-app.put("/assets/:id", async (req, res, next) => {
+app.put("/assets/:id", authRequired, requireRole(["admin", "municipal"]), async (req, res, next) => {
   try {
     const { id } = req.params;
     const body = req.body || {};
     const lat = toNumber(body.lat);
     const lng = toNumber(body.lng);
+    const scope = getScopeFromUser(req.user || {});
+    if (scope.role !== "admin" && scope.district) {
+      const current = await prisma.asset.findUnique({ where: { id } });
+      if (!current) return res.status(404).json({ error: "Asset not found" });
+      if (String(current.district || "").toLowerCase() !== scope.district.toLowerCase()) {
+        return res.status(403).json({ error: "No autorizado" });
+      }
+    }
     const updated = await prisma.asset.update({
       where: { id },
       data: {
@@ -286,7 +411,7 @@ app.put("/assets/:id", async (req, res, next) => {
         statePhysical: body.statePhysical ? String(body.statePhysical) : undefined,
         lat: lat ?? undefined,
         lng: lng ?? undefined,
-        district: body.district ? String(body.district) : undefined,
+        district: (scope.role === "municipal" && scope.district) ? scope.district : (body.district ? String(body.district) : undefined),
         region: body.region ? String(body.region) : undefined,
         price: toNumber(body.price) ?? undefined,
         installedAt: toDate(body.installedAt) ?? undefined,
@@ -305,9 +430,17 @@ app.put("/assets/:id", async (req, res, next) => {
   }
 });
 
-app.delete("/assets/:id", async (req, res, next) => {
+app.delete("/assets/:id", authRequired, requireRole(["admin", "municipal"]), async (req, res, next) => {
   try {
     const { id } = req.params;
+    const scope = getScopeFromUser(req.user || {});
+    if (scope.role !== "admin" && scope.district) {
+      const current = await prisma.asset.findUnique({ where: { id } });
+      if (!current) return res.status(404).json({ error: "Asset not found" });
+      if (String(current.district || "").toLowerCase() !== scope.district.toLowerCase()) {
+        return res.status(403).json({ error: "No autorizado" });
+      }
+    }
     await prisma.asset.delete({ where: { id } });
     res.status(204).send();
   } catch (err) {
@@ -319,13 +452,17 @@ app.delete("/assets/:id", async (req, res, next) => {
 });
 
 // Reports (avisos ciudadanos)
-app.get("/reports", async (req, res, next) => {
+app.get("/reports", authRequired, async (req, res, next) => {
   try {
     const { projectId, type, status } = req.query || {};
+    const scope = getScopeFromUser(req.user || {});
     const where = {};
     if (projectId) where.projectId = String(projectId);
     if (type) where.type = String(type);
     if (status) where.status = String(status);
+    if (scope.role !== "admin" && scope.district) {
+      where.district = scope.district;
+    }
     const items = await prisma.report.findMany({ where, orderBy: { createdAt: "desc" } });
     res.json(items);
   } catch (err) {
@@ -333,7 +470,7 @@ app.get("/reports", async (req, res, next) => {
   }
 });
 
-app.post("/reports", async (req, res, next) => {
+app.post("/reports", authRequired, requireRole(["admin", "municipal", "visitante", "user"]), async (req, res, next) => {
   try {
     const body = req.body || {};
     if (!body.type) return res.status(400).json({ error: "type is required" });
@@ -342,19 +479,20 @@ app.post("/reports", async (req, res, next) => {
     if (lat === null || lng === null) {
       return res.status(400).json({ error: "lat and lng are required" });
     }
+    const scope = getScopeFromUser(req.user || {});
     const data = {
       legacyId: toNumber(body.legacyId) ?? undefined,
       projectId: body.projectId ? String(body.projectId) : undefined,
-      userId: body.userId ? String(body.userId) : undefined,
+      userId: req.user && req.user.sub ? String(req.user.sub) : (body.userId ? String(body.userId) : undefined),
       type: String(body.type),
       description: body.description ? String(body.description) : undefined,
       status: body.status ? String(body.status) : undefined,
       lat,
       lng,
-      district: body.district ? String(body.district) : undefined,
+      district: (scope.role === "municipal" && scope.district) ? scope.district : (body.district ? String(body.district) : undefined),
       region: body.region ? String(body.region) : undefined,
       userName: body.userName ? String(body.userName) : undefined,
-      userEmail: body.userEmail ? String(body.userEmail) : undefined,
+      userEmail: body.userEmail ? String(body.userEmail) : (req.user && req.user.email ? String(req.user.email) : undefined),
       userDni: body.userDni ? String(body.userDni) : undefined,
       photoUrl: body.photoUrl ? String(body.photoUrl) : undefined
     };
@@ -396,11 +534,16 @@ function normalizePlanPayload(body) {
   };
 }
 
-app.get("/plans", async (req, res, next) => {
+app.get("/plans", authRequired, async (req, res, next) => {
   try {
     const { ownerKey } = req.query || {};
+    const scope = getScopeFromUser(req.user || {});
     const where = {};
-    if (ownerKey) where.ownerKey = String(ownerKey);
+    if (scope.role === "admin") {
+      if (ownerKey) where.ownerKey = String(ownerKey);
+    } else if (scope.scopeKey) {
+      where.ownerKey = scope.scopeKey;
+    }
     const items = await prisma.plan.findMany({
       where,
       include: { projects: true },
@@ -412,14 +555,18 @@ app.get("/plans", async (req, res, next) => {
   }
 });
 
-app.post("/plans", async (req, res, next) => {
+app.post("/plans", authRequired, requireRole(["admin", "municipal"]), async (req, res, next) => {
   try {
     const payload = normalizePlanPayload(req.body || {});
-    if (!payload.ownerKey) return res.status(400).json({ error: "ownerKey is required" });
+    const scope = getScopeFromUser(req.user || {});
+    const enforcedOwnerKey = scope.role === "admin"
+      ? (payload.ownerKey || scope.scopeKey)
+      : scope.scopeKey;
+    if (!enforcedOwnerKey) return res.status(400).json({ error: "ownerKey is required" });
     if (!payload.name) return res.status(400).json({ error: "name is required" });
     const created = await prisma.plan.create({
       data: {
-        ownerKey: payload.ownerKey,
+        ownerKey: enforcedOwnerKey,
         name: payload.name,
         year: payload.year,
         deadline: payload.deadline,
@@ -438,14 +585,20 @@ app.post("/plans", async (req, res, next) => {
   }
 });
 
-app.put("/plans/:id", async (req, res, next) => {
+app.put("/plans/:id", authRequired, requireRole(["admin", "municipal"]), async (req, res, next) => {
   try {
     const { id } = req.params;
     const payload = normalizePlanPayload(req.body || {});
+    const scope = getScopeFromUser(req.user || {});
+    const current = await prisma.plan.findUnique({ where: { id } });
+    if (!current) return res.status(404).json({ error: "Plan not found" });
+    if (scope.role !== "admin" && current.ownerKey !== scope.scopeKey) {
+      return res.status(403).json({ error: "No autorizado" });
+    }
     const updated = await prisma.plan.update({
       where: { id },
       data: {
-        ownerKey: payload.ownerKey || undefined,
+        ownerKey: scope.role === "admin" ? (payload.ownerKey || current.ownerKey) : current.ownerKey,
         name: payload.name || undefined,
         year: payload.year || undefined,
         deadline: payload.deadline,
@@ -468,9 +621,15 @@ app.put("/plans/:id", async (req, res, next) => {
   }
 });
 
-app.delete("/plans/:id", async (req, res, next) => {
+app.delete("/plans/:id", authRequired, requireRole(["admin", "municipal"]), async (req, res, next) => {
   try {
     const { id } = req.params;
+    const scope = getScopeFromUser(req.user || {});
+    const current = await prisma.plan.findUnique({ where: { id } });
+    if (!current) return res.status(404).json({ error: "Plan not found" });
+    if (scope.role !== "admin" && current.ownerKey !== scope.scopeKey) {
+      return res.status(403).json({ error: "No autorizado" });
+    }
     await prisma.plan.delete({ where: { id } });
     res.status(204).send();
   } catch (err) {
@@ -482,11 +641,16 @@ app.delete("/plans/:id", async (req, res, next) => {
 });
 
 // Budgets
-app.get("/budgets", async (req, res, next) => {
+app.get("/budgets", authRequired, async (req, res, next) => {
   try {
     const { ownerKey } = req.query || {};
+    const scope = getScopeFromUser(req.user || {});
     const where = {};
-    if (ownerKey) where.ownerKey = String(ownerKey);
+    if (scope.role === "admin") {
+      if (ownerKey) where.ownerKey = String(ownerKey);
+    } else if (scope.scopeKey) {
+      where.ownerKey = scope.scopeKey;
+    }
     const items = await prisma.annualBudget.findMany({
       where,
       orderBy: { year: "desc" }
@@ -497,14 +661,18 @@ app.get("/budgets", async (req, res, next) => {
   }
 });
 
-app.post("/budgets", async (req, res, next) => {
+app.post("/budgets", authRequired, requireRole(["admin", "municipal"]), async (req, res, next) => {
   try {
     const { ownerKey, year, total } = req.body || {};
-    if (!ownerKey) return res.status(400).json({ error: "ownerKey is required" });
+    const scope = getScopeFromUser(req.user || {});
+    const enforcedOwnerKey = scope.role === "admin"
+      ? (ownerKey ? String(ownerKey) : scope.scopeKey)
+      : scope.scopeKey;
+    if (!enforcedOwnerKey) return res.status(400).json({ error: "ownerKey is required" });
     const parsedYear = Number(year || 0);
     if (!parsedYear) return res.status(400).json({ error: "year is required" });
     const data = {
-      ownerKey: String(ownerKey),
+      ownerKey: enforcedOwnerKey,
       year: parsedYear,
       total: toNumber(total) ?? 0
     };
@@ -519,12 +687,20 @@ app.post("/budgets", async (req, res, next) => {
   }
 });
 
-app.put("/reports/:id", async (req, res, next) => {
+app.put("/reports/:id", authRequired, requireRole(["admin", "municipal"]), async (req, res, next) => {
   try {
     const { id } = req.params;
     const body = req.body || {};
     const lat = toNumber(body.lat);
     const lng = toNumber(body.lng);
+    const scope = getScopeFromUser(req.user || {});
+    if (scope.role !== "admin" && scope.district) {
+      const current = await prisma.report.findUnique({ where: { id } });
+      if (!current) return res.status(404).json({ error: "Report not found" });
+      if (String(current.district || "").toLowerCase() !== scope.district.toLowerCase()) {
+        return res.status(403).json({ error: "No autorizado" });
+      }
+    }
     const updated = await prisma.report.update({
       where: { id },
       data: {
@@ -536,7 +712,7 @@ app.put("/reports/:id", async (req, res, next) => {
         status: body.status ? String(body.status) : undefined,
         lat: lat ?? undefined,
         lng: lng ?? undefined,
-        district: body.district ? String(body.district) : undefined,
+        district: (scope.role === "municipal" && scope.district) ? scope.district : (body.district ? String(body.district) : undefined),
         region: body.region ? String(body.region) : undefined,
         userName: body.userName ? String(body.userName) : undefined,
         userEmail: body.userEmail ? String(body.userEmail) : undefined,
@@ -553,9 +729,17 @@ app.put("/reports/:id", async (req, res, next) => {
   }
 });
 
-app.delete("/reports/:id", async (req, res, next) => {
+app.delete("/reports/:id", authRequired, requireRole(["admin", "municipal"]), async (req, res, next) => {
   try {
     const { id } = req.params;
+    const scope = getScopeFromUser(req.user || {});
+    if (scope.role !== "admin" && scope.district) {
+      const current = await prisma.report.findUnique({ where: { id } });
+      if (!current) return res.status(404).json({ error: "Report not found" });
+      if (String(current.district || "").toLowerCase() !== scope.district.toLowerCase()) {
+        return res.status(403).json({ error: "No autorizado" });
+      }
+    }
     await prisma.report.delete({ where: { id } });
     res.status(204).send();
   } catch (err) {

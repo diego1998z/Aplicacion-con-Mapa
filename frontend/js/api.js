@@ -19,11 +19,39 @@
     } catch (e) {}
   }
 
+  function getToken() {
+    try {
+      return localStorage.getItem("urbbisAuthToken") || "";
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function setToken(token) {
+    try {
+      if (!token) {
+        localStorage.removeItem("urbbisAuthToken");
+        return;
+      }
+      localStorage.setItem("urbbisAuthToken", String(token));
+    } catch (e) {}
+  }
+
+  function clearToken() {
+    setToken("");
+  }
+
   async function request(path, options = {}) {
     const base = getBaseUrl();
     const url = base.replace(/\/$/, "") + path;
-    const res = await fetch(url, options);
+    const headers = Object.assign({}, options.headers || {});
+    const token = getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(url, Object.assign({}, options, { headers }));
     if (!res.ok) {
+      if (res.status === 401) {
+        clearToken();
+      }
       const text = await res.text().catch(() => "");
       throw new Error(text || `HTTP ${res.status}`);
     }
@@ -41,6 +69,12 @@
   const api = {
     getBaseUrl,
     setBaseUrl,
+    getToken,
+    setToken,
+    clearToken,
+    login: (data) => request("/auth/login", { method: "POST", ...jsonBody(data) }),
+    register: (data) => request("/auth/register", { method: "POST", ...jsonBody(data) }),
+    me: () => request("/auth/me"),
     getProjects: () => request("/projects"),
     createProject: (data) => request("/projects", { method: "POST", ...jsonBody(data) }),
     updateProject: (id, data) => request(`/projects/${id}`, { method: "PUT", ...jsonBody(data) }),
