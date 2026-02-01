@@ -103,6 +103,14 @@
     createPlan: (data) => request("/plans", { method: "POST", ...jsonBody(data) }),
     updatePlan: (id, data) => request(`/plans/${id}`, { method: "PUT", ...jsonBody(data) }),
     deletePlan: (id) => request(`/plans/${id}`, { method: "DELETE" }),
+    getInterventions: (params = {}) => {
+      const qs = new URLSearchParams(params);
+      const suffix = qs.toString() ? `?${qs.toString()}` : "";
+      return request(`/interventions${suffix}`);
+    },
+    createIntervention: (data) => request("/interventions", { method: "POST", ...jsonBody(data) }),
+    updateIntervention: (id, data) => request(`/interventions/${id}`, { method: "PUT", ...jsonBody(data) }),
+    deleteIntervention: (id) => request(`/interventions/${id}`, { method: "DELETE" }),
     getBudgets: (params = {}) => {
       const qs = new URLSearchParams(params);
       const suffix = qs.toString() ? `?${qs.toString()}` : "";

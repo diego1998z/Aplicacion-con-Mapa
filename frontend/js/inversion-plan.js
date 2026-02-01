@@ -1,5 +1,7 @@
 (function(){
   const btnPlanNuevo = document.getElementById("btnPlanNuevo");
+  const btnPlanEditar = document.getElementById("btnPlanEditar");
+  const btnIntervencionNueva = document.getElementById("btnIntervencionNueva");
   const invAnualSelect = document.getElementById("invAnualSelect");
   const invAnualTotal = document.getElementById("invAnualTotal");
   const invAnualSub = document.getElementById("invAnualSub");
@@ -8,10 +10,18 @@
   const invAnualLegend = document.getElementById("invAnualLegend");
   const invAnualEjecutado = document.getElementById("invAnualEjecutado");
   const invAnualEjecutadoPct = document.getElementById("invAnualEjecutadoPct");
-  const invPlanTablaBody = document.getElementById("invPlanTablaBody");
-  const invTotalPlanificacion = document.getElementById("invTotalPlanificacion");
-  const invTotalEjecutado = document.getElementById("invTotalEjecutado");
-  const invTotalEjecucion = document.getElementById("invTotalEjecucion");
+  const invPlanSelect = document.getElementById("invPlanSelect");
+  const invPlanTitle = document.getElementById("invPlanTitle");
+  const invPlanSub = document.getElementById("invPlanSub");
+  const invPlanTotal = document.getElementById("invPlanTotal");
+  const invPlanAssigned = document.getElementById("invPlanAssigned");
+  const invPlanRemaining = document.getElementById("invPlanRemaining");
+  const invPhasePlanificacionLabel = document.getElementById("invPhasePlanificacionLabel");
+  const invPhaseEjecucionLabel = document.getElementById("invPhaseEjecucionLabel");
+  const invPhaseEjecutadoLabel = document.getElementById("invPhaseEjecutadoLabel");
+  const invIntervencionesBody = document.getElementById("invIntervencionesBody");
+  const invIntervencionBuscar = document.getElementById("invIntervencionBuscar");
+  const invIntervencionFase = document.getElementById("invIntervencionFase");
 
   const modalPresupuesto = document.getElementById("modalPresupuestoAnual");
   const presupuestoAnio = document.getElementById("presupuestoAnio");
@@ -25,34 +35,46 @@
   const planModalTitle = document.getElementById("planModalTitle");
   const planNombre = document.getElementById("planNombre");
   const planAnio = document.getElementById("planAnio");
-  const planPlazo = document.getElementById("planPlazo");
-  const planEstado = document.getElementById("planEstado");
   const planMonto = document.getElementById("planMonto");
-  const planEjecutado = document.getElementById("planEjecutado");
-  const planMontoLabel = document.getElementById("planMontoLabel");
-  const planEjecutadoLabel = document.getElementById("planEjecutadoLabel");
-  const planAvancePct = document.getElementById("planAvancePct");
+  const planProjectName = document.getElementById("planProjectName");
+  const btnPlanAddProject = document.getElementById("btnPlanAddProject");
   const planProjectsList = document.getElementById("planProjectsList");
   const planProjectsCount = document.getElementById("planProjectsCount");
   const btnPlanClose = document.getElementById("btnPlanClose");
   const btnPlanCancelar = document.getElementById("btnPlanCancelar");
   const btnPlanGuardar = document.getElementById("btnPlanGuardar");
 
-  if(!invPlanTablaBody || !invAnualTrack){
+  const modalIntervencion = document.getElementById("modalIntervencion");
+  const intervencionModalTitle = document.getElementById("intervencionModalTitle");
+  const intervencionPlan = document.getElementById("intervencionPlan");
+  const intervencionMonto = document.getElementById("intervencionMonto");
+  const intervencionFechaInicio = document.getElementById("intervencionFechaInicio");
+  const intervencionFechaFin = document.getElementById("intervencionFechaFin");
+  const intervencionProyecto = document.getElementById("intervencionProyecto");
+  const intervencionAccion = document.getElementById("intervencionAccion");
+  const intervencionFase = document.getElementById("intervencionFase");
+  const btnIntervencionClose = document.getElementById("btnIntervencionClose");
+  const btnIntervencionCancelar = document.getElementById("btnIntervencionCancelar");
+  const btnIntervencionGuardar = document.getElementById("btnIntervencionGuardar");
+
+  if(!invAnualTrack || !invIntervencionesBody){
     return;
   }
 
   const PLAN_COLORS = ["plan-color-1","plan-color-2","plan-color-3","plan-color-4"];
   const PLAN_ESTADOS = {
     planificacion: "En planificacion",
-    ejecucion: "Ejecucion",
+    ejecucion: "En ejecucion",
     ejecutado: "Ejecutado"
   };
 
   let planesCache = [];
   let presupuestoCache = null;
   let planEditId = "";
-  let collapsedPlans = new Set();
+  let planSeleccionadoId = "";
+  let intervencionesCache = [];
+  let intervencionEditId = "";
+  let planDraftProjects = [];
 
   function toPositiveNumber(value){
     const n = Number(value);
@@ -196,26 +218,124 @@
     return prefix + getEmailKey();
   }
 
+  function safeStorageGet(key){
+    try{
+      return localStorage.getItem(key);
+    }catch(e){
+      return null;
+    }
+  }
+
+  function safeStorageSet(key, value){
+    try{
+      localStorage.setItem(key, value);
+    }catch(e){}
+  }
+
+  function cargarIntervenciones(){
+    const raw = safeStorageGet(storageKey("intervenciones-"));
+    if(!raw){
+      intervencionesCache = Array.isArray(intervencionesCache) ? intervencionesCache : [];
+      return;
+    }
+    try{
+      const parsed = JSON.parse(raw);
+      intervencionesCache = Array.isArray(parsed) ? parsed : [];
+    }catch(e){
+      intervencionesCache = [];
+    }
+  }
+
+  function guardarIntervenciones(){
+    safeStorageSet(storageKey("intervenciones-"), JSON.stringify(intervencionesCache || []));
+  }
+
+  function interventionFromApiPayload(item){
+    return {
+      id: item.id,
+      dbId: item.id,
+      planId: item.planId,
+      nombre: item.name || item.actionName || "Intervension",
+      accionId: item.actionId || "",
+      accionNombre: item.actionName || item.name || "",
+      proyectoId: item.projectId || "",
+      proyectoNombre: item.projectName || "",
+      monto: Number(item.amount || 0),
+      fase: item.phase || "planificacion",
+      fechaInicio: item.startDate ? String(item.startDate).slice(0,10) : "",
+      fechaFin: item.endDate ? String(item.endDate).slice(0,10) : ""
+    };
+  }
+
+  function interventionToApiPayload(item){
+    return {
+      planId: item.planId,
+      name: item.nombre || item.accionNombre || "Intervension",
+      actionId: item.accionId || undefined,
+      actionName: item.accionNombre || undefined,
+      projectId: item.proyectoId || undefined,
+      projectName: item.proyectoNombre || undefined,
+      amount: Number(item.monto || 0),
+      phase: item.fase || "planificacion",
+      startDate: item.fechaInicio || "",
+      endDate: item.fechaFin || ""
+    };
+  }
+
+  async function cargarIntervencionesApi(){
+    if(!window.UrbbisApi || typeof window.UrbbisApi.getInterventions !== "function") return false;
+    try{
+      const remote = await window.UrbbisApi.getInterventions({ ownerKey: getEmailKey() });
+      if(Array.isArray(remote)){
+        intervencionesCache = remote.map(interventionFromApiPayload);
+        guardarIntervenciones();
+        return true;
+      }
+    }catch(e){
+      console.warn("No se pudo cargar intervenciones desde backend.", e);
+    }
+    return false;
+  }
+
+  function syncInterventionToBackend(item){
+    if(!window.UrbbisApi) return;
+    const payload = interventionToApiPayload(item);
+    if(item.dbId){
+      if(typeof window.UrbbisApi.updateIntervention === "function"){
+        window.UrbbisApi.updateIntervention(item.dbId, payload)
+          .catch((err)=> console.warn("No se pudo actualizar intervencion en backend.", err));
+      }
+      return;
+    }
+    if(typeof window.UrbbisApi.createIntervention === "function"){
+      window.UrbbisApi.createIntervention(payload)
+        .then((remote)=>{
+          if(remote && remote.id){
+            item.dbId = remote.id;
+            item.id = remote.id;
+          }
+        })
+        .catch((err)=> console.warn("No se pudo crear intervencion en backend.", err));
+    }
+  }
+
+  function deleteInterventionFromBackend(item){
+    if(!window.UrbbisApi || !item || !item.dbId || typeof window.UrbbisApi.deleteIntervention !== "function") return;
+    window.UrbbisApi.deleteIntervention(item.dbId)
+      .catch((err)=> console.warn("No se pudo eliminar intervencion en backend.", err));
+  }
+
   function normalizePlan(plan){
     const out = Object.assign({}, plan || {});
     out.id = out.id || ("plan-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,6));
     out.nombre = out.nombre || "Plan";
     out.anio = Number(out.anio || 0) || new Date().getFullYear();
-    out.plazo = out.plazo || "";
-    out.estado = out.estado || "planificacion";
     out.monto = Number(out.monto || 0);
-    out.ejecutado = Number(out.ejecutado || 0);
     if(!Array.isArray(out.proyectos)) out.proyectos = [];
-    const hasDetalles = proyectosHasDetalles(out.proyectos, out.estado);
-    out._proyectosConDetalles = hasDetalles;
-    const fallbackEstado = out.estado || "planificacion";
-    out.proyectos = out.proyectos.map((p)=> normalizeProyecto(p, fallbackEstado));
-    if(hasDetalles){
-      const derived = calcPlanFromProyectos(out.proyectos);
-      out.monto = derived.monto;
-      out.ejecutado = derived.ejecutado;
-      out.estado = derived.estado;
-    }
+    out.proyectos = out.proyectos.map((p)=>({
+      id: String((p && p.id) || ""),
+      nombre: String((p && p.nombre) || "Proyecto")
+    })).filter(p => p.id || p.nombre);
     return out;
   }
 
@@ -247,20 +367,24 @@
   }
 
   function planToApiPayload(plan){
+    const totals = calcPlanPhaseTotals(plan ? plan.id : "");
+    const status = totals.ejecutado >= totals.montoPlan && totals.montoPlan > 0
+      ? "ejecutado"
+      : ((totals.ejecucion + totals.ejecutado) > 0 ? "ejecucion" : "planificacion");
     return {
       ownerKey: getEmailKey(),
       name: plan.nombre || "Plan",
       year: Number(plan.anio || new Date().getFullYear()),
-      deadline: plan.plazo || "",
-      status: plan.estado || "planificacion",
+      deadline: "",
+      status,
       amount: Number(plan.monto || 0),
-      executed: Number(plan.ejecutado || 0),
+      executed: Number(totals.ejecucion + totals.ejecutado || 0),
       projects: (plan.proyectos || []).map((p)=>({
         projectLegacyId: p.id || "",
         name: p.nombre || "Proyecto",
-        status: p.estado || "planificacion",
-        assignedAmount: Number(p.montoAsignado ?? p.monto ?? 0),
-        executedAmount: Number(p.ejecutado ?? 0)
+        status: "planificacion",
+        assignedAmount: 0,
+        executedAmount: 0
       }))
     };
   }
@@ -271,16 +395,10 @@
       dbId: plan.id,
       nombre: plan.name || "Plan",
       anio: plan.year || new Date().getFullYear(),
-      plazo: plan.deadline || "",
-      estado: plan.status || "planificacion",
       monto: Number(plan.amount || 0),
-      ejecutado: Number(plan.executed || 0),
       proyectos: Array.isArray(plan.projects) ? plan.projects.map((p)=>({
         id: p.projectLegacyId || "",
-        nombre: p.name || "Proyecto",
-        estado: p.status || "planificacion",
-        montoAsignado: Number(p.assignedAmount || 0),
-        ejecutado: Number(p.executedAmount || 0)
+        nombre: p.name || "Proyecto"
       })) : []
     });
   }
@@ -380,6 +498,22 @@
     return list;
   }
 
+  function obtenerProyectosInventario(){
+    return obtenerProyectosMunicipales().filter((p)=>{
+      const tipo = String(p && p.registroTipo || "inventario");
+      return tipo !== "acciones" && tipo !== "eventos";
+    });
+  }
+
+  function obtenerAccionesDisponibles(){
+    const base = obtenerProyectosMunicipales();
+    let list = base.filter((p)=> String(p && p.registroTipo || "") === "acciones");
+    if(!list.length){
+      list = base.filter((p)=> !p.registroTipo || String(p.registroTipo || "") === "acciones");
+    }
+    return list;
+  }
+
   function obtenerProyectosPlan(plan){
     if(!Array.isArray(plan && plan.proyectos)) return [];
     return plan.proyectos;
@@ -422,145 +556,62 @@
   }
 
   function gatherProyectosSeleccionados(){
-    const proyectos = [];
-    if(!planProjectsList) return proyectos;
-    const items = planProjectsList.querySelectorAll(".plan-project-item");
-    items.forEach((item)=>{
-      const checkbox = item.querySelector("input[type=\"checkbox\"]");
-      if(!checkbox || !checkbox.checked) return;
-      const id = String(checkbox.value || "");
-      const nombre = String(checkbox.dataset.name || "Proyecto");
-      const estadoEl = item.querySelector("select[data-field=\"estado\"]");
-      const montoEl = item.querySelector("input[data-field=\"monto\"]");
-      const ejecEl = item.querySelector("input[data-field=\"ejecutado\"]");
-      const estado = estadoEl ? estadoEl.value : "planificacion";
-      const montoAsignado = toPositiveNumber(montoEl ? montoEl.value : 0);
-      const ejecutadoRaw = toPositiveNumber(ejecEl ? ejecEl.value : 0);
-      let ejecutado = ejecutadoRaw;
-      if(estado === "planificacion"){
-        ejecutado = 0;
-      } else if(estado === "ejecutado"){
-        ejecutado = montoAsignado;
-      } else if(montoAsignado > 0){
-        ejecutado = Math.min(ejecutadoRaw, montoAsignado);
-      }
-      proyectos.push({ id, nombre, estado, montoAsignado, ejecutado });
-    });
-    return proyectos;
+    return planDraftProjects.slice();
   }
 
   function updatePlanTotalsFromProjects(){
-    const proyectos = gatherProyectosSeleccionados();
-    const derived = calcPlanFromProyectos(proyectos);
-    const monto = toPositiveNumber(derived.monto);
-    const ejecutado = toPositiveNumber(derived.ejecutado);
-    const ejecutadoDisplay = monto > 0 ? Math.min(ejecutado, monto) : ejecutado;
-    const pct = monto > 0 ? Math.round((ejecutadoDisplay / monto) * 100) : 0;
-    const pctSafe = Math.max(0, Math.min(100, pct));
-    if(planMonto){
-      planMonto.value = String(monto);
-    }
-    if(planEjecutado){
-      planEjecutado.value = String(ejecutadoDisplay);
-    }
-    if(planMontoLabel){
-      planMontoLabel.textContent = formatMoney(monto);
-    }
-    if(planEjecutadoLabel){
-      planEjecutadoLabel.textContent = formatMoney(ejecutadoDisplay);
-    }
-    if(planAvancePct){
-      planAvancePct.textContent = String(pctSafe);
-    }
-    if(planEstado){
-      planEstado.value = derived.estado || "planificacion";
-    }
+    updateProjectsCount();
   }
 
-  function toggleProjectDetails(checkbox){
-    if(!checkbox || !checkbox.closest) return;
-    const item = checkbox.closest(".plan-project-item");
-    if(!item) return;
-    const details = item.querySelector(".plan-project-details");
-    if(!details) return;
-    if(checkbox.checked){
-      details.classList.remove("is-hidden");
-    } else {
-      details.classList.add("is-hidden");
-    }
-  }
-
-  function renderProyectosList(selected){
+  function renderProyectosList(){
     if(!planProjectsList) return;
-    const list = obtenerProyectosMunicipales();
-    const fallbackEstado = planEstado ? planEstado.value : "planificacion";
-    const selectedMap = new Map((selected || []).map((s)=>{
-      const id = String(s && s.id || s || "");
-      return [id, normalizeProyecto(s, fallbackEstado)];
-    }));
-    if(!list.length){
-      planProjectsList.innerHTML = "<div class=\"plan-project-item\">Sin proyectos disponibles.</div>";
+    if(!planDraftProjects.length){
+      planProjectsList.innerHTML = "<div class=\"plan-project-item\">Sin proyectos asociados.</div>";
       updateProjectsCount();
-      updatePlanTotalsFromProjects();
       return;
     }
-    planProjectsList.innerHTML = list.map((p)=>{
-      const id = String(p.id || "");
-      const name = String(p.nombre || "Proyecto");
-      const selectedProj = selectedMap.get(id);
-      const checked = selectedProj ? "checked" : "";
-      const estadoVal = selectedProj ? selectedProj.estado : "planificacion";
-      const montoVal = selectedProj && selectedProj.montoAsignado > 0 ? String(selectedProj.montoAsignado) : "";
-      const ejecVal = (selectedProj && selectedProj.estado !== "planificacion" && selectedProj.ejecutado > 0)
-        ? String(selectedProj.ejecutado)
-        : "";
-      const detailsHidden = selectedProj ? "" : " is-hidden";
-      const estadoOptions = Object.keys(PLAN_ESTADOS).map((key)=>{
-        const sel = key === estadoVal ? " selected" : "";
-        return "<option value=\"" + escapeHtml(key) + "\"" + sel + ">" + escapeHtml(PLAN_ESTADOS[key]) + "</option>";
-      }).join("");
-      return "<label class=\"plan-project-item\" data-project-id=\"" + escapeHtml(id) + "\">"
-        + "<input type=\"checkbox\" value=\"" + escapeHtml(id) + "\" data-name=\"" + escapeHtml(name) + "\" " + checked + "> "
-        + "<span class=\"plan-project-name\">" + escapeHtml(name) + "</span>"
-        + "<div class=\"plan-project-details" + detailsHidden + "\">"
-        +   "<select data-field=\"estado\" aria-label=\"Estado de " + escapeHtml(name) + "\">" + estadoOptions + "</select>"
-        +   "<input data-field=\"monto\" type=\"number\" min=\"0\" step=\"1\" placeholder=\"Monto\" value=\"" + escapeHtml(montoVal) + "\" aria-label=\"Monto asignado a " + escapeHtml(name) + "\">"
-        +   "<input data-field=\"ejecutado\" type=\"number\" min=\"0\" step=\"1\" placeholder=\"Ejecutado\" value=\"" + escapeHtml(ejecVal) + "\" aria-label=\"Avance ejecutado de " + escapeHtml(name) + "\">"
-        + "</div>"
-        + "</label>";
-    }).join("");
-    planProjectsList.querySelectorAll(".plan-project-item").forEach((item)=> syncProjectExecutionField(item));
+    planProjectsList.innerHTML = planDraftProjects.map((p)=>(
+      "<div class=\"plan-project-item\" data-id=\"" + escapeHtml(p.id) + "\">"
+      + "<span>" + escapeHtml(p.nombre || "Proyecto") + "</span>"
+      + "<div class=\"plan-project-actions\">"
+      +   "<button type=\"button\" data-action=\"edit\">&#9998;</button>"
+      +   "<button type=\"button\" data-action=\"remove\">&minus;</button>"
+      + "</div>"
+      + "</div>"
+    )).join("");
     updateProjectsCount();
-    updatePlanTotalsFromProjects();
   }
 
   function updateProjectsCount(){
-    if(!planProjectsCount || !planProjectsList) return;
-    const checked = planProjectsList.querySelectorAll("input[type=\"checkbox\"]:checked").length;
-    planProjectsCount.textContent = checked + " seleccionados";
+    if(!planProjectsCount) return;
+    planProjectsCount.textContent = planDraftProjects.length + " asociados";
   }
 
-  function calcPlanTotals(plan){
-    const estadoBase = (plan && plan.estado) || "planificacion";
-    let monto = toPositiveNumber(plan && plan.monto || 0);
-    let ejecutado = toPositiveNumber(plan && plan.ejecutado || 0);
-    let estado = estadoBase;
-    const proyectos = obtenerProyectosPlan(plan);
-    if(planTieneDetalles(plan)){
-      const normalized = proyectos.map((p)=> normalizeProyecto(p, estadoBase));
-      const derived = calcPlanFromProyectos(normalized);
-      monto = toPositiveNumber(derived.monto);
-      ejecutado = toPositiveNumber(derived.ejecutado);
-      estado = derived.estado || estadoBase;
-    }
-    const ejecutadoClamped = monto > 0 ? Math.min(ejecutado, monto) : ejecutado;
-    return { monto, ejecutado: ejecutadoClamped, estado };
+  function getPlanById(id){
+    if(!id) return null;
+    return planesCache.find(p => String(p.id || "") === String(id)) || null;
   }
 
-  function calcPlanPct(plan){
-    const totals = calcPlanTotals(plan);
-    if(totals.monto <= 0) return 0;
-    return Math.max(0, Math.min(100, Math.round((totals.ejecutado / totals.monto) * 100)));
+  function getPlanesDelAnio(anio){
+    return planesCache.filter(p => Number(p.anio || 0) === Number(anio || 0));
+  }
+
+  function getIntervencionesPlan(planId){
+    return intervencionesCache.filter(i => String(i.planId || "") === String(planId || ""));
+  }
+
+  function calcPlanPhaseTotals(planId){
+    const plan = getPlanById(planId);
+    const totals = { planificacion:0, ejecucion:0, ejecutado:0 };
+    const list = getIntervencionesPlan(planId);
+    list.forEach((i)=>{
+      const fase = i.fase || "planificacion";
+      totals[fase] = (totals[fase] || 0) + toPositiveNumber(i.monto);
+    });
+    const montoPlan = plan ? toPositiveNumber(plan.monto) : 0;
+    const asignado = (totals.ejecucion || 0) + (totals.ejecutado || 0);
+    const restante = Math.max(0, montoPlan - asignado);
+    return { ...totals, montoPlan, asignado, restante };
   }
 
   function renderAnual(plans, presupuesto){
@@ -571,13 +622,9 @@
     if(invAnualSelect){
       invAnualSelect.innerHTML = "<option value=\"" + escapeHtml(anio) + "\">" + escapeHtml(periodoLabel(anio)) + "</option>";
     }
-    const planTotals = plans.map((plan)=> ({ plan, totals: calcPlanTotals(plan) }));
-    const sumPlanes = planTotals.reduce((sum, item)=> sum + toPositiveNumber(item.totals.monto), 0);
-    const sumEjecutado = planTotals.reduce((sum, item)=>{
-      const montoPlan = toPositiveNumber(item.totals.monto);
-      const ejecPlan = toPositiveNumber(item.totals.ejecutado);
-      return sum + (montoPlan > 0 ? Math.min(ejecPlan, montoPlan) : ejecPlan);
-    }, 0);
+    const planTotals = plans.map((plan)=> ({ plan, totals: calcPlanPhaseTotals(plan.id) }));
+    const sumPlanes = planTotals.reduce((sum, item)=> sum + toPositiveNumber(item.plan.monto), 0);
+    const sumEjecutado = planTotals.reduce((sum, item)=> sum + toPositiveNumber(item.totals.asignado), 0);
     const pct = total > 0 ? Math.round((sumPlanes / total) * 100) : 0;
     if(invAnualPct) invAnualPct.textContent = Math.max(0, Math.min(100, pct));
     if(invAnualEjecutado) invAnualEjecutado.textContent = formatMoney(sumEjecutado);
@@ -588,7 +635,7 @@
       invAnualTrack.innerHTML = "";
       if(total > 0 && plans.length){
         planTotals.forEach((item, idx)=>{
-          const width = total > 0 ? Math.max(0, (toPositiveNumber(item.totals.monto) / total) * 100) : 0;
+          const width = total > 0 ? Math.max(0, (toPositiveNumber(item.plan.monto) / total) * 100) : 0;
           if(width <= 0) return;
           const seg = document.createElement("div");
           seg.className = "inv-annual-seg " + PLAN_COLORS[idx % PLAN_COLORS.length];
@@ -612,7 +659,7 @@
 
     if(invAnualLegend){
       const items = plans.map((plan, idx)=>({
-        label: (plan.nombre || "Plan") + " avance",
+        label: (plan.nombre || "Plan") + " total",
         cls: PLAN_COLORS[idx % PLAN_COLORS.length]
       }));
       items.push({ label: "Total presupuestario anual", cls: "plan-color-total" });
@@ -625,116 +672,131 @@
     }
   }
 
-  function renderTablaPlanes(plans){
-    if(!invPlanTablaBody) return;
+  function renderPlanSelect(plans){
+    if(!invPlanSelect) return;
     if(!plans.length){
-      invPlanTablaBody.innerHTML = "<tr><td colspan=\"5\" class=\"empty\">Sin planes registrados.</td></tr>";
+      invPlanSelect.innerHTML = "<option value=\"\">Sin planes</option>";
+      planSeleccionadoId = "";
+      if(btnPlanEditar) btnPlanEditar.disabled = true;
+      renderPlanResumen(null);
+      renderIntervencionesTable(null);
       return;
     }
-    const rows = [];
-    plans.forEach((plan, idx)=>{
-      const id = String(plan.id || "");
-      const collapsed = collapsedPlans.has(id);
-      const totals = calcPlanTotals(plan);
-      const pct = totals.monto > 0 ? Math.max(0, Math.min(100, Math.round((totals.ejecutado / totals.monto) * 100))) : 0;
-      const monto = totals.monto;
-      const ejecutado = totals.ejecutado;
-      const plazoLabel = plan.plazo ? escapeHtml(plan.plazo) : "";
-      const metaHtml = plazoLabel ? ("<span class=\"plan-group-meta\">" + plazoLabel + "</span>") : "";
-
-      rows.push(
-        "<tr class=\"plan-group\" data-plan-id=\"" + escapeHtml(id) + "\">"
-        + "<td colspan=\"5\">"
-        +   "<div class=\"plan-group-row\">"
-        +     "<div class=\"plan-group-info\">"
-        +       "<button type=\"button\" class=\"plan-toggle" + (collapsed ? " is-collapsed" : "") + "\" data-plan-action=\"toggle\" data-plan-id=\"" + escapeHtml(id) + "\">&#9662;</button>"
-        +       "<span>" + escapeHtml(plan.nombre || "Plan") + "</span>"
-        +       metaHtml
-        +     "</div>"
-        +     "<div class=\"plan-actions\">"
-        +       "<button type=\"button\" class=\"plan-action\" data-plan-action=\"edit\" data-plan-id=\"" + escapeHtml(id) + "\">Editar</button>"
-        +       "<button type=\"button\" class=\"plan-action plan-action--delete\" data-plan-action=\"delete\" data-plan-id=\"" + escapeHtml(id) + "\">Eliminar</button>"
-        +     "</div>"
-        +   "</div>"
-        +   "<div class=\"plan-progress\">"
-        +     "<div class=\"plan-progress-track\"><div class=\"plan-progress-fill\" style=\"width:" + pct + "%\"></div></div>"
-        +     "<div class=\"plan-progress-label\">" + pct + "% (" + escapeHtml(formatMoney(ejecutado)) + " / " + escapeHtml(formatMoney(monto)) + ")</div>"
-        +   "</div>"
-        + "</td>"
-        + "</tr>"
-      );
-
-      const proyectos = obtenerProyectosPlan(plan);
-      if(!proyectos.length){
-        rows.push(
-          "<tr class=\"plan-project-row" + (collapsed ? " is-hidden" : "") + "\" data-plan-id=\"" + escapeHtml(id) + "\">"
-          + "<td colspan=\"5\" class=\"empty\">Sin proyectos asignados.</td>"
-          + "</tr>"
-        );
-        return;
-      }
-
-      const hasDetalles = planTieneDetalles(plan);
-      const costoUnitario = (!hasDetalles && monto && proyectos.length) ? (monto / proyectos.length) : 0;
-      const ejecUnitario = (!hasDetalles && ejecutado && proyectos.length) ? (ejecutado / proyectos.length) : 0;
-      proyectos.forEach((proj)=>{
-        const normalized = normalizeProyecto(proj, plan.estado);
-        const nombre = normalized.nombre || "Proyecto";
-        const estadoProj = hasDetalles ? normalized.estado : totals.estado;
-        const estadoProjLabel = estadoLabel(estadoProj);
-        const montoProj = hasDetalles ? normalized.montoAsignado : costoUnitario;
-        const ejecProj = hasDetalles ? normalized.ejecutado : ejecUnitario;
-        const pctProj = montoProj > 0 ? calcProyectoPct({ estado: estadoProj, montoAsignado: montoProj, ejecutado: ejecProj }) : pct;
-        rows.push(
-          "<tr class=\"plan-project-row" + (collapsed ? " is-hidden" : "") + "\" data-plan-id=\"" + escapeHtml(id) + "\">"
-          + "<td>" + escapeHtml(nombre) + "</td>"
-          + "<td>" + escapeHtml(String(plan.anio || "")) + "</td>"
-          + "<td>" + escapeHtml(estadoProjLabel) + "</td>"
-          + "<td><div class=\"plan-mini\"><div class=\"plan-mini-bar\"><span style=\"width:" + pctProj + "%\"></span></div><span class=\"plan-mini-label\">" + pctProj + "%</span></div></td>"
-          + "<td>" + escapeHtml(formatMoney(montoProj)) + "</td>"
-          + "</tr>"
-        );
-      });
-    });
-    invPlanTablaBody.innerHTML = rows.join("");
+    invPlanSelect.innerHTML = plans.map((p)=>(
+      "<option value=\"" + escapeHtml(p.id) + "\">" + escapeHtml(p.nombre || "Plan") + "</option>"
+    )).join("");
+    if(!planSeleccionadoId || !plans.some(p => String(p.id || "") === String(planSeleccionadoId))){
+      planSeleccionadoId = plans[0].id;
+    }
+    invPlanSelect.value = planSeleccionadoId;
+    if(btnPlanEditar) btnPlanEditar.disabled = !planSeleccionadoId;
+    renderPlanResumen(getPlanById(planSeleccionadoId));
+    renderIntervencionesTable(getPlanById(planSeleccionadoId));
   }
 
-  function renderResumen(plans){
-    if(!invTotalPlanificacion || !invTotalEjecutado || !invTotalEjecucion) return;
-    const totals = { planificacion:0, ejecucion:0, ejecutado:0 };
-    plans.forEach((plan)=>{
-      const proyectos = obtenerProyectosPlan(plan);
-      if(Array.isArray(proyectos) && proyectos.length && planTieneDetalles(plan)){
-        proyectos.forEach((proj)=>{
-          const normalized = normalizeProyecto(proj, plan.estado);
-          const estado = normalized.estado || "planificacion";
-          totals[estado] = (totals[estado] || 0) + toPositiveNumber(normalized.montoAsignado);
-        });
-        return;
-      }
-      const estadoPlan = plan.estado || "planificacion";
-      totals[estadoPlan] = (totals[estadoPlan] || 0) + toPositiveNumber(plan.monto || 0);
-    });
-    invTotalPlanificacion.textContent = formatMoney(totals.planificacion || 0);
-    invTotalEjecucion.textContent = formatMoney(totals.ejecucion || 0);
-    invTotalEjecutado.textContent = formatMoney(totals.ejecutado || 0);
+  function renderPlanResumen(plan){
+    if(!invPlanTitle || !invPlanTotal || !invPlanAssigned || !invPlanRemaining) return;
+    if(!plan){
+      invPlanTitle.textContent = "Sin plan";
+      if(invPlanSub) invPlanSub.textContent = "Registra un plan para visualizar su detalle.";
+      invPlanTotal.textContent = "S/ 0";
+      invPlanAssigned.textContent = "S/ 0";
+      invPlanRemaining.textContent = "S/ 0";
+      if(invPhasePlanificacionLabel) invPhasePlanificacionLabel.textContent = "0% (S/ 0)";
+      if(invPhaseEjecucionLabel) invPhaseEjecucionLabel.textContent = "0% (S/ 0)";
+      if(invPhaseEjecutadoLabel) invPhaseEjecutadoLabel.textContent = "0% (S/ 0)";
+      return;
+    }
+    const totals = calcPlanPhaseTotals(plan.id);
+    const montoPlan = totals.montoPlan;
+    const pctPlan = montoPlan > 0 ? Math.round((totals.planificacion / montoPlan) * 100) : 0;
+    const pctEjec = montoPlan > 0 ? Math.round((totals.ejecucion / montoPlan) * 100) : 0;
+    const pctEje = montoPlan > 0 ? Math.round((totals.ejecutado / montoPlan) * 100) : 0;
+    invPlanTitle.textContent = (plan.nombre || "Plan") + " " + (plan.anio || "");
+    if(invPlanSub) invPlanSub.textContent = "Total del plan y avance por fase.";
+    invPlanTotal.textContent = formatMoney(montoPlan);
+    invPlanAssigned.textContent = formatMoney(totals.asignado);
+    invPlanRemaining.textContent = formatMoney(totals.restante);
+    if(invPhasePlanificacionLabel) invPhasePlanificacionLabel.textContent = pctPlan + "% (" + formatMoney(totals.planificacion) + ")";
+    if(invPhaseEjecucionLabel) invPhaseEjecucionLabel.textContent = pctEjec + "% (" + formatMoney(totals.ejecucion) + ")";
+    if(invPhaseEjecutadoLabel) invPhaseEjecutadoLabel.textContent = pctEje + "% (" + formatMoney(totals.ejecutado) + ")";
+  }
+
+  function calcularCostoAccion(accion){
+    if(!accion) return 0;
+    let total = 0;
     try{
-      window.inversionPlanResumen = {
-        planificacion: totals.planificacion || 0,
-        ejecucion: totals.ejecucion || 0,
-        ejecutado: totals.ejecutado || 0
-      };
+      if(typeof precioInversionSenal === "function"){
+        total += (accion.senalesHorizontal || []).reduce((sum, s)=> sum + precioInversionSenal("horizontal", s), 0);
+        total += (accion.senalesVertical || []).reduce((sum, s)=> sum + precioInversionSenal("vertical", s), 0);
+        total += (accion.senalesMobiliario || []).reduce((sum, s)=> sum + precioInversionSenal("mobiliario", s), 0);
+      }
+      if(typeof precioInversionMetrado === "function"){
+        total += (accion.metradoRegistros || []).reduce((sum, r)=> sum + precioInversionMetrado(r), 0);
+      }
     }catch(e){}
+    return total;
+  }
+
+  function getAccionById(id){
+    return obtenerAccionesDisponibles().find(a => String(a.id || "") === String(id || "")) || null;
+  }
+
+  function getProyectoNombre(plan, proyectoId){
+    const list = (plan && Array.isArray(plan.proyectos)) ? plan.proyectos : [];
+    const found = list.find(p => String(p.id || "") === String(proyectoId || ""));
+    return found ? (found.nombre || "Proyecto") : "Proyecto";
+  }
+
+  function renderIntervencionesTable(plan){
+    if(!invIntervencionesBody) return;
+    if(!plan){
+      invIntervencionesBody.innerHTML = "<tr><td colspan=\"6\" class=\"empty\">Selecciona un plan.</td></tr>";
+      return;
+    }
+    let list = getIntervencionesPlan(plan.id);
+    const filtro = invIntervencionFase ? invIntervencionFase.value : "todas";
+    if(filtro && filtro !== "todas"){
+      list = list.filter(i => String(i.fase || "") === filtro);
+    }
+    const query = invIntervencionBuscar ? invIntervencionBuscar.value.trim().toLowerCase() : "";
+    if(query){
+      list = list.filter(i => String(i.nombre || i.accionNombre || "").toLowerCase().includes(query));
+    }
+    if(!list.length){
+      invIntervencionesBody.innerHTML = "<tr><td colspan=\"6\" class=\"empty\">Sin intervenciones registradas.</td></tr>";
+      return;
+    }
+    invIntervencionesBody.innerHTML = list.map((i)=>{
+      const accion = getAccionById(i.accionId);
+      const nombreAccion = i.nombre || (accion ? accion.nombre : "") || i.accionNombre || "Intervencion";
+      const proyectoNombre = i.proyectoNombre || getProyectoNombre(plan, i.proyectoId);
+      const monto = toPositiveNumber(i.monto);
+      const avanceMonto = (i.fase === "ejecutado" || i.fase === "ejecucion") ? calcularCostoAccion(accion) : 0;
+      const pct = monto > 0 ? Math.max(0, Math.min(100, Math.round((avanceMonto / monto) * 100))) : 0;
+      return ""
+        + "<tr data-intervencion-id=\"" + escapeHtml(i.id) + "\">"
+        + "<td>" + escapeHtml(nombreAccion) + "</td>"
+        + "<td>" + escapeHtml(proyectoNombre) + "</td>"
+        + "<td><span class=\"inv-phase-pill " + escapeHtml(i.fase || "planificacion") + "\">" + escapeHtml(PLAN_ESTADOS[i.fase] || "En planificacion") + "</span></td>"
+        + "<td>" + escapeHtml(formatMoney(monto)) + "</td>"
+        + "<td>" + escapeHtml(formatMoney(avanceMonto)) + " (" + pct + "%)</td>"
+        + "<td><div class=\"inv-table-actions\">"
+        +   "<button type=\"button\" data-intervencion-action=\"edit\">&#9998;</button>"
+        +   "<button type=\"button\" class=\"danger\" data-intervencion-action=\"delete\">&#10005;</button>"
+        + "</div></td>"
+        + "</tr>";
+    }).join("");
   }
 
   function updateInversionPlanes(){
     cargarPlanes();
+    cargarIntervenciones();
     const presupuesto = getPresupuesto();
     const anio = Number(presupuesto.year || new Date().getFullYear());
-    const plans = planesCache.filter(p => Number(p.anio || 0) === anio);
+    const plans = getPlanesDelAnio(anio);
     renderAnual(plans, presupuesto);
-    renderTablaPlanes(plans);
-    renderResumen(plans);
+    renderPlanSelect(plans);
   }
 
   function prepararProyectosParaModal(plan){
@@ -764,15 +826,15 @@
       return;
     }
     planEditId = plan ? String(plan.id || "") : "";
-    if(planModalTitle) planModalTitle.textContent = plan ? "Editar plan" : "Registrar plan";
+    if(planModalTitle) planModalTitle.textContent = plan ? "Modificar plan" : "Registrar plan";
     if(planNombre) planNombre.value = plan ? (plan.nombre || "") : "";
     if(planAnio) planAnio.value = String(plan ? (plan.anio || presupuesto.year) : (presupuesto.year || ""));
-    if(planPlazo) planPlazo.value = plan ? (plan.plazo || "") : "";
-    if(planEstado) planEstado.value = plan ? (plan.estado || "planificacion") : "planificacion";
     if(planMonto) planMonto.value = plan ? Number(plan.monto || 0) : "";
-    if(planEjecutado) planEjecutado.value = plan ? Number(plan.ejecutado || 0) : "";
-    const proyectosModal = plan ? prepararProyectosParaModal(plan) : [];
-    renderProyectosList(proyectosModal);
+    planDraftProjects = plan && Array.isArray(plan.proyectos)
+      ? plan.proyectos.map(p => ({ id: String(p.id || ""), nombre: String(p.nombre || "Proyecto") }))
+      : [];
+    renderProyectosList();
+    if(planProjectName) planProjectName.value = "";
     mostrarModal(modalPlan);
   }
 
@@ -804,51 +866,31 @@
   }
 
   function guardarPlanDesdeModal(){
-    const presupuesto = getPresupuesto();
     const nombre = planNombre ? planNombre.value.trim() : "";
-    const plazo = planPlazo ? planPlazo.value.trim() : "";
+    const anio = Number(planAnio ? planAnio.value : 0);
+    const monto = Number(planMonto ? planMonto.value : 0);
     if(!nombre){
       alert("Ingresa un nombre para el plan.");
       return;
     }
-    const seleccionados = gatherProyectosSeleccionados();
-    if(!seleccionados.length){
-      alert("Selecciona al menos un proyecto.");
+    if(!anio || anio < 2000){
+      alert("Ingresa un año valido.");
       return;
     }
-    for(let i=0;i<seleccionados.length;i++){
-      const proj = seleccionados[i];
-      const montoProj = toPositiveNumber(proj.montoAsignado);
-      const ejecProj = toPositiveNumber(proj.ejecutado);
-      if(montoProj <= 0){
-        alert("Ingresa el monto asignado para \"" + (proj.nombre || "Proyecto") + "\".");
-        return;
-      }
-      if(ejecProj < 0 || ejecProj > montoProj){
-        alert("El avance ejecutado de \"" + (proj.nombre || "Proyecto") + "\" debe estar entre 0 y su monto asignado.");
-        return;
-      }
-    }
-    const derived = calcPlanFromProyectos(seleccionados);
-    const monto = derived.monto;
-    const ejecutado = derived.ejecutado;
-    const estado = derived.estado || "planificacion";
-    if(monto <= 0){
-      alert("Asigna un monto valido en los proyectos del plan.");
+    if(!Number.isFinite(monto) || monto <= 0){
+      alert("Ingresa un monto total valido.");
       return;
     }
-    if(planMonto) planMonto.value = String(monto);
-    if(planEjecutado) planEjecutado.value = String(ejecutado);
-    if(planEstado) planEstado.value = estado;
+    if(!planDraftProjects.length){
+      alert("Selecciona al menos un proyecto asociado.");
+      return;
+    }
     const base = {
       id: planEditId || ("plan-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,6)),
       nombre,
-      anio: Number(presupuesto.year || new Date().getFullYear()),
-      plazo,
-      estado,
       monto,
-      ejecutado,
-      proyectos: seleccionados
+      anio,
+      proyectos: planDraftProjects.slice()
     };
     if(planEditId){
       const idx = planesCache.findIndex(p => p.id === planEditId);
@@ -859,6 +901,7 @@
     } else {
       const nuevo = normalizePlan(base);
       planesCache.push(nuevo);
+      planSeleccionadoId = nuevo.id;
       syncPlanToBackend(nuevo);
     }
     guardarPlanes();
@@ -883,70 +926,266 @@
     updateInversionPlanes();
   }
 
-  function handlePlanTableClick(e){
-    const btn = e.target && e.target.closest ? e.target.closest("[data-plan-action]") : null;
-    if(!btn) return;
-    const action = btn.getAttribute("data-plan-action");
-    const planId = btn.getAttribute("data-plan-id");
-    if(!planId) return;
-    if(action === "toggle"){
-      if(collapsedPlans.has(planId)){
-        collapsedPlans.delete(planId);
-      } else {
-        collapsedPlans.add(planId);
-      }
-      renderTablaPlanes(planesCache.filter(p => Number(p.anio || 0) === Number(getPresupuesto().year || 0)));
-      return;
+  function toDateInputValue(value){
+    if(!value) return "";
+    return String(value).slice(0, 10);
+  }
+
+  function getIntervencionById(id){
+    return intervencionesCache.find(i => String(i.id || "") === String(id || "")) || null;
+  }
+
+  function getMontoDisponiblePlan(planId, excludeId){
+    const plan = getPlanById(planId);
+    const total = plan ? toPositiveNumber(plan.monto) : 0;
+    if(!total) return 0;
+    let usado = 0;
+    intervencionesCache.forEach((i)=>{
+      if(String(i.planId || "") !== String(planId || "")) return;
+      if(excludeId && String(i.id || "") === String(excludeId)) return;
+      usado += toPositiveNumber(i.monto);
+    });
+    return Math.max(0, total - usado);
+  }
+
+  function actualizarLimiteIntervencionMonto(planId, excludeId){
+    if(!intervencionMonto) return;
+    const max = getMontoDisponiblePlan(planId, excludeId);
+    if(Number.isFinite(max) && max > 0){
+      intervencionMonto.max = String(Math.floor(max));
+    } else {
+      intervencionMonto.removeAttribute("max");
     }
-    if(action === "edit"){
-      const plan = planesCache.find(p => String(p.id || "") === String(planId));
-      if(plan) abrirModalPlan(plan);
-      return;
-    }
-    if(action === "delete"){
-      const plan = planesCache.find(p => String(p.id || "") === String(planId));
-      if(!plan) return;
-      const ok = confirm("Eliminar el plan \"" + (plan.nombre || "Plan") + "\"?");
-      if(!ok) return;
-      planesCache = planesCache.filter(p => String(p.id || "") !== String(planId));
-      if(window.UrbbisApi && typeof window.UrbbisApi.deletePlan === "function" && plan.dbId){
-        window.UrbbisApi.deletePlan(plan.dbId)
-          .catch((err)=> console.warn("No se pudo eliminar plan en backend.", err));
-      }
-      guardarPlanes();
-      updateInversionPlanes();
+    const current = toPositiveNumber(intervencionMonto.value);
+    if(max >= 0 && current > max){
+      intervencionMonto.value = String(Math.floor(max));
     }
   }
 
-  if(btnPlanNuevo){
-    btnPlanNuevo.addEventListener("click", ()=> abrirModalPlan(null));
+  function actualizarIntervencionPlanOptions(preselectId){
+    if(!intervencionPlan) return null;
+    const presupuesto = getPresupuesto();
+    const plans = getPlanesDelAnio(presupuesto.year);
+    if(!plans.length){
+      intervencionPlan.innerHTML = "<option value=\"\">Sin planes</option>";
+      return null;
+    }
+    intervencionPlan.innerHTML = plans.map((p)=>(
+      "<option value=\"" + escapeHtml(p.id) + "\">" + escapeHtml(p.nombre || "Plan") + "</option>"
+    )).join("");
+    let selected = preselectId;
+    if(!selected || !plans.some(p => String(p.id || "") === String(selected))){
+      selected = (planSeleccionadoId && plans.some(p => String(p.id || "") === String(planSeleccionadoId)))
+        ? planSeleccionadoId
+        : plans[0].id;
+    }
+    intervencionPlan.value = selected;
+    return getPlanById(selected);
   }
+
+  function actualizarIntervencionProyectoOptions(plan, preselectId){
+    if(!intervencionProyecto) return;
+    const list = plan && Array.isArray(plan.proyectos) ? plan.proyectos : [];
+    if(!list.length){
+      intervencionProyecto.innerHTML = "<option value=\"\">Sin proyectos asociados</option>";
+      return;
+    }
+    intervencionProyecto.innerHTML = list.map((p)=>(
+      "<option value=\"" + escapeHtml(p.id) + "\">" + escapeHtml(p.nombre || "Proyecto") + "</option>"
+    )).join("");
+    if(preselectId && list.some(p => String(p.id || "") === String(preselectId))){
+      intervencionProyecto.value = preselectId;
+      return;
+    }
+    const selectedText = intervencionProyecto.getAttribute("data-selected-name");
+    if(selectedText){
+      const match = list.find(p => String(p.nombre || "").toLowerCase() === String(selectedText).toLowerCase());
+      if(match) intervencionProyecto.value = match.id;
+    }
+  }
+
+  function actualizarIntervencionAccionOptions(preselectId){
+    if(!intervencionAccion) return null;
+    const acciones = obtenerAccionesDisponibles();
+    if(!acciones.length){
+      intervencionAccion.innerHTML = "<option value=\"\">Sin acciones registradas</option>";
+      return null;
+    }
+    intervencionAccion.innerHTML = acciones.map((a)=>(
+      "<option value=\"" + escapeHtml(a.id) + "\">" + escapeHtml(a.nombre || "Accion") + "</option>"
+    )).join("");
+    if(preselectId && acciones.some(a => String(a.id || "") === String(preselectId))){
+      intervencionAccion.value = preselectId;
+    }
+    return getAccionById(intervencionAccion.value);
+  }
+
+  function syncIntervencionFechas(accion){
+    if(!intervencionFechaInicio || !intervencionFechaFin) return;
+    const inicio = accion && (accion.fecha_inicio || accion.startDate || accion.inicio) || "";
+    const fin = accion && (accion.fecha_fin || accion.endDate || accion.fin) || "";
+    intervencionFechaInicio.value = toDateInputValue(inicio);
+    intervencionFechaFin.value = toDateInputValue(fin);
+  }
+
+  function abrirModalIntervencion(intervencion){
+    const plan = actualizarIntervencionPlanOptions(intervencion ? intervencion.planId : "");
+    if(!plan){
+      alert("Registra un plan antes de agregar intervenciones.");
+      return;
+    }
+    intervencionEditId = intervencion ? String(intervencion.id || "") : "";
+    if(intervencionModalTitle){
+      intervencionModalTitle.textContent = intervencion ? "Editar intervension" : "Nueva intervension";
+    }
+    if(intervencionProyecto){
+      if(intervencion && intervencion.proyectoNombre){
+        intervencionProyecto.setAttribute("data-selected-name", String(intervencion.proyectoNombre || ""));
+      } else {
+        intervencionProyecto.removeAttribute("data-selected-name");
+      }
+    }
+    actualizarIntervencionProyectoOptions(plan, intervencion ? intervencion.proyectoId : "");
+    const accion = actualizarIntervencionAccionOptions(intervencion ? intervencion.accionId : "");
+    if(intervencionMonto) intervencionMonto.value = intervencion ? toPositiveNumber(intervencion.monto) : "";
+    if(intervencionFase) intervencionFase.value = intervencion ? (intervencion.fase || "planificacion") : "planificacion";
+    actualizarLimiteIntervencionMonto(plan.id, intervencionEditId);
+    if(intervencion){
+      if(intervencionFechaInicio) intervencionFechaInicio.value = toDateInputValue(intervencion.fechaInicio || intervencion.fecha_inicio || "");
+      if(intervencionFechaFin) intervencionFechaFin.value = toDateInputValue(intervencion.fechaFin || intervencion.fecha_fin || "");
+    } else {
+      syncIntervencionFechas(accion);
+    }
+    mostrarModal(modalIntervencion);
+  }
+
+  function cerrarModalIntervencion(){
+    ocultarModal(modalIntervencion);
+  }
+
+  function guardarIntervencionDesdeModal(){
+    const planId = intervencionPlan ? intervencionPlan.value : "";
+    const plan = getPlanById(planId);
+    if(!plan){
+      alert("Selecciona un plan valido.");
+      return;
+    }
+    const proyectoId = intervencionProyecto ? intervencionProyecto.value : "";
+    if(!proyectoId){
+      alert("Selecciona un proyecto asociado.");
+      return;
+    }
+    const accionId = intervencionAccion ? intervencionAccion.value : "";
+    if(!accionId){
+      alert("Selecciona una accion disponible.");
+      return;
+    }
+    const monto = toPositiveNumber(intervencionMonto ? intervencionMonto.value : 0);
+    if(!monto){
+      alert("Ingresa un monto valido.");
+      return;
+    }
+    const maxDisponible = getMontoDisponiblePlan(planId, intervencionEditId);
+    if(monto > maxDisponible){
+      alert("El monto excede el disponible del plan. Disponible: " + formatMoney(maxDisponible));
+      return;
+    }
+    const fase = intervencionFase ? (intervencionFase.value || "planificacion") : "planificacion";
+    const accion = getAccionById(accionId);
+    const nombreAccion = accion ? accion.nombre : (intervencionAccion && intervencionAccion.selectedOptions[0] ? intervencionAccion.selectedOptions[0].textContent : "");
+    const proyectoNombre = getProyectoNombre(plan, proyectoId);
+    const payload = {
+      id: intervencionEditId || ("interv-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,6)),
+      planId,
+      planNombre: plan.nombre || "Plan",
+      proyectoId,
+      proyectoNombre,
+      accionId,
+      accionNombre: nombreAccion || "Intervension",
+      nombre: nombreAccion || "Intervension",
+      monto,
+      fase,
+      fechaInicio: intervencionFechaInicio ? intervencionFechaInicio.value : "",
+      fechaFin: intervencionFechaFin ? intervencionFechaFin.value : ""
+    };
+    if(intervencionEditId){
+      const idx = intervencionesCache.findIndex(i => String(i.id || "") === String(intervencionEditId));
+      if(idx >= 0){
+        payload.dbId = intervencionesCache[idx].dbId;
+        intervencionesCache[idx] = payload;
+      } else {
+        intervencionesCache.push(payload);
+      }
+    } else {
+      intervencionesCache.push(payload);
+    }
+    guardarIntervenciones();
+    syncInterventionToBackend(payload);
+    cerrarModalIntervencion();
+    updateInversionPlanes();
+  }
+
+  if(btnPlanNuevo) btnPlanNuevo.addEventListener("click", ()=> abrirModalPlan(null));
+  if(btnPlanEditar){
+    btnPlanEditar.addEventListener("click", ()=>{
+      const plan = getPlanById(planSeleccionadoId);
+      if(plan) abrirModalPlan(plan);
+    });
+  }
+  if(invPlanSelect){
+    invPlanSelect.addEventListener("change", ()=>{
+      planSeleccionadoId = invPlanSelect.value;
+      renderPlanResumen(getPlanById(planSeleccionadoId));
+      renderIntervencionesTable(getPlanById(planSeleccionadoId));
+      if(btnPlanEditar) btnPlanEditar.disabled = !planSeleccionadoId;
+    });
+  }
+
   if(btnPlanClose) btnPlanClose.addEventListener("click", cerrarModalPlan);
   if(btnPlanCancelar) btnPlanCancelar.addEventListener("click", cerrarModalPlan);
   if(btnPlanGuardar) btnPlanGuardar.addEventListener("click", guardarPlanDesdeModal);
-  if(planProjectsList){
-    planProjectsList.addEventListener("change", (e)=>{
-      const target = e.target;
-      if(target && target.matches && target.matches("input[type=\"checkbox\"]")){
-        toggleProjectDetails(target);
-        const item = target.closest(".plan-project-item");
-        syncProjectExecutionField(item);
-      }
-      if(target && target.matches && target.matches("select[data-field=\"estado\"]")){
-        const item = target.closest(".plan-project-item");
-        syncProjectExecutionField(item);
-      }
-      updateProjectsCount();
-      updatePlanTotalsFromProjects();
+  if(btnPlanAddProject){
+    btnPlanAddProject.addEventListener("click", ()=>{
+      if(!planProjectName) return;
+      const nombre = planProjectName.value.trim();
+      if(!nombre) return;
+      const exists = planDraftProjects.some(p => String(p.nombre || "").toLowerCase() === nombre.toLowerCase());
+      if(exists) return;
+      planDraftProjects.push({ id: "assoc-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,5), nombre });
+      planProjectName.value = "";
+      renderProyectosList();
     });
-    planProjectsList.addEventListener("input", (e)=>{
-      const target = e.target;
-      if(!target || !target.matches) return;
-      if(target.matches("input[data-field=\"monto\"]")){
-        const item = target.closest(".plan-project-item");
-        syncProjectExecutionField(item);
+  }
+  if(planProjectName){
+    planProjectName.addEventListener("keydown", (e)=>{
+      if(e.key === "Enter"){
+        e.preventDefault();
+        if(btnPlanAddProject) btnPlanAddProject.click();
       }
-      if(target.matches("input[data-field], select[data-field]")) updatePlanTotalsFromProjects();
+    });
+  }
+  if(planProjectsList){
+    planProjectsList.addEventListener("click", (e)=>{
+      const btn = e.target && e.target.closest ? e.target.closest("button[data-action]") : null;
+      if(!btn) return;
+      const action = btn.getAttribute("data-action");
+      const item = btn.closest(".plan-project-item");
+      if(!item) return;
+      const id = item.getAttribute("data-id");
+      if(action === "remove"){
+        planDraftProjects = planDraftProjects.filter(p => String(p.id || "") !== String(id || ""));
+        renderProyectosList();
+        return;
+      }
+      if(action === "edit"){
+        const idx = planDraftProjects.findIndex(p => String(p.id || "") === String(id || ""));
+        if(idx < 0) return;
+        const nuevo = prompt("Editar nombre del proyecto:", planDraftProjects[idx].nombre || "");
+        if(nuevo && nuevo.trim()){
+          planDraftProjects[idx].nombre = nuevo.trim();
+          renderProyectosList();
+        }
+      }
     });
   }
 
@@ -955,12 +1194,70 @@
   if(btnPresupuestoCancelar) btnPresupuestoCancelar.addEventListener("click", cerrarModalPresupuesto);
   if(btnPresupuestoGuardar) btnPresupuestoGuardar.addEventListener("click", guardarPresupuestoDesdeModal);
 
-  if(invPlanTablaBody) invPlanTablaBody.addEventListener("click", handlePlanTableClick);
+  if(btnIntervencionNueva){
+    btnIntervencionNueva.addEventListener("click", ()=> abrirModalIntervencion(null));
+  }
+  if(btnIntervencionClose) btnIntervencionClose.addEventListener("click", cerrarModalIntervencion);
+  if(btnIntervencionCancelar) btnIntervencionCancelar.addEventListener("click", cerrarModalIntervencion);
+  if(btnIntervencionGuardar) btnIntervencionGuardar.addEventListener("click", guardarIntervencionDesdeModal);
+  if(intervencionPlan){
+    intervencionPlan.addEventListener("change", ()=>{
+      const plan = getPlanById(intervencionPlan.value);
+      actualizarIntervencionProyectoOptions(plan, "");
+      if(plan) actualizarLimiteIntervencionMonto(plan.id, intervencionEditId);
+    });
+  }
+  if(intervencionMonto){
+    intervencionMonto.addEventListener("input", ()=>{
+      const planId = intervencionPlan ? intervencionPlan.value : "";
+      if(planId) actualizarLimiteIntervencionMonto(planId, intervencionEditId);
+    });
+  }
+  if(intervencionAccion){
+    intervencionAccion.addEventListener("change", ()=>{
+      const accion = getAccionById(intervencionAccion.value);
+      syncIntervencionFechas(accion);
+    });
+  }
+  if(invIntervencionBuscar){
+    invIntervencionBuscar.addEventListener("input", ()=>{
+      renderIntervencionesTable(getPlanById(planSeleccionadoId));
+    });
+  }
+  if(invIntervencionFase){
+    invIntervencionFase.addEventListener("change", ()=>{
+      renderIntervencionesTable(getPlanById(planSeleccionadoId));
+    });
+  }
+  if(invIntervencionesBody){
+    invIntervencionesBody.addEventListener("click", (e)=>{
+      const btn = e.target && e.target.closest ? e.target.closest("[data-intervencion-action]") : null;
+      if(!btn) return;
+      const action = btn.getAttribute("data-intervencion-action");
+      const row = btn.closest("tr");
+      const id = row ? row.getAttribute("data-intervencion-id") : "";
+      const item = getIntervencionById(id);
+      if(!item) return;
+      if(action === "edit"){
+        abrirModalIntervencion(item);
+        return;
+      }
+      if(action === "delete"){
+        const ok = confirm("Eliminar la intervension seleccionada?");
+        if(!ok) return;
+        deleteInterventionFromBackend(item);
+        intervencionesCache = intervencionesCache.filter(i => String(i.id || "") !== String(id || ""));
+        guardarIntervenciones();
+        updateInversionPlanes();
+      }
+    });
+  }
 
   window.updateInversionPlanes = updateInversionPlanes;
   updateInversionPlanes();
   if(window.UrbbisApi){
     cargarPresupuestoApi().then(()=> updateInversionPlanes());
     cargarPlanesApi().then(()=> updateInversionPlanes());
+    cargarIntervencionesApi().then(()=> updateInversionPlanes());
   }
 })();

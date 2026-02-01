@@ -467,6 +467,20 @@ function estadosSeleccionadosConservacion(){
 
 function filtrarAvisosPorVisualizacion(data){
     let base = Array.isArray(data) ? data.slice() : [];
+    try{
+        let distrito = "";
+        if(typeof cargarSesionScope === "function"){
+            const scope = cargarSesionScope() || {};
+            distrito = scope.distrito || "";
+        }
+        if(!distrito && typeof filtroDistrito !== "undefined"){
+            distrito = filtroDistrito || "";
+        }
+        if(distrito){
+            const low = String(distrito).toLowerCase();
+            base = base.filter(a => String(a && a.distrito || "").toLowerCase() === low);
+        }
+    }catch(e){}
 
     // Verificacion de campo (foto)
     const conFoto = VISUALIZACION.verificacion.con_foto;
@@ -1819,7 +1833,11 @@ function renderAvisos(){
     layerEventos.clearLayers();
     const data = filtrarAvisosPorVisualizacion(avisos);
     data.forEach(function(a){
-        const m = L.marker([a.lat,a.lng],{icon: iconoAviso(a.estado)}).addTo(layerEventos);
+        const m = L.marker([a.lat,a.lng],{
+            icon: iconoAviso(a.estado),
+            draggable: rolActual === "municipal"
+        }).addTo(layerEventos);
+        enlazarSeleccionProyecto(m, "eventos", a);
         const fotoThumb = a.foto ? '<div class="aviso-thumb"><img src="'+a.foto+'" alt="Foto aviso"></div><button class="btnVerFoto" data-img="'+a.foto+'">Ver detalles</button>' : '';
         const popupHtml = '<div class="aviso-popup"><strong>Aviso: '+(a.tipo || "-")+'</strong><br>'
             + (a.descripcion || "-") + '<br>'
@@ -1839,6 +1857,18 @@ function renderAvisos(){
             }
             if(rolActual !== "municipal") return;
             abrirPopupEstadoAviso(a, ev.latlng);
+        });
+
+        m.on("dragend", function(e){
+            if(rolActual !== "municipal") return;
+            const nueva = e.target.getLatLng();
+            a.lat = nueva.lat;
+            a.lng = nueva.lng;
+            if(typeof updateReportes === "function"){ updateReportes(); }
+            if(window.UrbbisApi && typeof window.UrbbisApi.updateReport === "function" && a.dbId){
+                window.UrbbisApi.updateReport(a.dbId, { lat: a.lat, lng: a.lng })
+                    .catch((err)=> console.warn("No se pudo actualizar el aviso en backend.", err));
+            }
         });
     });
 }

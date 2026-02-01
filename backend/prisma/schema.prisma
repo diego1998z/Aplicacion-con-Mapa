@@ -24,6 +24,7 @@ model User {
 model Project {
   id        String   @id @default(cuid())
   legacyId  String?  @unique
+  recordType String?
   name      String
   year      Int?
   startDate DateTime?
@@ -50,6 +51,25 @@ model Plan {
   updatedAt DateTime      @updatedAt
 
   projects  PlanProject[]
+  interventions Intervention[]
+}
+
+model Intervention {
+  id          String   @id @default(cuid())
+  planId      String
+  name        String
+  actionId    String?
+  actionName  String?
+  projectId   String?
+  projectName String?
+  amount      Float
+  phase       String
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  plan Plan @relation(fields: [planId], references: [id])
 }
 
 model PlanProject {

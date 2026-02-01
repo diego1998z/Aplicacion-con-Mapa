@@ -120,6 +120,14 @@ body.dash-shell .registro-picker-card{
     box-shadow:0 10px 24px rgba(17,38,62,0.12);
     border-color:rgba(29,112,184,0.35);
 }
+.registro-picker-option.is-disabled,
+.registro-picker-option:disabled{
+    opacity:0.45;
+    cursor:not-allowed;
+    box-shadow:none;
+    transform:none;
+    border-color:rgba(11,34,48,0.12);
+}
 .registro-picker-option.active{
     background:#0c426a;
     border-color:#0c426a;
@@ -456,9 +464,14 @@ body.dash-shell .registro-picker-card{
     display:flex;
     gap:10px;
 }
+.map-floating-row--main{
+    align-items:center;
+    flex-wrap:wrap;
+}
 .map-floating-search{
     position:relative;
-    width:min(520px, calc(100vw - 40px));
+    flex:1 1 320px;
+    width:min(520px, 100%);
     display:flex;
     align-items:center;
     gap:10px;
@@ -501,6 +514,12 @@ body.dash-shell .registro-picker-card{
     right:0;
     margin-top:0;
 }
+.map-floating-mode{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    align-items:center;
+}
 .map-floating-actions{
     display:flex;
     gap:10px;
@@ -509,6 +528,11 @@ body.dash-shell .registro-picker-card{
     display:flex;
     align-items:center;
     gap:12px;
+    flex-wrap:wrap;
+}
+.map-floating-project-actions{
+    display:flex;
+    gap:10px;
     flex-wrap:wrap;
 }
 .project-chip{
@@ -616,6 +640,13 @@ body.dash-shell .registro-picker-card{
     width:16px;
     height:16px;
     accent-color:var(--primary);
+}
+.map-panel-check input:disabled{
+    opacity:0.45;
+    cursor:not-allowed;
+}
+.map-panel-check input:disabled + span{
+    opacity:0.45;
 }
 .map-panel-btn{
     width:100%;

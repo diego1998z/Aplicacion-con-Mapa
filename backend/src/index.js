@@ -24,6 +24,15 @@ function toDate(value) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+function getRecordTypeFromBody(body) {
+  if (!body) return undefined;
+  if (body.recordType) return String(body.recordType);
+  if (body.registroTipo) return String(body.registroTipo);
+  const data = body.data && typeof body.data === "object" ? body.data : null;
+  if (data && data.registroTipo) return String(data.registroTipo);
+  return undefined;
+}
+
 function getJwtSecret() {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
@@ -200,19 +209,35 @@ app.get("/auth/me", authRequired, async (req, res, next) => {
 // Projects
 app.get("/projects", authRequired, async (req, res, next) => {
   try {
-    const { legacyId } = req.query || {};
+    const { legacyId, recordType, registroTipo } = req.query || {};
     const scope = getScopeFromUser(req.user || {});
-    const where = {};
-    if (legacyId) where.legacyId = String(legacyId);
-    if (scope.role !== "admin" && scope.district) {
-      where.OR = [
-        { district: scope.district },
-        {
-          district: null,
-          data: { path: ["distrito"], equals: scope.district }
-        }
-      ];
+    const andFilters = [];
+    if (legacyId) andFilters.push({ legacyId: String(legacyId) });
+    const typeFilter = recordType || registroTipo;
+    if (typeFilter) {
+      const t = String(typeFilter);
+      andFilters.push({
+        OR: [
+          { recordType: t },
+          {
+            recordType: null,
+            data: { path: ["registroTipo"], equals: t }
+          }
+        ]
+      });
     }
+    if (scope.role !== "admin" && scope.district) {
+      andFilters.push({
+        OR: [
+          { district: scope.district },
+          {
+            district: null,
+            data: { path: ["distrito"], equals: scope.district }
+          }
+        ]
+      });
+    }
+    const where = andFilters.length ? { AND: andFilters } : {};
     const items = await prisma.project.findMany({ where, orderBy: { createdAt: "desc" } });
     res.json(items);
   } catch (err) {
@@ -223,6 +248,7 @@ app.get("/projects", authRequired, async (req, res, next) => {
 app.post("/projects", authRequired, requireRole(["admin", "municipal"]), async (req, res, next) => {
   try {
     const { name, year, startDate, endDate, legacyId, district, data } = req.body || {};
+    const recordType = getRecordTypeFromBody(req.body || {});
     if (!name) return res.status(400).json({ error: "name is required" });
     const scope = getScopeFromUser(req.user || {});
     const enforcedDistrict = (scope.role === "municipal" && scope.district) ? scope.district : (district ? String(district) : undefined);
@@ -235,6 +261,7 @@ app.post("/projects", authRequired, requireRole(["admin", "municipal"]), async (
           startDate: toDate(startDate) ?? undefined,
           endDate: toDate(endDate) ?? undefined,
           district: enforcedDistrict,
+          recordType,
           data: data ?? undefined
         },
         create: {
@@ -244,6 +271,7 @@ app.post("/projects", authRequired, requireRole(["admin", "municipal"]), async (
           startDate: toDate(startDate) ?? undefined,
           endDate: toDate(endDate) ?? undefined,
           district: enforcedDistrict,
+          recordType,
           data: data ?? undefined
         }
       });
@@ -256,6 +284,7 @@ app.post("/projects", authRequired, requireRole(["admin", "municipal"]), async (
         startDate: toDate(startDate) ?? undefined,
         endDate: toDate(endDate) ?? undefined,
         district: enforcedDistrict,
+        recordType,
         data: data ?? undefined
       }
     });
@@ -269,6 +298,7 @@ app.put("/projects/:id", authRequired, requireRole(["admin", "municipal"]), asyn
   try {
     const { id } = req.params;
     const { name, year, startDate, endDate, legacyId, district, data } = req.body || {};
+    const recordType = getRecordTypeFromBody(req.body || {});
     const scope = getScopeFromUser(req.user || {});
     if (scope.role !== "admin" && scope.district) {
       const current = await prisma.project.findUnique({ where: { id } });
@@ -286,6 +316,7 @@ app.put("/projects/:id", authRequired, requireRole(["admin", "municipal"]), asyn
         endDate: toDate(endDate) ?? undefined,
         legacyId: legacyId ? String(legacyId) : undefined,
         district: (scope.role === "municipal" && scope.district) ? scope.district : (district ? String(district) : undefined),
+        recordType: recordType ?? undefined,
         data: data ?? undefined
       }
     });
@@ -509,6 +540,120 @@ app.post("/reports", authRequired, requireRole(["admin", "municipal", "visitante
     const created = await prisma.report.create({ data });
     res.status(201).json(created);
   } catch (err) {
+    next(err);
+  }
+});
+
+// Interventions (acciones del plan)
+function normalizeInterventionPayload(body) {
+  const startRaw = body.startDate || body.fechaInicio || body.fecha_inicio;
+  const endRaw = body.endDate || body.fechaFin || body.fecha_fin;
+  return {
+    planId: String(body.planId || ""),
+    name: String(body.name || body.actionName || "Intervencion"),
+    actionId: body.actionId ? String(body.actionId) : undefined,
+    actionName: body.actionName ? String(body.actionName) : undefined,
+    projectId: body.projectId ? String(body.projectId) : undefined,
+    projectName: body.projectName ? String(body.projectName) : undefined,
+    amount: toNumber(body.amount) ?? 0,
+    phase: String(body.phase || "planificacion"),
+    startDate: toDate(startRaw) ?? undefined,
+    endDate: toDate(endRaw) ?? undefined
+  };
+}
+
+app.get("/interventions", authRequired, async (req, res, next) => {
+  try {
+    const { planId, ownerKey } = req.query || {};
+    const scope = getScopeFromUser(req.user || {});
+    const where = {};
+    if (planId) where.planId = String(planId);
+    if (scope.role === "admin") {
+      if (ownerKey) where.plan = { ownerKey: String(ownerKey) };
+    } else if (scope.scopeKey) {
+      where.plan = { ownerKey: scope.scopeKey };
+    }
+    const items = await prisma.intervention.findMany({
+      where,
+      orderBy: { createdAt: "desc" }
+    });
+    res.json(items);
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.post("/interventions", authRequired, requireRole(["admin", "municipal"]), async (req, res, next) => {
+  try {
+    const payload = normalizeInterventionPayload(req.body || {});
+    if (!payload.planId) return res.status(400).json({ error: "planId is required" });
+    const plan = await prisma.plan.findUnique({ where: { id: payload.planId } });
+    if (!plan) return res.status(404).json({ error: "Plan not found" });
+    const scope = getScopeFromUser(req.user || {});
+    if (scope.role !== "admin" && plan.ownerKey !== scope.scopeKey) {
+      return res.status(403).json({ error: "No autorizado" });
+    }
+    const created = await prisma.intervention.create({ data: payload });
+    res.status(201).json(created);
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.put("/interventions/:id", authRequired, requireRole(["admin", "municipal"]), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const payload = normalizeInterventionPayload(req.body || {});
+    const current = await prisma.intervention.findUnique({
+      where: { id },
+      include: { plan: true }
+    });
+    if (!current) return res.status(404).json({ error: "Intervention not found" });
+    const scope = getScopeFromUser(req.user || {});
+    if (scope.role !== "admin" && current.plan && current.plan.ownerKey !== scope.scopeKey) {
+      return res.status(403).json({ error: "No autorizado" });
+    }
+    const updated = await prisma.intervention.update({
+      where: { id },
+      data: {
+        name: payload.name || undefined,
+        actionId: payload.actionId ?? undefined,
+        actionName: payload.actionName ?? undefined,
+        projectId: payload.projectId ?? undefined,
+        projectName: payload.projectName ?? undefined,
+        amount: payload.amount ?? undefined,
+        phase: payload.phase || undefined,
+        startDate: payload.startDate ?? undefined,
+        endDate: payload.endDate ?? undefined
+      }
+    });
+    res.json(updated);
+  } catch (err) {
+    if (err && err.code === "P2025") {
+      return res.status(404).json({ error: "Intervention not found" });
+    }
+    next(err);
+  }
+});
+
+app.delete("/interventions/:id", authRequired, requireRole(["admin", "municipal"]), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const current = await prisma.intervention.findUnique({
+      where: { id },
+      include: { plan: true }
+    });
+    if (!current) return res.status(404).json({ error: "Intervention not found" });
+    const scope = getScopeFromUser(req.user || {});
+    if (scope.role !== "admin" && current.plan && current.plan.ownerKey !== scope.scopeKey) {
+      return res.status(403).json({ error: "No autorizado" });
+    }
+    await prisma.intervention.delete({ where: { id } });
+    res.status(204).send();
+  } catch (err) {
+    if (err && err.code === "P2025") {
+      return res.status(404).json({ error: "Intervention not found" });
+    }
     next(err);
   }
 });

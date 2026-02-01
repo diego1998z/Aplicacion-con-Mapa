@@ -1,3 +1,43 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer components {
+  .tw-mode-btn {
+    @apply px-4 py-2 rounded-full font-extrabold border border-slate-200 bg-white text-slate-800 shadow;
+  }
+  .tw-mode-btn[data-mode="inventario"] {
+    @apply text-blue-600;
+  }
+  .tw-mode-btn[data-mode="acciones"] {
+    @apply text-green-600;
+  }
+  .tw-mode-btn[data-mode="eventos"] {
+    @apply text-amber-500;
+  }
+  .tw-mode-btn.active[data-mode="inventario"] {
+    @apply bg-blue-600 text-white border-blue-600;
+  }
+  .tw-mode-btn.active[data-mode="acciones"] {
+    @apply bg-green-600 text-white border-green-600;
+  }
+  .tw-mode-btn.active[data-mode="eventos"] {
+    @apply bg-amber-500 text-slate-900 border-amber-500;
+  }
+
+  .tw-action-btn {
+    @apply px-4 py-2 rounded-full font-extrabold border border-slate-200 shadow;
+  }
+  .map-floating-controls.mode-inventario .tw-action-btn {
+    @apply bg-blue-600 text-white border-blue-600;
+  }
+  .map-floating-controls.mode-acciones .tw-action-btn {
+    @apply bg-green-600 text-white border-green-600;
+  }
+  .map-floating-controls.mode-eventos .tw-action-btn {
+    @apply bg-amber-500 text-slate-900 border-amber-500;
+  }
+  .tw-action-btn:hover {
+    filter: brightness(1.03);
+  }
+}
