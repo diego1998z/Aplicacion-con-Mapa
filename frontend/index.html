@@ -1132,16 +1132,19 @@
                             <input id="inputProyectoFin" type="date">
                         </div>
                     </div>
-                    <div id="accionProyectosWrap" class="plan-projects hidden">
-                        <div class="plan-projects-head">
-                            <span>Proyectos asociados</span>
-                            <span id="accionProjectsCount">0 asociados</span>
-                        </div>
-                        <div class="plan-projects-add">
-                            <input id="accionProjectName" type="text" placeholder="Nombre del proyecto asociado">
-                            <button type="button" id="btnAccionAddProject" class="plan-project-add-btn">+</button>
-                        </div>
-                        <div id="accionProjectsList" class="plan-projects-list"></div>
+                <div id="accionProyectosWrap" class="plan-projects hidden">
+                    <div class="plan-projects-head">
+                        <span>Proyectos asociados</span>
+                        <span id="accionProjectsCount">0 asociados</span>
+                    </div>
+                    <div class="plan-projects-select">
+                        <select id="accionProjectSelect" aria-label="Proyecto asociado"></select>
+                    </div>
+                    <div class="plan-projects-add">
+                        <input id="accionProjectName" type="text" placeholder="Nombre del proyecto asociado">
+                        <button type="button" id="btnAccionAddProject" class="plan-project-add-btn">+</button>
+                    </div>
+                    <div id="accionProjectsList" class="plan-projects-list"></div>
                     </div>
                     <div class="project-checks">
                         <label class="map-panel-check" id="rowChkProyectoTransito"><input id="chkProyectoTransito" type="checkbox" checked> <span id="lblChkProyectoTransito">Senales de transito</span></label>

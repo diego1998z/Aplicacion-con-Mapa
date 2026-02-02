@@ -970,6 +970,17 @@
   gap:8px;
   margin-top:8px;
 }
+.plan-projects-select{
+  margin-top:8px;
+}
+.plan-projects-select select{
+  width:100%;
+  border:1px solid rgba(11,34,48,0.12);
+  border-radius:12px;
+  padding:8px 10px;
+  font-weight:800;
+  background:#f6f8fb;
+}
 .plan-projects-add input,
 .plan-projects-add select{
   flex:1;

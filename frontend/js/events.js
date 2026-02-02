@@ -111,6 +111,7 @@ const projectHint = document.querySelector(".project-hint");
 const accionProyectosWrap = document.getElementById("accionProyectosWrap");
 const accionProjectName = document.getElementById("accionProjectName");
 const btnAccionAddProject = document.getElementById("btnAccionAddProject");
+const accionProjectSelect = document.getElementById("accionProjectSelect");
 const accionProjectsList = document.getElementById("accionProjectsList");
 const accionProjectsCount = document.getElementById("accionProjectsCount");
 const registroPicker = document.getElementById("registroPicker");
@@ -2205,11 +2206,25 @@ function updateAccionProjectsCount(){
   accionProjectsCount.textContent = accionDraftProjects.length + " asociados";
 }
 
+function renderAccionProjectsSelect(){
+  if(!accionProjectSelect) return;
+  if(!accionDraftProjects.length){
+    accionProjectSelect.innerHTML = "<option value=\"\">Sin proyectos asociados</option>";
+    return;
+  }
+  accionProjectSelect.innerHTML = accionDraftProjects.map((p)=>{
+    const selected = accionProjectSelectedId && String(p.id || "") === String(accionProjectSelectedId);
+    return "<option value=\"" + escapeHtml(p.id) + "\"" + (selected ? " selected" : "") + ">"
+      + escapeHtml(p.nombre || "Proyecto") + "</option>";
+  }).join("");
+}
+
 function renderAccionProjectsList(){
   if(!accionProjectsList) return;
   if(!accionDraftProjects.length){
     accionProjectsList.innerHTML = "<div class=\"plan-project-item\">Sin proyectos asociados.</div>";
     updateAccionProjectsCount();
+    renderAccionProjectsSelect();
     return;
   }
   accionProjectsList.innerHTML = accionDraftProjects.map((p)=>{
@@ -2225,6 +2240,7 @@ function renderAccionProjectsList(){
       + "</div>";
   }).join("");
   updateAccionProjectsCount();
+  renderAccionProjectsSelect();
 }
 
 function setAccionProyectoSeleccionado(id){
@@ -6309,6 +6325,12 @@ if(accionProjectsList){
       }
     }
     setAccionProyectoSeleccionado(id);
+  });
+}
+if(accionProjectSelect){
+  accionProjectSelect.addEventListener("change", ()=>{
+    const val = accionProjectSelect.value || "";
+    setAccionProyectoSeleccionado(val);
   });
 }
 if(btnProyectoGuardar){
