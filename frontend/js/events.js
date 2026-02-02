@@ -49,6 +49,7 @@ const metradoSnapVias = document.getElementById("metradoSnapVias");
 const metradoNombre = document.getElementById("metradoNombre");
 const metradoTipoPintura = document.getElementById("metradoTipoPintura");
 const btnMetradoVerRegistros = document.getElementById("btnMetradoVerRegistros");
+const btnMetradoClose = document.getElementById("btnMetradoClose");
 const modalMetradoRegistros = document.getElementById("modalMetradoRegistros");
 const btnMetradoRegistrosClose = document.getElementById("btnMetradoRegistrosClose");
 const metradoRegistrosList = document.getElementById("metradoRegistrosList");
@@ -107,6 +108,11 @@ const projectPreviewDates = document.getElementById("projectPreviewDates");
 const projectPreviewCount = document.getElementById("projectPreviewCount");
 const tablaProyectoPreview = document.getElementById("tablaProyectoPreview");
 const projectHint = document.querySelector(".project-hint");
+const accionProyectosWrap = document.getElementById("accionProyectosWrap");
+const accionProjectName = document.getElementById("accionProjectName");
+const btnAccionAddProject = document.getElementById("btnAccionAddProject");
+const accionProjectsList = document.getElementById("accionProjectsList");
+const accionProjectsCount = document.getElementById("accionProjectsCount");
 const registroPicker = document.getElementById("registroPicker");
 const registroPanel = document.getElementById("registroPanel");
 const registroHint = document.getElementById("registroHint");
@@ -310,6 +316,7 @@ function proyectoDataPayload(proj){
     registroTipo: proj.registroTipo || "",
     eventosTipos: Array.isArray(proj.eventosTipos) ? proj.eventosTipos : [],
     eventosSeleccionados: Array.isArray(proj.eventosSeleccionados) ? proj.eventosSeleccionados : [],
+    proyectoAsociado: proj.proyectoAsociado || "",
     senalesHorizontal: Array.isArray(proj.senalesHorizontal) ? proj.senalesHorizontal : [],
     senalesVertical: Array.isArray(proj.senalesVertical) ? proj.senalesVertical : [],
     senalesMobiliario: Array.isArray(proj.senalesMobiliario) ? proj.senalesMobiliario : [],
@@ -344,6 +351,7 @@ function proyectoFromApi(p){
     registroTipo: data.registroTipo || "",
     eventosTipos: Array.isArray(data.eventosTipos) ? data.eventosTipos : [],
     eventosSeleccionados: Array.isArray(data.eventosSeleccionados) ? data.eventosSeleccionados : [],
+    proyectoAsociado: data.proyectoAsociado || "",
     senalesHorizontal: Array.isArray(data.senalesHorizontal) ? data.senalesHorizontal : [],
     senalesVertical: Array.isArray(data.senalesVertical) ? data.senalesVertical : [],
     senalesMobiliario: Array.isArray(data.senalesMobiliario) ? data.senalesMobiliario : [],
@@ -2102,6 +2110,8 @@ let projectSelection = {
 };
 let proyectoEditId = "";
 let registroMode = "inventario";
+let accionDraftProjects = [];
+let accionProjectSelectedId = "";
 const APU_SOURCES = {
   transito: "src/senales-de-transito.json",
   marcas: "src/marcas-viales.json",
@@ -2141,6 +2151,107 @@ function normalizarRegistroTipo(value){
   const raw = String(value || "").toLowerCase().trim();
   if(raw === "acciones" || raw === "eventos" || raw === "inventario") return raw;
   return "inventario";
+}
+
+function normalizarProyectoAsociadoKey(nombre){
+  return String(nombre || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function construirAccionProjectsDesdeCache(){
+  const list = [];
+  const seen = new Set();
+  const base = Array.isArray(proyectosCache) ? proyectosCache : [];
+  base.forEach((p)=>{
+    if(normalizarRegistroTipo(p && p.registroTipo) !== "acciones") return;
+    const nombre = String(p && p.proyectoAsociado || "").trim();
+    if(!nombre) return;
+    const key = normalizarProyectoAsociadoKey(nombre);
+    if(!key || seen.has(key)) return;
+    seen.add(key);
+    list.push({ id: key, nombre });
+  });
+  return list;
+}
+
+function obtenerUltimoProyectoAsociado(){
+  if(!Array.isArray(proyectosCache)) return "";
+  for(let i = proyectosCache.length - 1; i >= 0; i--){
+    const p = proyectosCache[i];
+    if(normalizarRegistroTipo(p && p.registroTipo) !== "acciones") continue;
+    const nombre = String(p && p.proyectoAsociado || "").trim();
+    if(nombre) return nombre;
+  }
+  return "";
+}
+
+function ensureAccionProyecto(nombre){
+  const clean = String(nombre || "").trim();
+  if(!clean) return "";
+  const key = normalizarProyectoAsociadoKey(clean);
+  const exists = accionDraftProjects.find(p => String(p.id || "") === String(key));
+  if(!exists){
+    accionDraftProjects.push({ id: key, nombre: clean });
+  }
+  return key;
+}
+
+function updateAccionProjectsCount(){
+  if(!accionProjectsCount) return;
+  accionProjectsCount.textContent = accionDraftProjects.length + " asociados";
+}
+
+function renderAccionProjectsList(){
+  if(!accionProjectsList) return;
+  if(!accionDraftProjects.length){
+    accionProjectsList.innerHTML = "<div class=\"plan-project-item\">Sin proyectos asociados.</div>";
+    updateAccionProjectsCount();
+    return;
+  }
+  accionProjectsList.innerHTML = accionDraftProjects.map((p)=>{
+    const selected = accionProjectSelectedId && String(p.id || "") === String(accionProjectSelectedId);
+    const selectedClass = selected ? " is-selected" : "";
+    return "<div class=\"plan-project-item" + selectedClass + "\" data-id=\"" + escapeHtml(p.id) + "\">"
+      + "<span>" + escapeHtml(p.nombre || "Proyecto") + "</span>"
+      + "<div class=\"plan-project-actions\">"
+      +   "<button type=\"button\" data-action=\"select\">&#10003;</button>"
+      +   "<button type=\"button\" data-action=\"edit\">&#9998;</button>"
+      +   "<button type=\"button\" data-action=\"remove\">&minus;</button>"
+      + "</div>"
+      + "</div>";
+  }).join("");
+  updateAccionProjectsCount();
+}
+
+function setAccionProyectoSeleccionado(id){
+  accionProjectSelectedId = id || "";
+  renderAccionProjectsList();
+}
+
+function getAccionProyectoSeleccionadoNombre(){
+  if(!accionProjectSelectedId) return "";
+  const item = accionDraftProjects.find(p => String(p.id || "") === String(accionProjectSelectedId));
+  return item ? String(item.nombre || "") : "";
+}
+
+function initAccionProjectsModal(nombreSeleccionado){
+  accionDraftProjects = construirAccionProjectsDesdeCache();
+  if(nombreSeleccionado){
+    accionProjectSelectedId = ensureAccionProyecto(nombreSeleccionado);
+  } else {
+    const ultimo = obtenerUltimoProyectoAsociado();
+    accionProjectSelectedId = ultimo ? ensureAccionProyecto(ultimo) : (accionDraftProjects[0] ? accionDraftProjects[0].id : "");
+  }
+  renderAccionProjectsList();
+}
+
+function toggleAccionProjectsVisibility(){
+  if(!accionProyectosWrap) return;
+  accionProyectosWrap.classList.toggle("hidden", registroMode !== "acciones");
 }
 
 function filtrarProyectosPorRegistro(mode){
@@ -2237,6 +2348,7 @@ function setRegistroMode(mode){
   if(btnModeEventos) btnModeEventos.classList.toggle("active", next === "eventos");
   updateProjectChecksForMode();
   updateProjectModalText(proyectoEditId ? "editar" : "crear");
+  toggleAccionProjectsVisibility();
   syncRegistroModeVisualizacion();
   syncRegistroModeProjects();
   syncRegistroPickerOptions();
@@ -3103,6 +3215,10 @@ function abrirModalProyecto(){
   if(chkProyectoMarcas) chkProyectoMarcas.checked = true;
   if(chkProyectoMobiliario) chkProyectoMobiliario.checked = true;
   if(chkProyectoMetrado) chkProyectoMetrado.checked = true;
+  toggleAccionProjectsVisibility();
+  if(registroMode === "acciones"){
+    initAccionProjectsModal("");
+  }
   updateProyectoPreview();
   modalProyecto.classList.remove("hidden");
   modalProyecto.setAttribute("aria-hidden","false");
@@ -3139,6 +3255,10 @@ function abrirModalProyectoEditar(){
     if(chkProyectoMobiliario) chkProyectoMobiliario.checked = (proj.senalesMobiliario || []).length > 0;
     if(chkProyectoMetrado) chkProyectoMetrado.checked = (proj.metradoRegistros || []).length > 0;
   }
+  toggleAccionProjectsVisibility();
+  if(registroMode === "acciones"){
+    initAccionProjectsModal(proj.proyectoAsociado || "");
+  }
   updateProyectoPreview();
   modalProyecto.classList.remove("hidden");
   modalProyecto.setAttribute("aria-hidden","false");
@@ -3153,6 +3273,8 @@ function cerrarModalProyecto(){
   projectSelectionActive = false;
   resetProjectSelection();
   aplicarSeleccionMetradoMapa();
+  accionDraftProjects = [];
+  accionProjectSelectedId = "";
   try{ document.body.classList.remove("project-select-mode"); }catch(e){}
   try{ if(typeof renderizarTodo === "function"){ renderizarTodo(); } }catch(e){}
 }
@@ -4964,6 +5086,14 @@ if(brandEl){
 }
 
 // Acciones flotantes (desktop y mobile)
+function cerrarMetradoPanel(){
+  if(!metradoPanel) return;
+  metradoPanel.classList.add("hidden");
+  if(btnMapMetrado) btnMapMetrado.classList.remove("active");
+  metradoPicking = "";
+  mostrarRegistroHint("");
+  ocultarMetradoPreview();
+}
 if(btnMapVisualizacion){
   btnMapVisualizacion.addEventListener("click", ()=>{
     const open = visualizacionPanel ? visualizacionPanel.classList.contains("hidden") : false;
@@ -4992,11 +5122,7 @@ if(btnMapMetrado){
       if(visualizacionAvanzada) visualizacionAvanzada.classList.add("hidden");
       actualizarResultadosMetrado();
     } else {
-      metradoPanel.classList.add("hidden");
-      btnMapMetrado.classList.remove("active");
-      metradoPicking = "";
-      mostrarRegistroHint("");
-      ocultarMetradoPreview();
+      cerrarMetradoPanel();
     }
   });
 }
@@ -5006,11 +5132,12 @@ if(btnMapAgregar){
       try{ abrirModalReporte(); }catch(e){}
       return;
     }
-    if(metradoPanel) metradoPanel.classList.add("hidden");
-    if(btnMapMetrado) btnMapMetrado.classList.remove("active");
-    metradoPicking = "";
+    cerrarMetradoPanel();
     abrirRegistroPicker();
   });
+}
+if(btnMetradoClose){
+  btnMetradoClose.addEventListener("click", cerrarMetradoPanel);
 }
 
 if(btnModeInventario || btnModeAcciones || btnModeEventos){
@@ -6120,6 +6247,70 @@ if(btnProyectoCancelar){
   if(chkProyectoMobiliario) chkProyectoMobiliario.addEventListener(evt, updateProyectoPreview);
   if(chkProyectoMetrado) chkProyectoMetrado.addEventListener(evt, updateProyectoPreview);
 });
+if(btnAccionAddProject){
+  btnAccionAddProject.addEventListener("click", ()=>{
+    if(!accionProjectName) return;
+    const nombre = accionProjectName.value.trim();
+    if(!nombre) return;
+    const key = ensureAccionProyecto(nombre);
+    accionProjectSelectedId = key;
+    accionProjectName.value = "";
+    renderAccionProjectsList();
+  });
+}
+if(accionProjectName){
+  accionProjectName.addEventListener("keydown", (e)=>{
+    if(e.key === "Enter"){
+      e.preventDefault();
+      if(btnAccionAddProject) btnAccionAddProject.click();
+    }
+  });
+}
+if(accionProjectsList){
+  accionProjectsList.addEventListener("click", (e)=>{
+    const target = e.target;
+    const item = target && target.closest ? target.closest(".plan-project-item") : null;
+    if(!item) return;
+    const id = item.getAttribute("data-id") || "";
+    if(!id) return;
+    const actionBtn = target && target.closest ? target.closest("[data-action]") : null;
+    if(actionBtn){
+      const action = actionBtn.getAttribute("data-action");
+      if(action === "remove"){
+        accionDraftProjects = accionDraftProjects.filter(p => String(p.id || "") !== String(id));
+        if(accionProjectSelectedId === id){
+          accionProjectSelectedId = accionDraftProjects[0] ? accionDraftProjects[0].id : "";
+        }
+        renderAccionProjectsList();
+        return;
+      }
+      if(action === "edit"){
+        const idx = accionDraftProjects.findIndex(p => String(p.id || "") === String(id));
+        if(idx < 0) return;
+        const actual = accionDraftProjects[idx].nombre || "";
+        const nuevo = prompt("Editar nombre del proyecto asociado:", actual);
+        if(!nuevo) return;
+        const clean = nuevo.trim();
+        if(!clean) return;
+        const newKey = normalizarProyectoAsociadoKey(clean);
+        const dup = accionDraftProjects.find(p => String(p.id || "") === String(newKey) && String(p.id || "") !== String(id));
+        if(dup) return;
+        accionDraftProjects[idx].nombre = clean;
+        accionDraftProjects[idx].id = newKey;
+        if(accionProjectSelectedId === id){
+          accionProjectSelectedId = newKey;
+        }
+        renderAccionProjectsList();
+        return;
+      }
+      if(action === "select"){
+        setAccionProyectoSeleccionado(id);
+        return;
+      }
+    }
+    setAccionProyectoSeleccionado(id);
+  });
+}
 if(btnProyectoGuardar){
   btnProyectoGuardar.addEventListener("click", ()=>{
     const nombre = inputProyectoNombre ? inputProyectoNombre.value.trim() : "";
@@ -6227,12 +6418,21 @@ if(btnProyectoGuardar){
       alert("Selecciona senales y trazos en el mapa para el " + labels.labelLower + ".");
       return;
     }
+    let proyectoAsociado = "";
+    if(registroMode === "acciones"){
+      proyectoAsociado = getAccionProyectoSeleccionadoNombre();
+      if(!proyectoAsociado){
+        alert("Selecciona un proyecto asociado para la accion.");
+        return;
+      }
+    }
 
     const base = {
       nombre,
       fecha_inicio: inicio || "",
       fecha_fin: fin || "",
       registroTipo: registroMode === "acciones" ? "acciones" : "inventario",
+      proyectoAsociado,
       senalesHorizontal: filtrarSeleccion(typeof senalesHorizontal !== "undefined" ? senalesHorizontal : [], projectSelection.horizontal, includeMarcas, cloneSenales),
       senalesVertical: filtrarSeleccion(typeof senalesVertical !== "undefined" ? senalesVertical : [], projectSelection.vertical, includeTransito, cloneSenales),
       senalesMobiliario: filtrarSeleccion(typeof senalesMobiliario !== "undefined" ? senalesMobiliario : [], projectSelection.mobiliario, includeMobiliario, cloneSenales),
@@ -6487,10 +6687,7 @@ document.addEventListener("click", (e)=>{
   if(btnMapMetrado && (target === btnMapMetrado || btnMapMetrado.contains(target))) return;
   if(metradoPanel.contains(target)) return;
   if(mapContainer && mapContainer.contains(target)) return;
-  metradoPanel.classList.add("hidden");
-  if(btnMapMetrado) btnMapMetrado.classList.remove("active");
-  metradoPicking = "";
-  mostrarRegistroHint("");
+  cerrarMetradoPanel();
 });
 
 // Toggle sidebar en mobile

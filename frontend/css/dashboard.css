@@ -1004,6 +1004,13 @@
   padding:8px 12px;
   font-weight:800;
 }
+.plan-project-item.is-selected{
+  border:1px solid rgba(29,112,184,0.55);
+  background:#e6f0fb;
+}
+.plan-project-item.is-selected span{
+  color:#0c426a;
+}
 .plan-project-actions{
   display:flex;
   gap:6px;

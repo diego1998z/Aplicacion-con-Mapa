@@ -606,6 +606,10 @@ body.dash-shell .registro-picker-card{
     right:20px;
     top:16px;
     left:auto;
+    background:transparent;
+    border:none;
+    box-shadow:none;
+    padding:0;
 }
 .map-floating-panel.hidden{display:none;}
 .map-panel-section{
@@ -1584,8 +1588,6 @@ body.dash-shell .modal{
     pointer-events:auto;
 }
 #modalProyecto .modal-actions{
-    position:sticky;
-    bottom:0;
     background:var(--panel);
     padding-top:10px;
     margin-top:12px;
@@ -1621,8 +1623,24 @@ body.dash-shell .modal{
 .project-modal{
     width:520px;
     max-width:94vw;
-    max-height:90vh;
-    overflow:auto;
+    max-height:calc(100vh - 220px);
+    overflow-y: scroll;
+    overflow-x: hidden;
+    scrollbar-gutter: stable both-edges;
+    scrollbar-width: auto;
+}
+.project-modal::-webkit-scrollbar{
+    width:10px;
+}
+.project-modal::-webkit-scrollbar-track{
+    background:transparent;
+}
+.project-modal::-webkit-scrollbar-thumb{
+    background:rgba(15,23,42,0.22);
+    border-radius:999px;
+}
+.project-modal::-webkit-scrollbar-thumb:hover{
+    background:rgba(15,23,42,0.35);
 }
 .project-modal-head{
     display:flex;
@@ -1630,6 +1648,10 @@ body.dash-shell .modal{
     justify-content:space-between;
     gap:10px;
     margin-bottom:6px;
+}
+.project-modal-body{
+    overflow:visible;
+    padding-right:0;
 }
 .project-grid{
     display:grid;
@@ -2100,6 +2122,7 @@ body.dash-shell .modal{
     }
     #modalProyecto .project-modal{
         margin:0;
+        max-height:90vh;
     }
     .leaflet-control-container .leaflet-top.leaflet-left{
         margin-left:12px;

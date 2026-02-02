@@ -780,15 +780,18 @@
             </div>
         </div>
         <div id="metradoPanel" class="map-floating-panel hidden" aria-label="Metrado de pintura">
-            <div class="map-panel-section metrado-panel">
+            <div class="map-panel-section metrado-panel rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-[0_18px_50px_rgba(12,42,70,0.15)] space-y-3">
                 <div class="metrado-head">
                     <div class="map-panel-title" style="margin-top:2px">Metrado de pintura</div>
-                    <button id="btnMetradoVerRegistros" type="button" class="map-panel-btn map-panel-btn--ghost metrado-btn-inline" title="Ver trazos del proyecto">
-                        <svg class="metrado-btn-icon" viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M4 6h16M4 12h16M4 18h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                        </svg>
-                        <span class="metrado-btn-text">Trazos</span>
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <button id="btnMetradoVerRegistros" type="button" class="map-panel-btn map-panel-btn--ghost metrado-btn-inline" title="Ver trazos del proyecto">
+                            <svg class="metrado-btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M4 6h16M4 12h16M4 18h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                            <span class="metrado-btn-text">Trazos</span>
+                        </button>
+                        <button id="btnMetradoClose" type="button" class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50" title="Cerrar metrado" aria-label="Cerrar metrado">&times;</button>
+                    </div>
                 </div>
                 <div id="metradoStatus" class="metrado-status">Inicia el trazado y marca puntos sobre la pista.</div>
                 <div class="metrado-field">
@@ -1115,40 +1118,53 @@
                 <h3 id="projectModalTitle">Agregar proyecto</h3>
                 <button id="btnProyectoClose" type="button" class="inspeccion-close">&times;</button>
             </div>
-            <div class="project-form">
-                <label id="projectNameLabel" for="inputProyectoNombre">Nombre del proyecto</label>
-                <input id="inputProyectoNombre" type="text" placeholder="Ej: Registro senalizacion 2026">
-                <div class="project-grid">
-                    <div>
-                        <label for="inputProyectoInicio">Fecha inicio</label>
-                        <input id="inputProyectoInicio" type="date">
+            <div class="project-modal-body">
+                <div class="project-form">
+                    <label id="projectNameLabel" for="inputProyectoNombre">Nombre del proyecto</label>
+                    <input id="inputProyectoNombre" type="text" placeholder="Ej: Registro senalizacion 2026">
+                    <div class="project-grid">
+                        <div>
+                            <label for="inputProyectoInicio">Fecha inicio</label>
+                            <input id="inputProyectoInicio" type="date">
+                        </div>
+                        <div>
+                            <label for="inputProyectoFin">Fecha fin</label>
+                            <input id="inputProyectoFin" type="date">
+                        </div>
                     </div>
-                    <div>
-                        <label for="inputProyectoFin">Fecha fin</label>
-                        <input id="inputProyectoFin" type="date">
+                    <div id="accionProyectosWrap" class="plan-projects hidden">
+                        <div class="plan-projects-head">
+                            <span>Proyectos asociados</span>
+                            <span id="accionProjectsCount">0 asociados</span>
+                        </div>
+                        <div class="plan-projects-add">
+                            <input id="accionProjectName" type="text" placeholder="Nombre del proyecto asociado">
+                            <button type="button" id="btnAccionAddProject" class="plan-project-add-btn">+</button>
+                        </div>
+                        <div id="accionProjectsList" class="plan-projects-list"></div>
                     </div>
+                    <div class="project-checks">
+                        <label class="map-panel-check" id="rowChkProyectoTransito"><input id="chkProyectoTransito" type="checkbox" checked> <span id="lblChkProyectoTransito">Senales de transito</span></label>
+                        <label class="map-panel-check" id="rowChkProyectoMarcas"><input id="chkProyectoMarcas" type="checkbox" checked> <span id="lblChkProyectoMarcas">Marcas viales</span></label>
+                        <label class="map-panel-check" id="rowChkProyectoMobiliario"><input id="chkProyectoMobiliario" type="checkbox" checked> <span id="lblChkProyectoMobiliario">Mobiliario vial</span></label>
+                        <label class="map-panel-check" id="rowChkProyectoMetrado"><input id="chkProyectoMetrado" type="checkbox" checked> <span id="lblChkProyectoMetrado">Lineas y guionadas</span></label>
+                    </div>
+                    <div class="project-hint">Selecciona las senales y los trazos en el mapa con click izquierdo.</div>
                 </div>
-                <div class="project-checks">
-                    <label class="map-panel-check" id="rowChkProyectoTransito"><input id="chkProyectoTransito" type="checkbox" checked> <span id="lblChkProyectoTransito">Senales de transito</span></label>
-                    <label class="map-panel-check" id="rowChkProyectoMarcas"><input id="chkProyectoMarcas" type="checkbox" checked> <span id="lblChkProyectoMarcas">Marcas viales</span></label>
-                    <label class="map-panel-check" id="rowChkProyectoMobiliario"><input id="chkProyectoMobiliario" type="checkbox" checked> <span id="lblChkProyectoMobiliario">Mobiliario vial</span></label>
-                    <label class="map-panel-check" id="rowChkProyectoMetrado"><input id="chkProyectoMetrado" type="checkbox" checked> <span id="lblChkProyectoMetrado">Lineas y guionadas</span></label>
-                </div>
-                <div class="project-hint">Selecciona las senales y los trazos en el mapa con click izquierdo.</div>
-            </div>
-            <div class="project-preview">
-                <div class="project-preview-title"><span id="projectPreviewLabel">Proyecto</span>: <span id="projectPreviewName">-</span></div>
-                <div class="project-preview-meta">
-                    <span id="projectPreviewDates">Sin fechas</span>
-                    <span id="projectPreviewCount">0 activos</span>
-                </div>
-                <div class="project-table-wrap">
-                    <table id="tablaProyectoPreview" class="project-table">
-                        <thead>
-                            <tr><th>Tipo</th><th>Nombre</th><th>Estado</th><th>Verificado</th><th>Ubicacion</th><th>Quitar</th></tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
+                <div class="project-preview">
+                    <div class="project-preview-title"><span id="projectPreviewLabel">Proyecto</span>: <span id="projectPreviewName">-</span></div>
+                    <div class="project-preview-meta">
+                        <span id="projectPreviewDates">Sin fechas</span>
+                        <span id="projectPreviewCount">0 activos</span>
+                    </div>
+                    <div class="project-table-wrap">
+                        <table id="tablaProyectoPreview" class="project-table">
+                            <thead>
+                                <tr><th>Tipo</th><th>Nombre</th><th>Estado</th><th>Verificado</th><th>Ubicacion</th><th>Quitar</th></tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
             <div class="modal-actions">
