@@ -462,6 +462,27 @@
     });
   }
 
+  function normalizePlanResponse(remote){
+    if(!remote) return { plan: null, available: null };
+    if(remote.plan) return { plan: remote.plan, available: remote.available };
+    return { plan: remote, available: null };
+  }
+
+  function applyAvailableHint(available){
+    if(typeof available !== "number" || !Number.isFinite(available)) return;
+    if(planMontoHint && modalPlan && !modalPlan.classList.contains("hidden")){
+      planMontoHint.textContent = "Disponible: " + formatMoney(available);
+    }
+  }
+
+  function handlePlanRemoteResponse(remote, plan){
+    const normalized = normalizePlanResponse(remote);
+    if(normalized.plan && normalized.plan.id && plan){
+      plan.dbId = normalized.plan.id;
+    }
+    applyAvailableHint(normalized.available);
+  }
+
   async function cargarPlanesApi(){
     if(!window.UrbbisApi || typeof window.UrbbisApi.getPlans !== "function") return;
     try{
@@ -495,17 +516,14 @@
     if(plan.dbId){
       if(typeof window.UrbbisApi.updatePlan === "function"){
         window.UrbbisApi.updatePlan(plan.dbId, payload)
+          .then((remote)=> handlePlanRemoteResponse(remote, plan))
           .catch((err)=> console.warn("No se pudo actualizar plan en backend.", err));
       }
       return;
     }
     if(typeof window.UrbbisApi.createPlan === "function"){
       window.UrbbisApi.createPlan(payload)
-        .then((remote)=>{
-          if(remote && remote.id){
-            plan.dbId = remote.id;
-          }
-        })
+        .then((remote)=> handlePlanRemoteResponse(remote, plan))
         .catch((err)=> console.warn("No se pudo crear plan en backend.", err));
     }
   }
