@@ -35,6 +35,7 @@
   const planNombre = document.getElementById("planNombre");
   const planAnio = document.getElementById("planAnio");
   const planMonto = document.getElementById("planMonto");
+  const planMontoHint = document.getElementById("planMontoHint");
   const planProjectName = document.getElementById("planProjectName");
   const btnPlanAddProject = document.getElementById("btnPlanAddProject");
   const planProjectsList = document.getElementById("planProjectsList");
@@ -363,6 +364,27 @@
     // Persistencia solo en backend; aqui solo mantenemos memoria.
   }
 
+  function getMontoDisponiblePlanParaModal(anio, excludeId){
+    const presupuesto = getPresupuesto();
+    const total = Number(presupuesto && presupuesto.total || 0);
+    if(!total) return 0;
+    const plans = getPlanesDelAnio(anio);
+    const usado = plans.reduce((sum, p)=>{
+      if(excludeId && String(p.id || "") === String(excludeId)) return sum;
+      return sum + toPositiveNumber(p.monto);
+    }, 0);
+    return Math.max(0, total - usado);
+  }
+
+  function actualizarMontoPlanDisponible(anio, excludeId){
+    if(!planMontoHint) return;
+    const disponible = getMontoDisponiblePlanParaModal(anio, excludeId);
+    planMontoHint.textContent = "Disponible: " + formatMoney(disponible);
+    if(planMonto){
+      planMonto.max = String(Math.floor(disponible));
+    }
+  }
+
   function cargarPresupuesto(){
     if(!presupuestoCache){
       presupuestoCache = { year: new Date().getFullYear(), total: 0 };
@@ -463,6 +485,12 @@
         })
         .catch((err)=> console.warn("No se pudo crear plan en backend.", err));
     }
+  }
+
+  function deletePlanFromBackend(plan){
+    if(!window.UrbbisApi || !plan || !plan.dbId || typeof window.UrbbisApi.deletePlan !== "function") return;
+    window.UrbbisApi.deletePlan(plan.dbId)
+      .catch((err)=> console.warn("No se pudo eliminar plan en backend.", err));
   }
 
   function syncPresupuestoToBackend(presupuesto){
@@ -825,6 +853,7 @@
         +     "<div class=\"inv-plan-card-actions\">"
         +       "<button type=\"button\" class=\"dash-btn dash-btn--primary\" data-intervencion-new> Nueva Intervension</button>"
         +       "<button type=\"button\" class=\"inv-plan-edit\" data-plan-action=\"edit\" title=\"Modificar plan\">&#9998;</button>"
+        +       "<button type=\"button\" class=\"inv-plan-edit danger\" data-plan-action=\"delete\" title=\"Eliminar plan\">&#10005;</button>"
         +     "</div>"
         +   "</div>"
         +   "<div class=\"inv-plan-metrics\">"
@@ -991,8 +1020,10 @@
     planEditId = plan ? String(plan.id || "") : "";
     if(planModalTitle) planModalTitle.textContent = plan ? "Modificar plan" : "Registrar plan";
     if(planNombre) planNombre.value = plan ? (plan.nombre || "") : "";
-    if(planAnio) planAnio.value = String(plan ? (plan.anio || presupuesto.year) : (presupuesto.year || ""));
+    const modalAnio = plan ? (plan.anio || presupuesto.year) : (presupuesto.year || "");
+    if(planAnio) planAnio.value = String(modalAnio);
     if(planMonto) planMonto.value = plan ? Number(plan.monto || 0) : "";
+    actualizarMontoPlanDisponible(modalAnio, planEditId);
     planDraftProjects = plan && Array.isArray(plan.proyectos)
       ? plan.proyectos.map(p => ({ id: String(p.id || ""), nombre: String(p.nombre || "Proyecto") }))
       : [];
@@ -1042,6 +1073,11 @@
     }
     if(!Number.isFinite(monto) || monto <= 0){
       alert("Ingresa un monto total valido.");
+      return;
+    }
+    const disponible = getMontoDisponiblePlanParaModal(anio, planEditId);
+    if(monto > disponible){
+      alert("El monto del plan excede el presupuesto anual disponible. Disponible: " + formatMoney(disponible));
       return;
     }
     const base = {
@@ -1304,16 +1340,34 @@
   if(btnPlanNuevo) btnPlanNuevo.addEventListener("click", ()=> abrirModalPlan(null));
   if(invPlanBoardList){
     invPlanBoardList.addEventListener("click", (e)=>{
-      const planBtn = e.target && e.target.closest ? e.target.closest("[data-plan-action=\"edit\"]") : null;
-      if(planBtn){
-        const card = planBtn.closest("[data-plan-id]");
+      const planAction = e.target && e.target.closest ? e.target.closest("[data-plan-action]") : null;
+      if(planAction){
+        const action = planAction.getAttribute("data-plan-action");
+        const card = planAction.closest("[data-plan-id]");
         const id = card ? card.getAttribute("data-plan-id") : "";
         const plan = getPlanById(id);
-        if(plan){
+        if(!plan) return;
+        if(action === "edit"){
           planSeleccionadoId = plan.id;
           abrirModalPlan(plan);
+          return;
         }
-        return;
+        if(action === "delete"){
+          const ok = confirm("Eliminar el plan y sus intervenciones?");
+          if(!ok) return;
+          deletePlanFromBackend(plan);
+          const eliminadas = intervencionesCache.filter(i => String(i.planId || "") === String(plan.id || ""));
+          eliminadas.forEach((i)=> deleteInterventionFromBackend(i));
+          intervencionesCache = intervencionesCache.filter(i => String(i.planId || "") !== String(plan.id || ""));
+          planesCache = planesCache.filter(p => String(p.id || "") !== String(plan.id || ""));
+          if(planSeleccionadoId === plan.id){
+            planSeleccionadoId = planesCache[0] ? planesCache[0].id : "";
+          }
+          guardarIntervenciones();
+          guardarPlanes();
+          updateInversionPlanes();
+          return;
+        }
       }
       const newBtn = e.target && e.target.closest ? e.target.closest("[data-intervencion-new]") : null;
       if(newBtn){
@@ -1391,6 +1445,18 @@
         e.preventDefault();
         if(btnPlanAddProject) btnPlanAddProject.click();
       }
+    });
+  }
+  if(planAnio){
+    planAnio.addEventListener("input", ()=>{
+      const anio = Number(planAnio.value || 0);
+      actualizarMontoPlanDisponible(anio, planEditId);
+    });
+  }
+  if(planMonto){
+    planMonto.addEventListener("input", ()=>{
+      const anio = Number(planAnio ? planAnio.value : 0);
+      actualizarMontoPlanDisponible(anio, planEditId);
     });
   }
   if(planProjectsList){

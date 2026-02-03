@@ -1217,7 +1217,10 @@
                 <label for="planAnio">A&ntilde;o</label>
                 <input id="planAnio" type="number" min="2000" step="1" placeholder="2026">
                 <label for="planMonto">Monto total (S/)</label>
-                <input id="planMonto" type="number" min="0" step="1" placeholder="14000">
+                <div class="plan-monto-wrap">
+                    <input id="planMonto" type="number" min="0" step="1" placeholder="14000">
+                    <small id="planMontoHint" class="plan-monto-hint">Disponible: S/ 0</small>
+                </div>
             </div>
             <div class="modal-actions">
                 <button id="btnPlanCancelar" type="button" class="map-panel-btn map-panel-btn--ghost">Cancelar</button>
