@@ -1,7 +1,6 @@
 (function(){
   const btnPlanNuevo = document.getElementById("btnPlanNuevo");
   const btnPlanEditar = document.getElementById("btnPlanEditar");
-  const btnIntervencionNueva = document.getElementById("btnIntervencionNueva");
   const invAnualSelect = document.getElementById("invAnualSelect");
   const invAnualTotal = document.getElementById("invAnualTotal");
   const invAnualSub = document.getElementById("invAnualSub");
@@ -19,7 +18,7 @@
   const invPhasePlanificacionLabel = document.getElementById("invPhasePlanificacionLabel");
   const invPhaseEjecucionLabel = document.getElementById("invPhaseEjecucionLabel");
   const invPhaseEjecutadoLabel = document.getElementById("invPhaseEjecutadoLabel");
-  const invIntervencionesBody = document.getElementById("invIntervencionesBody");
+  const invPlanBoardList = document.getElementById("invPlanBoardList");
   const invIntervencionBuscar = document.getElementById("invIntervencionBuscar");
   const invIntervencionFase = document.getElementById("invIntervencionFase");
 
@@ -47,6 +46,7 @@
   const modalIntervencion = document.getElementById("modalIntervencion");
   const intervencionModalTitle = document.getElementById("intervencionModalTitle");
   const intervencionPlan = document.getElementById("intervencionPlan");
+  const intervencionPlanName = document.getElementById("intervencionPlanName");
   const intervencionMonto = document.getElementById("intervencionMonto");
   const intervencionFechaInicio = document.getElementById("intervencionFechaInicio");
   const intervencionFechaFin = document.getElementById("intervencionFechaFin");
@@ -57,7 +57,7 @@
   const btnIntervencionCancelar = document.getElementById("btnIntervencionCancelar");
   const btnIntervencionGuardar = document.getElementById("btnIntervencionGuardar");
 
-  if(!invAnualTrack || !invIntervencionesBody){
+  if(!invAnualTrack || !invPlanBoardList){
     return;
   }
 
@@ -75,6 +75,7 @@
   let intervencionesCache = [];
   let intervencionEditId = "";
   let planDraftProjects = [];
+  const groupFilters = new Map();
 
   function toPositiveNumber(value){
     const n = Number(value);
@@ -178,6 +179,19 @@
       return formatearMonedaPEN(n);
     }
     return "S/ " + Math.round(n).toLocaleString("es-PE");
+  }
+
+  function normalizarProyectoKey(nombre){
+    return String(nombre || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  function getAccionProyectoAsociado(accion){
+    return String(accion && (accion.proyectoAsociado || accion.proyecto_asociado || accion.projectName) || "").trim();
   }
 
   function getEmailKey(){
@@ -514,6 +528,19 @@
     return list;
   }
 
+  function obtenerProyectosAsociadosAcciones(){
+    const acciones = obtenerAccionesDisponibles();
+    const mapa = new Map();
+    acciones.forEach((a)=>{
+      const nombre = getAccionProyectoAsociado(a);
+      if(!nombre) return;
+      const key = normalizarProyectoKey(nombre);
+      if(!key || mapa.has(key)) return;
+      mapa.set(key, nombre);
+    });
+    return Array.from(mapa, ([id, nombre]) => ({ id, nombre }));
+  }
+
   function obtenerProyectosPlan(plan){
     if(!Array.isArray(plan && plan.proyectos)) return [];
     return plan.proyectos;
@@ -694,6 +721,137 @@
     renderIntervencionesTable(getPlanById(planSeleccionadoId));
   }
 
+  function renderPlanBoard(plans){
+    if(!invPlanBoardList) return;
+    if(!plans.length){
+      invPlanBoardList.innerHTML = "<div class=\"inv-plan-empty\">Registra un plan para visualizar el resumen.</div>";
+      planSeleccionadoId = "";
+      return;
+    }
+    if(!planSeleccionadoId || !plans.some(p => String(p.id || "") === String(planSeleccionadoId))){
+      planSeleccionadoId = plans[0].id;
+    }
+    invPlanBoardList.innerHTML = plans.map((plan)=>{
+      const totals = calcPlanPhaseTotals(plan.id);
+      const montoPlan = totals.montoPlan;
+      const pctPlan = montoPlan > 0 ? Math.round((totals.planificacion / montoPlan) * 100) : 0;
+      const pctEjec = montoPlan > 0 ? Math.round((totals.ejecucion / montoPlan) * 100) : 0;
+      const pctEje = montoPlan > 0 ? Math.round((totals.ejecutado / montoPlan) * 100) : 0;
+      let list = getIntervencionesPlan(plan.id);
+      let groupsHtml = "";
+      if(!list.length){
+        groupsHtml = "<div class=\"inv-plan-empty\">Sin intervenciones registradas.</div>";
+      } else {
+        const grupos = new Map();
+        list.forEach((i)=>{
+          const nombre = getIntervencionProyectoNombre(i);
+          const key = normalizarProyectoKey(nombre);
+          if(!grupos.has(key)){
+            grupos.set(key, { nombre, items: [] });
+          }
+          grupos.get(key).items.push(i);
+        });
+        const gruposOrdenados = Array.from(grupos.values())
+          .sort((a,b)=> a.nombre.localeCompare(b.nombre, "es"));
+        groupsHtml = gruposOrdenados.map((grupo)=>{
+          const groupKey = plan.id + ":" + normalizarProyectoKey(grupo.nombre || "");
+          const filters = groupFilters.get(groupKey) || { query: "", fase: "todas" };
+          let items = grupo.items.slice();
+          if(filters.fase && filters.fase !== "todas"){
+            items = items.filter(i => String(i.fase || "") === filters.fase);
+          }
+          if(filters.query){
+            const q = filters.query.toLowerCase();
+            items = items.filter(i => String(i.nombre || i.accionNombre || "").toLowerCase().includes(q));
+          }
+          return ""
+            + "<div class=\"inv-interventions\" data-plan-id=\"" + escapeHtml(plan.id) + "\" data-proyecto-nombre=\"" + escapeHtml(grupo.nombre) + "\" data-group-key=\"" + escapeHtml(groupKey) + "\">"
+            +   "<div class=\"inv-interventions-head\">"
+            +     "<div>"
+            +       "<h3>" + escapeHtml(grupo.nombre) + "</h3>"
+            +       "<span class=\"inv-interventions-sub\">" + items.length + " intervenciones</span>"
+            +     "</div>"
+            +   "</div>"
+            +   "<div class=\"inv-interventions-tools\">"
+            +     "<input type=\"text\" class=\"inv-intervencion-buscar\" placeholder=\"Buscar intervencion...\" value=\"" + escapeHtml(filters.query || "") + "\">"
+            +     "<select class=\"inv-intervencion-fase\" aria-label=\"Filtro de fases\">"
+            +       "<option value=\"todas\"" + (filters.fase === "todas" ? " selected" : "") + ">Todas las fases</option>"
+            +       "<option value=\"planificacion\"" + (filters.fase === "planificacion" ? " selected" : "") + ">En planificacion</option>"
+            +       "<option value=\"ejecucion\"" + (filters.fase === "ejecucion" ? " selected" : "") + ">En ejecucion</option>"
+            +       "<option value=\"ejecutado\"" + (filters.fase === "ejecutado" ? " selected" : "") + ">Ejecutado</option>"
+            +     "</select>"
+            +   "</div>"
+            +   "<div class=\"inv-interventions-table-wrap\">"
+            +     "<table class=\"inv-interventions-table\">"
+            +       "<thead>"
+            +         "<tr>"
+            +           "<th>Intervenciones</th>"
+            +           "<th>Fase</th>"
+            +           "<th>Monto</th>"
+            +           "<th>Avance</th>"
+            +           "<th>Acciones</th>"
+            +         "</tr>"
+            +       "</thead>"
+            +       "<tbody>" + (items.length ? items.map((i)=>{
+                      const accion = getAccionById(i.accionId);
+                      const nombreAccion = i.nombre || (accion ? accion.nombre : "") || i.accionNombre || "Intervension";
+                      const monto = toPositiveNumber(i.monto);
+                      const avanceMonto = (i.fase === "ejecutado" || i.fase === "ejecucion") ? calcularCostoAccion(accion) : 0;
+                      const pct = monto > 0 ? Math.max(0, Math.min(100, Math.round((avanceMonto / monto) * 100))) : 0;
+                      return ""
+                        + "<tr data-intervencion-id=\"" + escapeHtml(i.id) + "\">"
+                        +   "<td>" + escapeHtml(nombreAccion) + "</td>"
+                        +   "<td><span class=\"inv-phase-pill " + escapeHtml(i.fase || "planificacion") + "\">" + escapeHtml(PLAN_ESTADOS[i.fase] || "En planificacion") + "</span></td>"
+                        +   "<td>" + escapeHtml(formatMoney(monto)) + "</td>"
+                        +   "<td>" + escapeHtml(formatMoney(avanceMonto)) + " (" + pct + "%)</td>"
+                        +   "<td><div class=\"inv-table-actions\">"
+                        +     "<button type=\"button\" data-intervencion-action=\"edit\">&#9998;</button>"
+                        +     "<button type=\"button\" class=\"danger\" data-intervencion-action=\"delete\">&#10005;</button>"
+                        +   "</div></td>"
+                        + "</tr>";
+                    }).join("") : "<tr><td colspan=\"5\" class=\"empty\">Sin intervenciones.</td></tr>") + "</tbody>"
+            +     "</table>"
+            +   "</div>"
+            + "</div>";
+        }).join("");
+      }
+      return ""
+        + "<article class=\"inv-plan-card\" data-plan-id=\"" + escapeHtml(plan.id) + "\">"
+        +   "<div class=\"inv-plan-card-head\">"
+        +     "<div>"
+        +       "<h4 class=\"inv-plan-card-title\">" + escapeHtml(plan.nombre || "Plan") + " " + escapeHtml(plan.anio || "") + "</h4>"
+        +       "<span class=\"inv-plan-card-sub\">Total del plan y avance por fase.</span>"
+        +     "</div>"
+        +     "<div class=\"inv-plan-card-actions\">"
+        +       "<button type=\"button\" class=\"dash-btn dash-btn--primary\" data-intervencion-new> Nueva Intervension</button>"
+        +       "<button type=\"button\" class=\"inv-plan-edit\" data-plan-action=\"edit\" title=\"Modificar plan\">&#9998;</button>"
+        +     "</div>"
+        +   "</div>"
+        +   "<div class=\"inv-plan-metrics\">"
+        +     "<div class=\"inv-plan-metric\"><span>Total</span><strong>" + escapeHtml(formatMoney(montoPlan)) + "</strong></div>"
+        +     "<div class=\"inv-plan-metric\"><span>Asignado en intervenciones</span><strong>" + escapeHtml(formatMoney(totals.asignado)) + "</strong></div>"
+        +     "<div class=\"inv-plan-metric\"><span>Restante</span><strong>" + escapeHtml(formatMoney(totals.restante)) + "</strong></div>"
+        +   "</div>"
+        +   "<div class=\"inv-plan-phases\">"
+        +     "<div class=\"inv-phase inv-phase--plan\"><span>Planificacion</span><strong>" + pctPlan + "% (" + escapeHtml(formatMoney(totals.planificacion)) + ")</strong></div>"
+        +     "<div class=\"inv-phase inv-phase--exec\"><span>En ejecucion</span><strong>" + pctEjec + "% (" + escapeHtml(formatMoney(totals.ejecucion)) + ")</strong></div>"
+        +     "<div class=\"inv-phase inv-phase--done\"><span>Ejecutado</span><strong>" + pctEje + "% (" + escapeHtml(formatMoney(totals.ejecutado)) + ")</strong></div>"
+        +   "</div>"
+        +   groupsHtml
+        + "</article>";
+    }).join("");
+  }
+
+  function getIntervencionProyectoNombre(intervencion){
+    const accion = getAccionById(intervencion && intervencion.accionId);
+    const nombre = String(intervencion && (intervencion.proyectoNombre || getAccionProyectoAsociado(accion)) || "").trim();
+    return nombre || "Sin proyecto asociado";
+  }
+
+  function renderIntervencionesGrouped(){
+    // Render ahora vive dentro de renderPlanBoard.
+  }
+
   function renderPlanResumen(plan){
     if(!invPlanTitle || !invPlanTotal || !invPlanAssigned || !invPlanRemaining) return;
     if(!plan){
@@ -745,7 +903,11 @@
   function getProyectoNombre(plan, proyectoId){
     const list = (plan && Array.isArray(plan.proyectos)) ? plan.proyectos : [];
     const found = list.find(p => String(p.id || "") === String(proyectoId || ""));
-    return found ? (found.nombre || "Proyecto") : "Proyecto";
+    if(found) return found.nombre || "Proyecto";
+    const asociados = obtenerProyectosAsociadosAcciones();
+    const match = asociados.find(p => String(p.id || "") === String(proyectoId || ""));
+    if(match) return match.nombre || "Proyecto";
+    return "Proyecto";
   }
 
   function renderIntervencionesTable(plan){
@@ -796,7 +958,8 @@
     const anio = Number(presupuesto.year || new Date().getFullYear());
     const plans = getPlanesDelAnio(anio);
     renderAnual(plans, presupuesto);
-    renderPlanSelect(plans);
+    renderPlanBoard(plans);
+    renderIntervencionesGrouped();
   }
 
   function prepararProyectosParaModal(plan){
@@ -879,10 +1042,6 @@
     }
     if(!Number.isFinite(monto) || monto <= 0){
       alert("Ingresa un monto total valido.");
-      return;
-    }
-    if(!planDraftProjects.length){
-      alert("Selecciona al menos un proyecto asociado.");
       return;
     }
     const base = {
@@ -968,6 +1127,7 @@
     const plans = getPlanesDelAnio(presupuesto.year);
     if(!plans.length){
       intervencionPlan.innerHTML = "<option value=\"\">Sin planes</option>";
+      if(intervencionPlanName) intervencionPlanName.value = "";
       return null;
     }
     intervencionPlan.innerHTML = plans.map((p)=>(
@@ -980,28 +1140,23 @@
         : plans[0].id;
     }
     intervencionPlan.value = selected;
-    return getPlanById(selected);
+    const plan = getPlanById(selected);
+    if(intervencionPlanName){
+      intervencionPlanName.value = plan ? ((plan.nombre || "Plan") + " " + (plan.anio || "")) : "";
+    }
+    return plan;
   }
 
   function actualizarIntervencionProyectoOptions(plan, preselectId){
     if(!intervencionProyecto) return;
-    const list = plan && Array.isArray(plan.proyectos) ? plan.proyectos : [];
-    if(!list.length){
-      intervencionProyecto.innerHTML = "<option value=\"\">Sin proyectos asociados</option>";
-      return;
-    }
-    intervencionProyecto.innerHTML = list.map((p)=>(
-      "<option value=\"" + escapeHtml(p.id) + "\">" + escapeHtml(p.nombre || "Proyecto") + "</option>"
-    )).join("");
-    if(preselectId && list.some(p => String(p.id || "") === String(preselectId))){
-      intervencionProyecto.value = preselectId;
-      return;
-    }
-    const selectedText = intervencionProyecto.getAttribute("data-selected-name");
+    const selectedText = String(preselectId || "") || intervencionProyecto.getAttribute("data-selected-name") || "";
     if(selectedText){
-      const match = list.find(p => String(p.nombre || "").toLowerCase() === String(selectedText).toLowerCase());
-      if(match) intervencionProyecto.value = match.id;
+      const key = normalizarProyectoKey(selectedText);
+      intervencionProyecto.innerHTML = "<option value=\"" + escapeHtml(key) + "\">" + escapeHtml(selectedText) + "</option>";
+      intervencionProyecto.value = key;
+      return;
     }
+    intervencionProyecto.innerHTML = "<option value=\"\">Sin proyecto asociado</option>";
   }
 
   function actualizarIntervencionAccionOptions(preselectId){
@@ -1017,7 +1172,9 @@
     if(preselectId && acciones.some(a => String(a.id || "") === String(preselectId))){
       intervencionAccion.value = preselectId;
     }
-    return getAccionById(intervencionAccion.value);
+    const accion = getAccionById(intervencionAccion.value);
+    syncIntervencionProyectoFromAccion(accion);
+    return accion;
   }
 
   function syncIntervencionFechas(accion){
@@ -1026,6 +1183,16 @@
     const fin = accion && (accion.fecha_fin || accion.endDate || accion.fin) || "";
     intervencionFechaInicio.value = toDateInputValue(inicio);
     intervencionFechaFin.value = toDateInputValue(fin);
+  }
+
+  function syncIntervencionProyectoFromAccion(accion){
+    if(!intervencionProyecto || !accion) return;
+    const nombre = getAccionProyectoAsociado(accion);
+    if(!nombre) return;
+    const key = normalizarProyectoKey(nombre);
+    if(!key) return;
+    intervencionProyecto.innerHTML = "<option value=\"" + escapeHtml(key) + "\">" + escapeHtml(nombre) + "</option>";
+    intervencionProyecto.value = key;
   }
 
   function abrirModalIntervencion(intervencion){
@@ -1045,7 +1212,7 @@
         intervencionProyecto.removeAttribute("data-selected-name");
       }
     }
-    actualizarIntervencionProyectoOptions(plan, intervencion ? intervencion.proyectoId : "");
+    actualizarIntervencionProyectoOptions(plan, intervencion ? (intervencion.proyectoNombre || "") : "");
     const accion = actualizarIntervencionAccionOptions(intervencion ? intervencion.accionId : "");
     if(intervencionMonto) intervencionMonto.value = intervencion ? toPositiveNumber(intervencion.monto) : "";
     if(intervencionFase) intervencionFase.value = intervencion ? (intervencion.fase || "planificacion") : "planificacion";
@@ -1070,11 +1237,6 @@
       alert("Selecciona un plan valido.");
       return;
     }
-    const proyectoId = intervencionProyecto ? intervencionProyecto.value : "";
-    if(!proyectoId){
-      alert("Selecciona un proyecto asociado.");
-      return;
-    }
     const accionId = intervencionAccion ? intervencionAccion.value : "";
     if(!accionId){
       alert("Selecciona una accion disponible.");
@@ -1093,7 +1255,21 @@
     const fase = intervencionFase ? (intervencionFase.value || "planificacion") : "planificacion";
     const accion = getAccionById(accionId);
     const nombreAccion = accion ? accion.nombre : (intervencionAccion && intervencionAccion.selectedOptions[0] ? intervencionAccion.selectedOptions[0].textContent : "");
-    const proyectoNombre = getProyectoNombre(plan, proyectoId);
+    const proyectoDesdeAccion = getAccionProyectoAsociado(accion);
+    let proyectoId = intervencionProyecto ? (intervencionProyecto.value || "") : "";
+    let proyectoNombre = "";
+    if(intervencionProyecto && intervencionProyecto.selectedOptions && intervencionProyecto.selectedOptions[0]){
+      proyectoNombre = String(intervencionProyecto.selectedOptions[0].textContent || "").trim();
+    }
+    if(!proyectoNombre && proyectoDesdeAccion){
+      proyectoNombre = proyectoDesdeAccion;
+    }
+    if(!proyectoNombre){
+      proyectoNombre = getProyectoNombre(plan, proyectoId) || "Sin proyecto asociado";
+    }
+    if(!proyectoId && proyectoNombre){
+      proyectoId = normalizarProyectoKey(proyectoNombre);
+    }
     const payload = {
       id: intervencionEditId || ("interv-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,6)),
       planId,
@@ -1126,18 +1302,71 @@
   }
 
   if(btnPlanNuevo) btnPlanNuevo.addEventListener("click", ()=> abrirModalPlan(null));
-  if(btnPlanEditar){
-    btnPlanEditar.addEventListener("click", ()=>{
-      const plan = getPlanById(planSeleccionadoId);
-      if(plan) abrirModalPlan(plan);
+  if(invPlanBoardList){
+    invPlanBoardList.addEventListener("click", (e)=>{
+      const planBtn = e.target && e.target.closest ? e.target.closest("[data-plan-action=\"edit\"]") : null;
+      if(planBtn){
+        const card = planBtn.closest("[data-plan-id]");
+        const id = card ? card.getAttribute("data-plan-id") : "";
+        const plan = getPlanById(id);
+        if(plan){
+          planSeleccionadoId = plan.id;
+          abrirModalPlan(plan);
+        }
+        return;
+      }
+      const newBtn = e.target && e.target.closest ? e.target.closest("[data-intervencion-new]") : null;
+      if(newBtn){
+        const wrap = newBtn.closest("[data-plan-id]");
+        const planId = wrap ? wrap.getAttribute("data-plan-id") : "";
+        if(planId){
+          planSeleccionadoId = planId;
+        }
+        if(intervencionProyecto) intervencionProyecto.removeAttribute("data-selected-name");
+        abrirModalIntervencion(null);
+        return;
+      }
+      const btn = e.target && e.target.closest ? e.target.closest("[data-intervencion-action]") : null;
+      if(!btn) return;
+      const action = btn.getAttribute("data-intervencion-action");
+      const row = btn.closest("tr");
+      const id = row ? row.getAttribute("data-intervencion-id") : "";
+      const item = getIntervencionById(id);
+      if(!item) return;
+      if(action === "edit"){
+        abrirModalIntervencion(item);
+        return;
+      }
+      if(action === "delete"){
+        const ok = confirm("Eliminar la intervension seleccionada?");
+        if(!ok) return;
+        deleteInterventionFromBackend(item);
+        intervencionesCache = intervencionesCache.filter(i => String(i.id || "") !== String(id || ""));
+        guardarIntervenciones();
+        updateInversionPlanes();
+      }
     });
-  }
-  if(invPlanSelect){
-    invPlanSelect.addEventListener("change", ()=>{
-      planSeleccionadoId = invPlanSelect.value;
-      renderPlanResumen(getPlanById(planSeleccionadoId));
-      renderIntervencionesTable(getPlanById(planSeleccionadoId));
-      if(btnPlanEditar) btnPlanEditar.disabled = !planSeleccionadoId;
+    invPlanBoardList.addEventListener("input", (e)=>{
+      const input = e.target && e.target.closest ? e.target.closest(".inv-intervencion-buscar") : null;
+      if(!input) return;
+      const wrap = input.closest("[data-group-key]");
+      const key = wrap ? wrap.getAttribute("data-group-key") : "";
+      if(!key) return;
+      const current = groupFilters.get(key) || { query: "", fase: "todas" };
+      current.query = input.value || "";
+      groupFilters.set(key, current);
+      renderPlanBoard(getPlanesDelAnio(getPresupuesto().year));
+    });
+    invPlanBoardList.addEventListener("change", (e)=>{
+      const select = e.target && e.target.closest ? e.target.closest(".inv-intervencion-fase") : null;
+      if(!select) return;
+      const wrap = select.closest("[data-group-key]");
+      const key = wrap ? wrap.getAttribute("data-group-key") : "";
+      if(!key) return;
+      const current = groupFilters.get(key) || { query: "", fase: "todas" };
+      current.fase = select.value || "todas";
+      groupFilters.set(key, current);
+      renderPlanBoard(getPlanesDelAnio(getPresupuesto().year));
     });
   }
 
@@ -1194,19 +1423,9 @@
   if(btnPresupuestoCancelar) btnPresupuestoCancelar.addEventListener("click", cerrarModalPresupuesto);
   if(btnPresupuestoGuardar) btnPresupuestoGuardar.addEventListener("click", guardarPresupuestoDesdeModal);
 
-  if(btnIntervencionNueva){
-    btnIntervencionNueva.addEventListener("click", ()=> abrirModalIntervencion(null));
-  }
   if(btnIntervencionClose) btnIntervencionClose.addEventListener("click", cerrarModalIntervencion);
   if(btnIntervencionCancelar) btnIntervencionCancelar.addEventListener("click", cerrarModalIntervencion);
   if(btnIntervencionGuardar) btnIntervencionGuardar.addEventListener("click", guardarIntervencionDesdeModal);
-  if(intervencionPlan){
-    intervencionPlan.addEventListener("change", ()=>{
-      const plan = getPlanById(intervencionPlan.value);
-      actualizarIntervencionProyectoOptions(plan, "");
-      if(plan) actualizarLimiteIntervencionMonto(plan.id, intervencionEditId);
-    });
-  }
   if(intervencionMonto){
     intervencionMonto.addEventListener("input", ()=>{
       const planId = intervencionPlan ? intervencionPlan.value : "";
@@ -1217,39 +1436,7 @@
     intervencionAccion.addEventListener("change", ()=>{
       const accion = getAccionById(intervencionAccion.value);
       syncIntervencionFechas(accion);
-    });
-  }
-  if(invIntervencionBuscar){
-    invIntervencionBuscar.addEventListener("input", ()=>{
-      renderIntervencionesTable(getPlanById(planSeleccionadoId));
-    });
-  }
-  if(invIntervencionFase){
-    invIntervencionFase.addEventListener("change", ()=>{
-      renderIntervencionesTable(getPlanById(planSeleccionadoId));
-    });
-  }
-  if(invIntervencionesBody){
-    invIntervencionesBody.addEventListener("click", (e)=>{
-      const btn = e.target && e.target.closest ? e.target.closest("[data-intervencion-action]") : null;
-      if(!btn) return;
-      const action = btn.getAttribute("data-intervencion-action");
-      const row = btn.closest("tr");
-      const id = row ? row.getAttribute("data-intervencion-id") : "";
-      const item = getIntervencionById(id);
-      if(!item) return;
-      if(action === "edit"){
-        abrirModalIntervencion(item);
-        return;
-      }
-      if(action === "delete"){
-        const ok = confirm("Eliminar la intervension seleccionada?");
-        if(!ok) return;
-        deleteInterventionFromBackend(item);
-        intervencionesCache = intervencionesCache.filter(i => String(i.id || "") !== String(id || ""));
-        guardarIntervenciones();
-        updateInversionPlanes();
-      }
+      syncIntervencionProyectoFromAccion(accion);
     });
   }
 

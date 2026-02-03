@@ -347,69 +347,11 @@
                 <section class="inv-plan-board" aria-label="Resumen de planes">
                     <div class="inv-plan-board-head">
                         <div class="inv-plan-board-title">
-                            <div class="inv-plan-title-row">
-                                <h3 id="invPlanTitle">Plan anual</h3>
-                                <button type="button" id="btnPlanEditar" class="inv-plan-edit" title="Modificar plan">&#9998;</button>
-                            </div>
-                            <span class="inv-plan-sub" id="invPlanSub">Selecciona un plan para ver su detalle.</span>
-                        </div>
-                        <div class="inv-plan-board-controls">
-                            <select id="invPlanSelect" aria-label="Plan seleccionado"></select>
+                            <h3>Planes registrados</h3>
+                            <span class="inv-plan-sub">Resumen general de planes y avance por fase.</span>
                         </div>
                     </div>
-                    <div class="inv-plan-metrics">
-                        <div class="inv-plan-metric">
-                            <span>Total</span>
-                            <strong id="invPlanTotal">S/ 0</strong>
-                        </div>
-                        <div class="inv-plan-metric">
-                            <span>Asignado en intervenciones</span>
-                            <strong id="invPlanAssigned">S/ 0</strong>
-                        </div>
-                        <div class="inv-plan-metric">
-                            <span>Restante</span>
-                            <strong id="invPlanRemaining">S/ 0</strong>
-                        </div>
-                    </div>
-                    <div class="inv-plan-phases">
-                        <div class="inv-phase inv-phase--plan" id="invPhasePlanificacionBar"><span>Planificacion</span><strong id="invPhasePlanificacionLabel">0% (S/ 0)</strong></div>
-                        <div class="inv-phase inv-phase--exec" id="invPhaseEjecucionBar"><span>En ejecucion</span><strong id="invPhaseEjecucionLabel">0% (S/ 0)</strong></div>
-                        <div class="inv-phase inv-phase--done" id="invPhaseEjecutadoBar"><span>Ejecutado</span><strong id="invPhaseEjecutadoLabel">0% (S/ 0)</strong></div>
-                    </div>
-                </section>
-
-                <section class="inv-interventions" aria-label="Intervenciones">
-                    <div class="inv-interventions-head">
-                        <div>
-                            <h3>Intervenciones</h3>
-                            <span class="inv-interventions-sub">Acciones asociadas al plan seleccionado.</span>
-                        </div>
-                        <button type="button" id="btnIntervencionNueva" class="dash-btn dash-btn--primary">Nueva Intervension</button>
-                    </div>
-                    <div class="inv-interventions-tools">
-                        <input id="invIntervencionBuscar" type="text" placeholder="Buscar intervencion...">
-                        <select id="invIntervencionFase" aria-label="Filtro de fases">
-                            <option value="todas">Todas las fases</option>
-                            <option value="planificacion">En planificacion</option>
-                            <option value="ejecucion">En ejecucion</option>
-                            <option value="ejecutado">Ejecutado</option>
-                        </select>
-                    </div>
-                    <div class="inv-interventions-table-wrap">
-                        <table class="inv-interventions-table">
-                            <thead>
-                                <tr>
-                                    <th>Intervenciones</th>
-                                    <th>Proyecto Asociado</th>
-                                    <th>Fase</th>
-                                    <th>Monto</th>
-                                    <th>Avance</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody id="invIntervencionesBody"></tbody>
-                        </table>
-                    </div>
+                    <div id="invPlanBoardList" class="inv-plan-board-list"></div>
                 </section>
             </div>
 
@@ -1276,17 +1218,6 @@
                 <input id="planAnio" type="number" min="2000" step="1" placeholder="2026">
                 <label for="planMonto">Monto total (S/)</label>
                 <input id="planMonto" type="number" min="0" step="1" placeholder="14000">
-                <div class="plan-projects">
-                    <div class="plan-projects-head">
-                        <span>Proyectos asociados</span>
-                        <span id="planProjectsCount">0 asociados</span>
-                    </div>
-                    <div class="plan-projects-add">
-                        <input id="planProjectName" type="text" placeholder="Nombre del proyecto asociado">
-                        <button type="button" id="btnPlanAddProject" class="plan-project-add-btn">+</button>
-                    </div>
-                    <div id="planProjectsList" class="plan-projects-list"></div>
-                </div>
             </div>
             <div class="modal-actions">
                 <button id="btnPlanCancelar" type="button" class="map-panel-btn map-panel-btn--ghost">Cancelar</button>
@@ -1302,8 +1233,9 @@
                 <button id="btnIntervencionClose" type="button" class="inspeccion-close">&times;</button>
             </div>
             <div class="plan-form">
-                <label for="intervencionPlan">Nombre del Plan Asociado</label>
-                <select id="intervencionPlan"></select>
+                <label for="intervencionPlanName">Nombre del Plan Asociado</label>
+                <input id="intervencionPlanName" type="text" readonly>
+                <select id="intervencionPlan" class="hidden" aria-hidden="true" tabindex="-1"></select>
                 <label for="intervencionMonto">Monto</label>
                 <input id="intervencionMonto" type="number" min="0" step="1" placeholder="750000">
                 <div class="plan-grid">
@@ -1316,10 +1248,10 @@
                         <input id="intervencionFechaFin" type="date" readonly>
                     </div>
                 </div>
-                <label for="intervencionProyecto">Proyectos Disponibles</label>
-                <select id="intervencionProyecto"></select>
                 <label for="intervencionAccion">Acciones Disponibles</label>
                 <select id="intervencionAccion"></select>
+                <label for="intervencionProyecto">Proyecto asociado</label>
+                <select id="intervencionProyecto" disabled></select>
                 <label for="intervencionFase">Fase</label>
                 <select id="intervencionFase">
                     <option value="planificacion">En planificacion</option>

@@ -790,6 +790,49 @@
   box-shadow:0 12px 26px rgba(11,34,48,0.08);
   margin-bottom:20px;
 }
+.inv-plan-board-list{
+  margin-top:12px;
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+}
+.inv-plan-card{
+  background:#f6f8fb;
+  border-radius:16px;
+  padding:14px;
+  border:1px solid rgba(11,34,48,0.08);
+}
+.inv-plan-card-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+}
+.inv-plan-card-actions{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.inv-plan-card-title{
+  margin:0;
+  font-size:14px;
+  font-weight:900;
+}
+.inv-plan-card-sub{
+  display:block;
+  margin-top:4px;
+  font-size:12px;
+  color:rgba(11,34,48,0.6);
+  font-weight:800;
+}
+.inv-plan-empty{
+  text-align:center;
+  padding:14px;
+  font-size:12px;
+  font-weight:800;
+  color:rgba(11,34,48,0.6);
+}
 .inv-plan-board-head{
   display:flex;
   align-items:flex-start;
@@ -822,6 +865,19 @@
   border:1px solid rgba(11,34,48,0.12);
   border-radius:12px;
   padding:8px 10px;
+  font-size:12px;
+  font-weight:800;
+  background:#f6f8fb;
+}
+.inv-plan-board-controls{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.inv-plan-board-controls input{
+  border:1px solid rgba(11,34,48,0.12);
+  border-radius:12px;
+  padding:8px 12px;
   font-size:12px;
   font-weight:800;
   background:#f6f8fb;
@@ -875,6 +931,69 @@
   padding:18px;
   border:1px solid rgba(11,34,48,0.08);
   box-shadow:0 12px 26px rgba(11,34,48,0.08);
+}
+.inv-plan-card .inv-interventions{
+  margin-top:12px;
+  box-shadow:none;
+}
+.inv-interventions-groups{
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+}
+.inv-interventions-plan{
+  background:#f6f8fb;
+  border-radius:16px;
+  padding:14px;
+  border:1px solid rgba(11,34,48,0.08);
+}
+.inv-interventions-plan-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+.inv-interventions-plan-title{
+  font-size:13px;
+  font-weight:900;
+  margin:0;
+}
+.inv-interventions-plan-sub{
+  display:block;
+  font-size:12px;
+  color:rgba(11,34,48,0.6);
+  font-weight:800;
+  margin-top:4px;
+}
+.inv-interventions-group{
+  background:#fff;
+  border-radius:14px;
+  padding:12px;
+  border:1px solid rgba(11,34,48,0.08);
+  margin-top:12px;
+}
+.inv-interventions-group-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  font-weight:800;
+  font-size:12px;
+  margin-bottom:8px;
+}
+.inv-interventions-group-count{
+  color:rgba(11,34,48,0.6);
+}
+.inv-interventions-empty{
+  text-align:center;
+  padding:14px;
+  font-size:12px;
+  font-weight:800;
+  color:rgba(11,34,48,0.6);
+}
+.inv-interventions-table-wrap{
+  overflow-x:auto;
 }
 .inv-interventions-head{
   display:flex;
