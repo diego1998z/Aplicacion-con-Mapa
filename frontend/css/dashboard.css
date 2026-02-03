@@ -865,6 +865,9 @@
   font-size:14px;
   font-weight:900;
 }
+.inv-plan-card-title{
+  font-size:16px;
+}
 .inv-plan-card-sub{
   display:block;
   margin-top:4px;

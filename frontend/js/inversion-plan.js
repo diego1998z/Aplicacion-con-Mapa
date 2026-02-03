@@ -877,7 +877,7 @@
         +     "<div>"
         +       "<div class=\"inv-plan-card-title-row\">"
         +         "<button type=\"button\" class=\"inv-plan-toggle-icon\" data-plan-toggle aria-label=\"Mostrar proyectos\">&#9662;</button>"
-        +         "<h4 class=\"inv-plan-card-title\">" + escapeHtml(plan.nombre || "Plan") + " " + escapeHtml(plan.anio || "") + "</h4>"
+        +         "<h4 class=\"inv-plan-card-title\">" + escapeHtml(plan.nombre || "Plan") + "</h4>"
         +       "</div>"
         +       "<span class=\"inv-plan-card-sub\">Total del plan y avance por fase.</span>"
         +     "</div>"
