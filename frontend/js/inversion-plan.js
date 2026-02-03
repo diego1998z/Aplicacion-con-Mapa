@@ -26,6 +26,7 @@
   const presupuestoAnio = document.getElementById("presupuestoAnio");
   const presupuestoTotal = document.getElementById("presupuestoTotal");
   const btnPresupuestoEditar = document.getElementById("btnPresupuestoEditar");
+  const btnPresupuestoEditarMini = document.getElementById("btnPresupuestoEditarMini");
   const btnPresupuestoClose = document.getElementById("btnPresupuestoClose");
   const btnPresupuestoCancelar = document.getElementById("btnPresupuestoCancelar");
   const btnPresupuestoGuardar = document.getElementById("btnPresupuestoGuardar");
@@ -62,7 +63,28 @@
     return;
   }
 
-  const PLAN_COLORS = ["plan-color-1","plan-color-2","plan-color-3","plan-color-4"];
+  const PLAN_COLORS = [
+    "plan-color-1",
+    "plan-color-2",
+    "plan-color-3",
+    "plan-color-4",
+    "plan-color-5",
+    "plan-color-6",
+    "plan-color-7",
+    "plan-color-8",
+    "plan-color-9",
+    "plan-color-10",
+    "plan-color-11",
+    "plan-color-12",
+    "plan-color-13",
+    "plan-color-14",
+    "plan-color-15",
+    "plan-color-16",
+    "plan-color-17",
+    "plan-color-18",
+    "plan-color-19",
+    "plan-color-20"
+  ];
   const PLAN_ESTADOS = {
     planificacion: "En planificacion",
     ejecucion: "En ejecucion",
@@ -1485,6 +1507,7 @@
   }
 
   if(btnPresupuestoEditar) btnPresupuestoEditar.addEventListener("click", abrirModalPresupuesto);
+  if(btnPresupuestoEditarMini) btnPresupuestoEditarMini.addEventListener("click", abrirModalPresupuesto);
   if(btnPresupuestoClose) btnPresupuestoClose.addEventListener("click", cerrarModalPresupuesto);
   if(btnPresupuestoCancelar) btnPresupuestoCancelar.addEventListener("click", cerrarModalPresupuesto);
   if(btnPresupuestoGuardar) btnPresupuestoGuardar.addEventListener("click", guardarPresupuestoDesdeModal);
