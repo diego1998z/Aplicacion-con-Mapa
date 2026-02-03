@@ -818,17 +818,47 @@
   padding:14px;
   border:1px solid rgba(11,34,48,0.08);
 }
+.inv-plan-card.is-collapsed .inv-interventions,
+.inv-plan-card.is-collapsed .inv-plan-empty{
+  display:none;
+}
 .inv-plan-card-head{
   display:flex;
   align-items:flex-start;
   justify-content:space-between;
   gap:12px;
 }
+.inv-plan-card-title-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
 .inv-plan-card-actions{
   display:flex;
   align-items:center;
   gap:8px;
   flex-wrap:wrap;
+}
+.inv-plan-toggle-icon{
+  width:40px;
+  height:40px;
+  border-radius:999px;
+  border:1px solid rgba(11,34,48,0.12);
+  background:#f6f8fb;
+  color:#0c426a;
+  font-weight:900;
+  font-size:18px;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  transition:transform 0.2s ease;
+}
+.inv-plan-card.is-collapsed .inv-plan-toggle-icon{
+  transform:rotate(0deg);
+}
+.inv-plan-card:not(.is-collapsed) .inv-plan-toggle-icon{
+  transform:rotate(180deg);
 }
 .inv-plan-card-title{
   margin:0;
