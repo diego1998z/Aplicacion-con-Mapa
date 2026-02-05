@@ -1151,6 +1151,29 @@
   font-weight:800;
   color:rgba(11,34,48,0.6);
 }
+.plan-project-actions-list{
+  border:1px solid rgba(11,34,48,0.12);
+  border-radius:12px;
+  padding:10px;
+  background:#f6f8fb;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  max-height:220px;
+  overflow:auto;
+}
+.plan-project-actions-item{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:12px;
+  font-weight:800;
+  color:#0b2230;
+}
+.plan-project-actions-item input{
+  width:16px;
+  height:16px;
+}
 .plan-projects-add{
   display:flex;
   align-items:center;

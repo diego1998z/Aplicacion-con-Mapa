@@ -562,6 +562,32 @@ function normalizeInterventionPayload(body) {
   };
 }
 
+async function validarPresupuestoPlan({ ownerKey, year, amount, excludePlanId }) {
+  if (!ownerKey || !year) {
+    return { ok: false, message: "ownerKey y year son requeridos" };
+  }
+  const budget = await prisma.annualBudget.findUnique({
+    where: { ownerKey_year: { ownerKey, year } }
+  });
+  if (!budget || !Number.isFinite(budget.total) || budget.total <= 0) {
+    return { ok: false, message: "Presupuesto anual no definido" };
+  }
+  const sum = await prisma.plan.aggregate({
+    where: {
+      ownerKey,
+      year,
+      ...(excludePlanId ? { NOT: { id: excludePlanId } } : {})
+    },
+    _sum: { amount: true }
+  });
+  const used = Number(sum._sum.amount || 0);
+  const available = Math.max(0, Number(budget.total) - used);
+  if (Number(amount || 0) > available) {
+    return { ok: false, message: "El monto del plan excede el presupuesto anual disponible", available };
+  }
+  return { ok: true, available };
+}
+
 app.get("/interventions", authRequired, async (req, res, next) => {
   try {
     const { planId, ownerKey } = req.query || {};
@@ -709,6 +735,15 @@ app.post("/plans", authRequired, requireRole(["admin", "municipal"]), async (req
       : scope.scopeKey;
     if (!enforcedOwnerKey) return res.status(400).json({ error: "ownerKey is required" });
     if (!payload.name) return res.status(400).json({ error: "name is required" });
+    if (!payload.year) return res.status(400).json({ error: "year is required" });
+    const budgetCheck = await validarPresupuestoPlan({
+      ownerKey: enforcedOwnerKey,
+      year: payload.year,
+      amount: payload.amount
+    });
+    if (!budgetCheck.ok) {
+      return res.status(400).json({ error: budgetCheck.message, available: budgetCheck.available });
+    }
     const created = await prisma.plan.create({
       data: {
         ownerKey: enforcedOwnerKey,
@@ -724,7 +759,8 @@ app.post("/plans", authRequired, requireRole(["admin", "municipal"]), async (req
       },
       include: { projects: true }
     });
-    res.status(201).json(created);
+    const availableAfter = Math.max(0, Number(budgetCheck.available || 0) - Number(payload.amount || 0));
+    res.status(201).json({ plan: created, available: availableAfter });
   } catch (err) {
     next(err);
   }
@@ -740,10 +776,22 @@ app.put("/plans/:id", authRequired, requireRole(["admin", "municipal"]), async (
     if (scope.role !== "admin" && current.ownerKey !== scope.scopeKey) {
       return res.status(403).json({ error: "No autorizado" });
     }
+    const nextYear = payload.year || current.year;
+    const nextAmount = payload.amount ?? current.amount;
+    const nextOwnerKey = scope.role === "admin" ? (payload.ownerKey || current.ownerKey) : current.ownerKey;
+    const budgetCheck = await validarPresupuestoPlan({
+      ownerKey: nextOwnerKey,
+      year: nextYear,
+      amount: nextAmount,
+      excludePlanId: id
+    });
+    if (!budgetCheck.ok) {
+      return res.status(400).json({ error: budgetCheck.message, available: budgetCheck.available });
+    }
     const updated = await prisma.plan.update({
       where: { id },
       data: {
-        ownerKey: scope.role === "admin" ? (payload.ownerKey || current.ownerKey) : current.ownerKey,
+        ownerKey: nextOwnerKey,
         name: payload.name || undefined,
         year: payload.year || undefined,
         deadline: payload.deadline,
@@ -757,7 +805,8 @@ app.put("/plans/:id", authRequired, requireRole(["admin", "municipal"]), async (
       },
       include: { projects: true }
     });
-    res.json(updated);
+    const availableAfter = Math.max(0, Number(budgetCheck.available || 0) - Number(nextAmount || 0));
+    res.json({ plan: updated, available: availableAfter });
   } catch (err) {
     if (err && err.code === "P2025") {
       return res.status(404).json({ error: "Plan not found" });

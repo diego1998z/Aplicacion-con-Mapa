@@ -59,6 +59,18 @@
   const btnIntervencionCancelar = document.getElementById("btnIntervencionCancelar");
   const btnIntervencionGuardar = document.getElementById("btnIntervencionGuardar");
 
+  const modalPlanProject = document.getElementById("modalPlanProject");
+  const planProjectModalTitle = document.getElementById("planProjectModalTitle");
+  const planProjectPlanName = document.getElementById("planProjectPlanName");
+  const planProjectSelect = document.getElementById("planProjectSelect");
+  const planProjectAmount = document.getElementById("planProjectAmount");
+  const planProjectAmountHint = document.getElementById("planProjectAmountHint");
+  const planProjectPhase = document.getElementById("planProjectPhase");
+  const planProjectActions = document.getElementById("planProjectActions");
+  const btnPlanProjectClose = document.getElementById("btnPlanProjectClose");
+  const btnPlanProjectCancel = document.getElementById("btnPlanProjectCancel");
+  const btnPlanProjectSave = document.getElementById("btnPlanProjectSave");
+
   if(!invAnualTrack || !invPlanBoardList){
     return;
   }
@@ -372,7 +384,8 @@
     if(!Array.isArray(out.proyectos)) out.proyectos = [];
     out.proyectos = out.proyectos.map((p)=>({
       id: String((p && p.id) || ""),
-      nombre: String((p && p.nombre) || "Proyecto")
+      nombre: String((p && p.nombre) || "Proyecto"),
+      montoAsignado: Number((p && (p.montoAsignado ?? p.monto)) || 0)
     })).filter(p => p.id || p.nombre);
     return out;
   }
@@ -442,7 +455,7 @@
         projectLegacyId: p.id || "",
         name: p.nombre || "Proyecto",
         status: "planificacion",
-        assignedAmount: 0,
+        assignedAmount: Number(p.montoAsignado || p.monto || 0),
         executedAmount: 0
       }))
     };
@@ -457,7 +470,8 @@
       monto: Number(plan.amount || 0),
       proyectos: Array.isArray(plan.projects) ? plan.projects.map((p)=>({
         id: p.projectLegacyId || "",
-        nombre: p.name || "Proyecto"
+        nombre: p.name || "Proyecto",
+        montoAsignado: Number(p.assignedAmount || 0)
       })) : []
     });
   }
@@ -842,8 +856,8 @@
             + "<div class=\"inv-interventions\" data-plan-id=\"" + escapeHtml(plan.id) + "\" data-proyecto-nombre=\"" + escapeHtml(grupo.nombre) + "\" data-group-key=\"" + escapeHtml(groupKey) + "\">"
             +   "<div class=\"inv-interventions-head\">"
             +     "<div>"
-            +       "<h3>" + escapeHtml(grupo.nombre) + "</h3>"
-            +       "<span class=\"inv-interventions-sub\">" + items.length + " intervenciones</span>"
+            +       "<h3>Proyecto asociado: " + escapeHtml(grupo.nombre) + "</h3>"
+            +       "<span class=\"inv-interventions-sub\">Monto: " + escapeHtml(formatMoney(getMontoProyectoAsignado(plan, grupo.nombre))) + " · " + items.length + " intervenciones</span>"
             +     "</div>"
             +   "</div>"
             +   "<div class=\"inv-interventions-tools\">"
@@ -900,7 +914,7 @@
         +       "<span class=\"inv-plan-card-sub\">Total del plan y avance por fase.</span>"
         +     "</div>"
         +     "<div class=\"inv-plan-card-actions\">"
-        +       "<button type=\"button\" class=\"dash-btn dash-btn--primary\" data-intervencion-new> Nueva Intervension</button>"
+        +       "<button type=\"button\" class=\"dash-btn dash-btn--primary\" data-plan-project-add> Agregar proyecto asociado</button>"
         +       "<button type=\"button\" class=\"inv-plan-edit\" data-plan-action=\"edit\" title=\"Modificar plan\">&#9998;</button>"
         +       "<button type=\"button\" class=\"inv-plan-edit danger\" data-plan-action=\"delete\" title=\"Eliminar plan\">&#10005;</button>"
         +     "</div>"
@@ -920,10 +934,153 @@
     }).join("");
   }
 
+  function getAvailableProjectBudget(plan, excludeName){
+    if(!plan) return 0;
+    const total = Number(plan.monto || 0);
+    const used = (plan.proyectos || []).reduce((sum, p)=>{
+      if(excludeName && String(p.nombre || "").toLowerCase() === String(excludeName || "").toLowerCase()){
+        return sum;
+      }
+      return sum + Number(p.montoAsignado || p.monto || 0);
+    }, 0);
+    return Math.max(0, total - used);
+  }
+
+  function renderPlanProjectActionsList(projectName, plan){
+    if(!planProjectActions) return;
+    if(!projectName){
+      planProjectActions.innerHTML = "<div class=\"inv-plan-empty\">Selecciona un proyecto asociado.</div>";
+      return;
+    }
+    const acciones = obtenerAccionesDisponibles().filter((a)=>{
+      return getAccionProyectoAsociado(a).toLowerCase() === projectName.toLowerCase();
+    });
+    if(!acciones.length){
+      planProjectActions.innerHTML = "<div class=\"inv-plan-empty\">No hay intervenciones registradas para este proyecto.</div>";
+      return;
+    }
+    const existing = new Set(
+      intervencionesCache
+        .filter(i => String(i.planId || "") === String(plan.id || ""))
+        .filter(i => getIntervencionProyectoNombre(i).toLowerCase() === projectName.toLowerCase())
+        .map(i => String(i.accionId || ""))
+    );
+    planProjectActions.innerHTML = acciones.map((a)=>{
+      const checked = existing.has(String(a.id || ""));
+      return ""
+        + "<label class=\"plan-project-actions-item\">"
+        +   "<input type=\"checkbox\" value=\"" + escapeHtml(a.id || "") + "\"" + (checked ? " checked" : "") + ">"
+        +   "<span>" + escapeHtml(a.nombre || "Accion") + "</span>"
+        + "</label>";
+    }).join("");
+  }
+
+  function abrirModalPlanProject(planId){
+    const plan = getPlanById(planId);
+    if(!plan){
+      alert("Selecciona un plan valido.");
+      return;
+    }
+    if(planProjectPlanName){
+      planProjectPlanName.value = (plan.nombre || "Plan");
+    }
+    if(planProjectModalTitle) planProjectModalTitle.textContent = "Agregar proyecto asociado";
+    const proyectos = obtenerProyectosAsociadosAcciones();
+    if(planProjectSelect){
+      if(!proyectos.length){
+        planProjectSelect.innerHTML = "<option value=\"\">Sin proyectos asociados</option>";
+      } else {
+        planProjectSelect.innerHTML = proyectos.map((p)=>(
+          "<option value=\"" + escapeHtml(p.nombre || "") + "\">" + escapeHtml(p.nombre || "Proyecto asociado") + "</option>"
+        )).join("");
+      }
+    }
+    const selectedName = planProjectSelect && planProjectSelect.value ? planProjectSelect.value : (proyectos[0] ? proyectos[0].nombre : "");
+    const existingMonto = getMontoProyectoAsignado(plan, selectedName);
+    if(planProjectAmount) planProjectAmount.value = existingMonto ? String(existingMonto) : "";
+    const available = getAvailableProjectBudget(plan, selectedName);
+    if(planProjectAmountHint) planProjectAmountHint.textContent = "Disponible: " + formatMoney(available);
+    if(planProjectPhase) planProjectPhase.value = "planificacion";
+    renderPlanProjectActionsList(selectedName, plan);
+    mostrarModal(modalPlanProject);
+  }
+
+  function cerrarModalPlanProject(){
+    ocultarModal(modalPlanProject);
+  }
+
+  function guardarPlanProjectDesdeModal(){
+    const plan = getPlanById(planSeleccionadoId);
+    if(!plan){
+      alert("Selecciona un plan valido.");
+      return;
+    }
+    const projectName = planProjectSelect ? String(planProjectSelect.value || "").trim() : "";
+    if(!projectName){
+      alert("Selecciona un proyecto asociado.");
+      return;
+    }
+    const monto = Number(planProjectAmount ? planProjectAmount.value : 0);
+    if(!Number.isFinite(monto) || monto <= 0){
+      alert("Ingresa un monto valido para el proyecto.");
+      return;
+    }
+    const fase = planProjectPhase ? (planProjectPhase.value || "planificacion") : "planificacion";
+    const available = getAvailableProjectBudget(plan, projectName);
+    if(monto > available){
+      alert("El monto del proyecto excede el disponible del plan. Disponible: " + formatMoney(available));
+      return;
+    }
+    const existingIdx = (plan.proyectos || []).findIndex(p => String(p.nombre || "").toLowerCase() === projectName.toLowerCase());
+    if(existingIdx >= 0){
+      plan.proyectos[existingIdx].montoAsignado = monto;
+    } else {
+      plan.proyectos.push({ id: normalizarProyectoKey(projectName), nombre: projectName, montoAsignado: monto });
+    }
+    if(planProjectActions){
+      const checks = Array.from(planProjectActions.querySelectorAll("input[type=\"checkbox\"]"));
+      checks.forEach((chk)=>{
+        if(!chk.checked) return;
+        const accion = getAccionById(chk.value);
+        if(!accion) return;
+        const exists = intervencionesCache.some(i => String(i.planId || "") === String(plan.id || "") && String(i.accionId || "") === String(accion.id || ""));
+        if(exists) return;
+        const montoAccion = calcularCostoAccion(accion);
+        const payload = {
+          id: "interv-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,6),
+          planId: plan.id,
+          planNombre: plan.nombre || "Plan",
+          proyectoId: normalizarProyectoKey(projectName),
+          proyectoNombre: projectName,
+          accionId: accion.id,
+          accionNombre: accion.nombre || "Intervension",
+          nombre: accion.nombre || "Intervension",
+          monto: montoAccion || 0,
+          fase,
+          fechaInicio: accion.fecha_inicio || accion.startDate || "",
+          fechaFin: accion.fecha_fin || accion.endDate || ""
+        };
+        intervencionesCache.push(payload);
+        syncInterventionToBackend(payload);
+      });
+    }
+    guardarIntervenciones();
+    syncPlanToBackend(plan);
+    guardarPlanes();
+    cerrarModalPlanProject();
+    updateInversionPlanes();
+  }
+
   function getIntervencionProyectoNombre(intervencion){
     const accion = getAccionById(intervencion && intervencion.accionId);
     const nombre = String(intervencion && (intervencion.proyectoNombre || getAccionProyectoAsociado(accion)) || "").trim();
     return nombre || "Sin proyecto asociado";
+  }
+
+  function getMontoProyectoAsignado(plan, nombreProyecto){
+    if(!plan || !Array.isArray(plan.proyectos)) return 0;
+    const found = plan.proyectos.find(p => String(p.nombre || "").toLowerCase() === String(nombreProyecto || "").toLowerCase());
+    return found ? Number(found.montoAsignado || found.monto || 0) : 0;
   }
 
   function renderIntervencionesGrouped(){
@@ -1428,6 +1585,14 @@
         renderPlanBoard(getPlanesDelAnio(getPresupuesto().year));
         return;
       }
+      const addProjectBtn = e.target && e.target.closest ? e.target.closest("[data-plan-project-add]") : null;
+      if(addProjectBtn){
+        const card = addProjectBtn.closest("[data-plan-id]");
+        const id = card ? card.getAttribute("data-plan-id") : "";
+        if(id) planSeleccionadoId = id;
+        abrirModalPlanProject(id);
+        return;
+      }
       const newBtn = e.target && e.target.closest ? e.target.closest("[data-intervencion-new]") : null;
       if(newBtn){
         const wrap = newBtn.closest("[data-plan-id]");
@@ -1552,6 +1717,32 @@
   if(btnIntervencionClose) btnIntervencionClose.addEventListener("click", cerrarModalIntervencion);
   if(btnIntervencionCancelar) btnIntervencionCancelar.addEventListener("click", cerrarModalIntervencion);
   if(btnIntervencionGuardar) btnIntervencionGuardar.addEventListener("click", guardarIntervencionDesdeModal);
+  if(btnPlanProjectClose) btnPlanProjectClose.addEventListener("click", cerrarModalPlanProject);
+  if(btnPlanProjectCancel) btnPlanProjectCancel.addEventListener("click", cerrarModalPlanProject);
+  if(btnPlanProjectSave) btnPlanProjectSave.addEventListener("click", guardarPlanProjectDesdeModal);
+  if(planProjectSelect){
+    planProjectSelect.addEventListener("change", ()=>{
+      const plan = getPlanById(planSeleccionadoId);
+      if(!plan) return;
+      const selectedName = planProjectSelect.value || "";
+      if(planProjectAmount){
+        const existingMonto = getMontoProyectoAsignado(plan, selectedName);
+        planProjectAmount.value = existingMonto ? String(existingMonto) : "";
+      }
+      const available = getAvailableProjectBudget(plan, selectedName);
+      if(planProjectAmountHint) planProjectAmountHint.textContent = "Disponible: " + formatMoney(available);
+      renderPlanProjectActionsList(selectedName, plan);
+    });
+  }
+  if(planProjectAmount){
+    planProjectAmount.addEventListener("input", ()=>{
+      const plan = getPlanById(planSeleccionadoId);
+      if(!plan) return;
+      const selectedName = planProjectSelect ? planProjectSelect.value : "";
+      const available = getAvailableProjectBudget(plan, selectedName);
+      if(planProjectAmountHint) planProjectAmountHint.textContent = "Disponible: " + formatMoney(available);
+    });
+  }
   if(intervencionMonto){
     intervencionMonto.addEventListener("input", ()=>{
       const planId = intervencionPlan ? intervencionPlan.value : "";

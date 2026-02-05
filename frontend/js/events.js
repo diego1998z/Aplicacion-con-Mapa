@@ -2144,7 +2144,7 @@ function getRegistroLabels(){
   const mode = registroMode === "acciones"
     ? "acciones"
     : (registroMode === "eventos" ? "eventos" : "inventario");
-  const label = mode === "acciones" ? "Intervenciones" : (mode === "eventos" ? "Evento" : "Inventario");
+  const label = mode === "acciones" ? "Acciones" : (mode === "eventos" ? "Evento" : "Inventario");
   return { mode, label, labelLower: label.toLowerCase() };
 }
 
@@ -6325,12 +6325,6 @@ if(accionProjectsList){
       }
     }
     setAccionProyectoSeleccionado(id);
-  });
-}
-if(accionProjectSelect){
-  accionProjectSelect.addEventListener("change", ()=>{
-    const val = accionProjectSelect.value || "";
-    setAccionProyectoSeleccionado(val);
   });
 }
 if(btnProyectoGuardar){

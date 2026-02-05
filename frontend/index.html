@@ -1269,6 +1269,36 @@
         </div>
     </div>
 
+    <div id="modalPlanProject" class="modal hidden" aria-hidden="true">
+        <div class="modal-content plan-modal plan-modal--new">
+            <div class="plan-modal-head">
+                <h3 id="planProjectModalTitle">Agregar proyecto asociado</h3>
+                <button id="btnPlanProjectClose" type="button" class="inspeccion-close">&times;</button>
+            </div>
+            <div class="plan-form">
+                <label for="planProjectPlanName">Plan asociado</label>
+                <input id="planProjectPlanName" type="text" readonly>
+                <label for="planProjectSelect">Proyecto asociado</label>
+                <select id="planProjectSelect"></select>
+                <label for="planProjectAmount">Monto del proyecto (S/)</label>
+                <input id="planProjectAmount" type="number" min="0" step="1" placeholder="50000">
+                <small id="planProjectAmountHint" class="plan-monto-hint">Disponible: S/ 0</small>
+                <label for="planProjectPhase">Fase</label>
+                <select id="planProjectPhase">
+                    <option value="planificacion">En planificacion</option>
+                    <option value="ejecucion">En ejecucion</option>
+                    <option value="ejecutado">Ejecutado</option>
+                </select>
+                <label>Intervenciones ligadas</label>
+                <div id="planProjectActions" class="plan-project-actions-list"></div>
+            </div>
+            <div class="modal-actions">
+                <button id="btnPlanProjectCancel" type="button" class="map-panel-btn map-panel-btn--ghost">Cancelar</button>
+                <button id="btnPlanProjectSave" type="button" class="map-panel-btn">Guardar</button>
+            </div>
+        </div>
+    </div>
+
     <div id="modalMetradoRegistros" class="modal hidden" aria-hidden="true">
         <div class="modal-content inspeccion-modal inspeccion-modal--list">
             <div class="inspeccion-head">
