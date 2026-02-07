@@ -2579,13 +2579,37 @@ function reemplazarSenales(target, source){
   (Array.isArray(source) ? source : []).forEach((s)=> target.push(Object.assign({}, s)));
 }
 
-const BASE_SENALES = (function(){
+function buildBaseSenales(){
   return {
     horizontal: cloneSenales(typeof senalesHorizontal !== "undefined" ? senalesHorizontal : []),
     vertical: cloneSenales(typeof senalesVertical !== "undefined" ? senalesVertical : []),
     mobiliario: cloneSenales(typeof senalesMobiliario !== "undefined" ? senalesMobiliario : [])
   };
-})();
+}
+
+let BASE_SENALES = buildBaseSenales();
+
+function refreshBaseSenales(){
+  BASE_SENALES = buildBaseSenales();
+}
+
+window.refreshBaseSenales = refreshBaseSenales;
+
+function handleDataReady(){
+  refreshBaseSenales();
+  try{ if(typeof renderizarTodo === "function"){ renderizarTodo(); } }catch(e){}
+  try{ if(typeof updateReportes === "function"){ updateReportes(); } }catch(e){}
+  try{ if(typeof updateDashboard === "function"){ updateDashboard(); } }catch(e){}
+  try{ if(typeof updateInversion === "function"){ updateInversion(); } }catch(e){}
+  try{ if(typeof updateInversionPlanes === "function"){ updateInversionPlanes(); } }catch(e){}
+}
+
+try{
+  if(typeof window !== "undefined" && window.addEventListener){
+    window.addEventListener("urbbis:data-loaded", handleDataReady);
+    if(window.URBBIS_DATA_READY) handleDataReady();
+  }
+}catch(e){}
 
 function crearProyectoBase(nombre){
   const id = "proj-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,6);
@@ -4220,6 +4244,15 @@ function setDashView(view){
       const shouldShow = (view === key);
       p.classList.toggle("hidden", !shouldShow);
     });
+  }catch(e){}
+
+  try{
+    if(typeof window.ensureDemoDataLoaded === "function"){
+      const immediate = (view === "mapa" || view === "reportes" || view === "inversion" || view === "inversion-plan" || view === "apu");
+      if(view === "dashboard" || immediate){
+        window.ensureDemoDataLoaded({ immediate });
+      }
+    }
   }catch(e){}
 
   if(view === "dashboard"){

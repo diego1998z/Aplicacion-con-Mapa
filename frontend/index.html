@@ -17,7 +17,7 @@
         <div class="login-layout">
             <div class="login-hero"></div>
             <div class="login-card">
-                <img src="src/assets/logo-login.png" class="login-logo" alt="Logo">
+                <img src="src/assets/logo-login.png" class="login-logo" alt="Logo" decoding="async" fetchpriority="high">
                 <h2>Acceso</h2>
                 <p>Ingresa tu correo y contraseña para continuar</p>
                 <form id="formLogin">
@@ -69,7 +69,7 @@
                     <div class="dash-overview-top">
                         <article class="dash-muni-card">
                             <div class="dash-muni-photo">
-                                <img id="dashMuniFoto" src="src/fotos de municipalidades/Muni-lima.jpg" alt="Municipalidad">
+                                <img id="dashMuniFoto" src="src/fotos de municipalidades/Muni-lima.jpg" alt="Municipalidad" loading="lazy" decoding="async">
                             </div>
                             <div class="dash-muni-body">
                                 <div class="dash-muni-title" id="dashMuniNombre">Municipalidad</div>
@@ -1309,17 +1309,18 @@
         </div>
     </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
-    <script src="js/data.js"></script>
-    <script src="js/api.js"></script>
-    <script src="js/map.js"></script>
-    <script src="js/ui.js"></script>
-    <script src="js/filters.js"></script>
-    <script src="js/events.js"></script>
-    <script src="js/inversion-plan.js"></script>
-    <script src="js/reportes.js"></script>
-    <script src="js/chat.js"></script>
-    <script src="js/bootstrap.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js" defer></script>
+    <script src="js/data-lite.js" defer></script>
+    <script src="js/data-loader.js" defer></script>
+    <script src="js/api.js" defer></script>
+    <script src="js/map.js" defer></script>
+    <script src="js/ui.js" defer></script>
+    <script src="js/filters.js" defer></script>
+    <script src="js/events.js" defer></script>
+    <script src="js/inversion-plan.js" defer></script>
+    <script src="js/reportes.js" defer></script>
+    <script src="js/chat.js" defer></script>
+    <script src="js/bootstrap.js" defer></script>
 </body>
 </html>
 

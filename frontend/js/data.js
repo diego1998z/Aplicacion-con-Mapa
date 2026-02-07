@@ -1,5 +1,5 @@
-﻿// Regiones y distritos de Lima
-const MAPA_REGIONES = {
+// Regiones y distritos de Lima
+var MAPA_REGIONES = {
   "Lima Norte": ["Ancon","Carabayllo","Comas","Independencia","Los Olivos","Puente Piedra","San Martin de Porres","Santa Rosa"],
   "Lima Sur": ["Barranco","Chorrillos","Lurin","Pachacamac","Pucusana","Punta Hermosa","Punta Negra","San Bartolo","Santa Maria del Mar","Villa El Salvador","Villa Maria del Triunfo"],
   "Lima Este": ["Ate","Chaclacayo","Cieneguilla","El Agustino","La Molina","San Juan de Lurigancho","San Luis","Santa Anita"],
@@ -8,10 +8,10 @@ const MAPA_REGIONES = {
 };
 
 // Avisos ciudadanos (reportes)
-const avisos = [];
+var avisos = [];
 
 // Datos separados por tipo de senalizacion y su icono por defecto
-const senalesHorizontal = [
+var senalesHorizontal = [
     {
         "id": 4,
         "tipo": "Marca",
@@ -911,7 +911,7 @@ const senalesHorizontal = [
     }
 ];
 
-const senalesVertical = [
+var senalesVertical = [
     {
         "id": 104,
         "tipo": "Preventiva",
@@ -1123,10 +1123,10 @@ const senalesVertical = [
 ];
 
 // Mobiliario vial
-const senalesMobiliario = [];
+var senalesMobiliario = [];
 
 // Proyectos base (seed)
-const proyectosSeed = [
+var proyectosSeed = [
     {
         "id": "proj-mkk1b0b7-c2j5",
         "nombre": "Registro senalizacion 2026",
@@ -4720,16 +4720,17 @@ const proyectosSeed = [
         ]
     }
 ];
-const proyectosSeedMeta = {
+var proyectosSeedMeta = {
     "correo": "lince@muni.gob.pe",
     "region": "Lima Oeste",
     "distrito": "Lince"
 };
-const proyectoActivoSeedId = "proj-mkpz9p23-qxes";
+var proyectoActivoSeedId = "proj-mkpz9p23-qxes";
 
 // Proyectos base (seed)
 
 // Proyectos base (seed)
 
 let historialSenalesSeq = 3;
+
 
