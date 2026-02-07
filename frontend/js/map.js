@@ -24,22 +24,29 @@ const map = L.map("map", {
     wheelPxPerZoomLevel: 45
 }).setView([-12.0464, -77.0428], _zoomInicial);
 
-// Base limpia sin iconos; solo vias
-L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png", {
-    maxNativeZoom: 20,
-    maxZoom: 23,
-    attribution: '&copy; OpenStreetMap, &copy; CARTO'
-}).addTo(map);
+let mapTilesReady = false;
+function ensureMapTiles(){
+    if(mapTilesReady) return;
+    mapTilesReady = true;
 
-// Capa de etiquetas (calles y lugares), sin iconos interactivos
-map.createPane('labels');
-map.getPane('labels').style.zIndex = 650;
-map.getPane('labels').style.pointerEvents = 'none';
-L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png", {
-    maxNativeZoom: 20,
-    maxZoom: 23,
-    pane: 'labels'
-}).addTo(map);
+    // Base limpia sin iconos; solo vias
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png", {
+        maxNativeZoom: 20,
+        maxZoom: 23,
+        attribution: '&copy; OpenStreetMap, &copy; CARTO'
+    }).addTo(map);
+
+    // Capa de etiquetas (calles y lugares), sin iconos interactivos
+    map.createPane('labels');
+    map.getPane('labels').style.zIndex = 650;
+    map.getPane('labels').style.pointerEvents = 'none';
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png", {
+        maxNativeZoom: 20,
+        maxZoom: 23,
+        pane: 'labels'
+    }).addTo(map);
+}
+window.ensureMapTiles = ensureMapTiles;
 
 const ESTADO_COLORES = {
     nueva: "#2fa84f",

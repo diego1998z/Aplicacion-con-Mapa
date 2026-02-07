@@ -970,7 +970,7 @@
       return ""
         + "<label class=\"plan-project-actions-item\">"
         +   "<input type=\"checkbox\" value=\"" + escapeHtml(a.id || "") + "\"" + (checked ? " checked" : "") + ">"
-        +   "<span>" + escapeHtml(a.nombre || "Accion") + "</span>"
+        +   "<span>" + escapeHtml(a.nombre || "Intervencion") + "</span>"
         + "</label>";
     }).join("");
   }
@@ -1405,7 +1405,7 @@
     if(!intervencionAccion) return null;
     const acciones = obtenerAccionesDisponibles();
     if(!acciones.length){
-      intervencionAccion.innerHTML = "<option value=\"\">Sin acciones registradas</option>";
+      intervencionAccion.innerHTML = "<option value=\"\">Sin intervenciones registradas</option>";
       return null;
     }
     intervencionAccion.innerHTML = acciones.map((a)=>(

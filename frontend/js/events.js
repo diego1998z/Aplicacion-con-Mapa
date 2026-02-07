@@ -2145,7 +2145,7 @@ function getRegistroLabels(){
   const mode = registroMode === "acciones"
     ? "acciones"
     : (registroMode === "eventos" ? "eventos" : "inventario");
-  const label = mode === "acciones" ? "Acciones" : (mode === "eventos" ? "Evento" : "Inventario");
+  const label = mode === "acciones" ? "Intervenciones" : (mode === "eventos" ? "Evento" : "Inventario");
   return { mode, label, labelLower: label.toLowerCase() };
 }
 
@@ -4277,6 +4277,9 @@ function setDashView(view){
   }
 
   if(view === "mapa"){
+    if(typeof window.ensureMapTiles === "function"){
+      window.ensureMapTiles();
+    }
     // Cerrar reportes si estaban abiertos
     try{
       if(reportesPanel){
@@ -4299,6 +4302,9 @@ function setDashView(view){
   }
 
   if(view === "reportes"){
+    if(typeof window.ensureMapTiles === "function"){
+      window.ensureMapTiles();
+    }
     try{
       if(typeof updateReportes === "function"){ updateReportes(); }
     }catch(e){}
