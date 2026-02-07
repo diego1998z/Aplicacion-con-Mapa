@@ -3456,9 +3456,9 @@ function updateDashboard(){
   if(dashMuniFoto){
     const slug = distrito ? slugDistrito(distrito) : "lima";
     const base = "src/fotos de municipalidades/";
-    const primary = base + "Muni-" + slug + ".jpg";
-    const alt = base + "Muni." + slug + ".jpg";
-    const fallback = base + "Muni-lima.jpg";
+    const primary = base + "Muni-" + slug + ".webp";
+    const alt = base + "Muni." + slug + ".webp";
+    const fallback = base + "Muni-lima.webp";
     dashMuniFoto.onerror = function(){
       if(!dashMuniFoto.dataset.fallback){
         dashMuniFoto.dataset.fallback = "1";

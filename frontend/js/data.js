@@ -32,7 +32,7 @@ var senalesHorizontal = [
         "area_m2": 2.52,
         "lamina": "I",
         "soporte": "si",
-        "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-4.png",
+        "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-4.webp",
         "distrito": "Lince"
     },
     {
@@ -78,7 +78,7 @@ var senalesHorizontal = [
         "area_m2": 12,
         "lamina": "I",
         "soporte": "si",
-        "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-6.png",
+        "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-6.webp",
         "distrito": "Lince"
     },
     {
@@ -331,7 +331,7 @@ var senalesHorizontal = [
         "area_m2": 1.32,
         "lamina": "I",
         "soporte": "si",
-        "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-17.png",
+        "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-17.webp",
         "distrito": "Lince"
     },
     {
@@ -354,7 +354,7 @@ var senalesHorizontal = [
         "area_m2": 12,
         "lamina": "I",
         "soporte": "si",
-        "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-18.png",
+        "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-18.webp",
         "distrito": "Lince"
     },
     {
@@ -1025,7 +1025,7 @@ var senalesVertical = [
         "area_m2": null,
         "lamina": "I",
         "soporte": "si",
-        "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-108.png",
+        "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-108.webp",
         "distrito": "Lince"
     },
     {
@@ -1048,7 +1048,7 @@ var senalesVertical = [
         "area_m2": null,
         "lamina": "I",
         "soporte": "si",
-        "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-109.png",
+        "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-109.webp",
         "distrito": "Lince"
     },
     {
@@ -1071,7 +1071,7 @@ var senalesVertical = [
         "area_m2": null,
         "lamina": "I",
         "soporte": "si",
-        "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-110.png",
+        "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-110.webp",
         "distrito": "Lince"
     },
     {
@@ -1117,7 +1117,7 @@ var senalesVertical = [
         "area_m2": null,
         "lamina": "IV",
         "soporte": "si",
-        "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-112.png",
+        "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-112.webp",
         "distrito": "Lince"
     }
 ];
@@ -1152,7 +1152,7 @@ var proyectosSeed = [
                 "area_m2": 2.52,
                 "lamina": "I",
                 "soporte": "si",
-                "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-4.png",
+                "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-4.webp",
                 "distrito": "Lince"
             },
             {
@@ -1198,7 +1198,7 @@ var proyectosSeed = [
                 "area_m2": 12,
                 "lamina": "I",
                 "soporte": "si",
-                "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-6.png",
+                "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-6.webp",
                 "distrito": "Lince"
             },
             {
@@ -1451,7 +1451,7 @@ var proyectosSeed = [
                 "area_m2": 1.32,
                 "lamina": "I",
                 "soporte": "si",
-                "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-17.png",
+                "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-17.webp",
                 "distrito": "Lince"
             },
             {
@@ -1474,7 +1474,7 @@ var proyectosSeed = [
                 "area_m2": 12,
                 "lamina": "I",
                 "soporte": "si",
-                "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-18.png",
+                "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-18.webp",
                 "distrito": "Lince"
             },
             {
@@ -2144,7 +2144,7 @@ var proyectosSeed = [
                 "area_m2": null,
                 "lamina": "I",
                 "soporte": "si",
-                "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-108.png",
+                "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-108.webp",
                 "distrito": "Lince"
             },
             {
@@ -2167,7 +2167,7 @@ var proyectosSeed = [
                 "area_m2": null,
                 "lamina": "I",
                 "soporte": "si",
-                "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-109.png",
+                "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-109.webp",
                 "distrito": "Lince"
             },
             {
@@ -2190,7 +2190,7 @@ var proyectosSeed = [
                 "area_m2": null,
                 "lamina": "I",
                 "soporte": "si",
-                "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-110.png",
+                "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-110.webp",
                 "distrito": "Lince"
             },
             {
@@ -2236,7 +2236,7 @@ var proyectosSeed = [
                 "area_m2": null,
                 "lamina": "IV",
                 "soporte": "si",
-                "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-112.png",
+                "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-112.webp",
                 "distrito": "Lince"
             }
         ],
@@ -2389,7 +2389,7 @@ var proyectosSeed = [
                 "area_m2": 2.52,
                 "lamina": "I",
                 "soporte": "si",
-                "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-4.png",
+                "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-4.webp",
                 "distrito": "Lince"
             },
             {
@@ -2435,7 +2435,7 @@ var proyectosSeed = [
                 "area_m2": 12,
                 "lamina": "I",
                 "soporte": "si",
-                "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-6.png",
+                "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-6.webp",
                 "distrito": "Lince"
             },
             {
@@ -2688,7 +2688,7 @@ var proyectosSeed = [
                 "area_m2": 1.32,
                 "lamina": "I",
                 "soporte": "si",
-                "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-17.png",
+                "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-17.webp",
                 "distrito": "Lince"
             },
             {
@@ -2711,7 +2711,7 @@ var proyectosSeed = [
                 "area_m2": 12,
                 "lamina": "I",
                 "soporte": "si",
-                "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-18.png",
+                "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-18.webp",
                 "distrito": "Lince"
             },
             {
@@ -3381,7 +3381,7 @@ var proyectosSeed = [
                 "area_m2": null,
                 "lamina": "I",
                 "soporte": "si",
-                "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-108.png",
+                "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-108.webp",
                 "distrito": "Lince"
             },
             {
@@ -3404,7 +3404,7 @@ var proyectosSeed = [
                 "area_m2": null,
                 "lamina": "I",
                 "soporte": "si",
-                "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-109.png",
+                "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-109.webp",
                 "distrito": "Lince"
             },
             {
@@ -3427,7 +3427,7 @@ var proyectosSeed = [
                 "area_m2": null,
                 "lamina": "I",
                 "soporte": "si",
-                "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-110.png",
+                "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-110.webp",
                 "distrito": "Lince"
             },
             {
@@ -3473,7 +3473,7 @@ var proyectosSeed = [
                 "area_m2": null,
                 "lamina": "IV",
                 "soporte": "si",
-                "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-112.png",
+                "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-112.webp",
                 "distrito": "Lince"
             }
         ],
@@ -3508,7 +3508,7 @@ var proyectosSeed = [
                 "area_m2": 2.52,
                 "lamina": "I",
                 "soporte": "si",
-                "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-4.png",
+                "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-4.webp",
                 "distrito": "Lince"
             },
             {
@@ -3554,7 +3554,7 @@ var proyectosSeed = [
                 "area_m2": 12,
                 "lamina": "I",
                 "soporte": "si",
-                "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-6.png",
+                "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-6.webp",
                 "distrito": "Lince"
             },
             {
@@ -3807,7 +3807,7 @@ var proyectosSeed = [
                 "area_m2": 1.32,
                 "lamina": "I",
                 "soporte": "si",
-                "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-17.png",
+                "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-17.webp",
                 "distrito": "Lince"
             },
             {
@@ -3830,7 +3830,7 @@ var proyectosSeed = [
                 "area_m2": 12,
                 "lamina": "I",
                 "soporte": "si",
-                "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-18.png",
+                "inspeccionFoto": "src/inspeccion/marcas/inspeccion-h-18.webp",
                 "distrito": "Lince"
             },
             {
@@ -4500,7 +4500,7 @@ var proyectosSeed = [
                 "area_m2": null,
                 "lamina": "I",
                 "soporte": "si",
-                "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-108.png",
+                "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-108.webp",
                 "distrito": "Lince"
             },
             {
@@ -4523,7 +4523,7 @@ var proyectosSeed = [
                 "area_m2": null,
                 "lamina": "I",
                 "soporte": "si",
-                "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-109.png",
+                "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-109.webp",
                 "distrito": "Lince"
             },
             {
@@ -4546,7 +4546,7 @@ var proyectosSeed = [
                 "area_m2": null,
                 "lamina": "I",
                 "soporte": "si",
-                "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-110.png",
+                "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-110.webp",
                 "distrito": "Lince"
             },
             {
@@ -4592,7 +4592,7 @@ var proyectosSeed = [
                 "area_m2": null,
                 "lamina": "IV",
                 "soporte": "si",
-                "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-112.png",
+                "inspeccionFoto": "src/inspeccion/senalizacion/inspeccion-v-112.webp",
                 "distrito": "Lince"
             }
         ],
@@ -4732,5 +4732,6 @@ var proyectoActivoSeedId = "proj-mkpz9p23-qxes";
 // Proyectos base (seed)
 
 let historialSenalesSeq = 3;
+
 
 

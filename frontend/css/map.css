@@ -2053,7 +2053,7 @@ body.dash-shell .modal{
     height:100%;
 }
 .login-hero{
-    background:url(" ../src/assets/login-bg.png") center/cover no-repeat;
+    background:url(" ../src/assets/login-bg.webp") center/cover no-repeat;
 }
 .login-card{
     background:var(--panel);
