@@ -1,6 +1,14 @@
 (() => {
   if (!window.UrbbisApi) return;
 
+  function hasToken() {
+    try {
+      return !!(window.UrbbisApi.getToken && window.UrbbisApi.getToken());
+    } catch (e) {
+      return false;
+    }
+  }
+
   function toDateOnly(value) {
     if (!value) return "";
     try {
@@ -64,33 +72,46 @@
     };
   }
 
-  async function syncRemoteData() {
+  async function syncRemoteData(options = {}) {
+    if (!hasToken()) return;
     try {
-      const [assets, reports] = await Promise.all([
-        window.UrbbisApi.getAssets(),
-        window.UrbbisApi.getReports()
-      ]);
+      const types = Array.isArray(options.types) && options.types.length
+        ? options.types
+        : ["horizontal", "vertical", "mobiliario"];
+      const assetsPromises = types.map((type) => window.UrbbisApi.getAssets({ type }));
+      const reportsPromise = (options.includeReports === false)
+        ? Promise.resolve([])
+        : window.UrbbisApi.getReports();
 
-      if (Array.isArray(assets)) {
-        const horiz = [];
-        const vert = [];
-        const mob = [];
-        assets.forEach((a) => {
-          if (!a || !a.type) return;
-          const item = assetToLocal(a);
-          if (a.type === "horizontal") horiz.push(item);
-          else if (a.type === "vertical") vert.push(item);
-          else if (a.type === "mobiliario") mob.push(item);
+      const results = await Promise.all([...assetsPromises, reportsPromise]);
+      const reports = results[results.length - 1];
+      const assetsByType = results.slice(0, -1);
+
+      const mappedByType = {
+        horizontal: [],
+        vertical: [],
+        mobiliario: []
+      };
+
+      types.forEach((type, idx) => {
+        const list = assetsByType[idx];
+        if (!Array.isArray(list)) return;
+        const target = mappedByType[type] || [];
+        list.forEach((a) => {
+          if (!a) return;
+          target.push(assetToLocal(a));
         });
-        if (typeof senalesHorizontal !== "undefined" && Array.isArray(senalesHorizontal)) {
-          senalesHorizontal.splice(0, senalesHorizontal.length, ...horiz);
-        }
-        if (typeof senalesVertical !== "undefined" && Array.isArray(senalesVertical)) {
-          senalesVertical.splice(0, senalesVertical.length, ...vert);
-        }
-        if (typeof senalesMobiliario !== "undefined" && Array.isArray(senalesMobiliario)) {
-          senalesMobiliario.splice(0, senalesMobiliario.length, ...mob);
-        }
+        mappedByType[type] = target;
+      });
+
+      if (typeof senalesHorizontal !== "undefined" && Array.isArray(senalesHorizontal)) {
+        senalesHorizontal.splice(0, senalesHorizontal.length, ...(mappedByType.horizontal || []));
+      }
+      if (typeof senalesVertical !== "undefined" && Array.isArray(senalesVertical)) {
+        senalesVertical.splice(0, senalesVertical.length, ...(mappedByType.vertical || []));
+      }
+      if (typeof senalesMobiliario !== "undefined" && Array.isArray(senalesMobiliario)) {
+        senalesMobiliario.splice(0, senalesMobiliario.length, ...(mappedByType.mobiliario || []));
       }
 
       if (Array.isArray(reports) && typeof avisos !== "undefined" && Array.isArray(avisos)) {
@@ -108,6 +129,10 @@
     }
   }
 
-  syncRemoteData();
+  window.UrbbisSyncRemoteData = syncRemoteData;
+
+  if (hasToken()) {
+    syncRemoteData({ reason: "boot" });
+  }
   // Proyectos ahora se cargan desde backend dentro de initProyectos().
 })();

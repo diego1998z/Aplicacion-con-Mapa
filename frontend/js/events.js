@@ -327,13 +327,14 @@ function proyectoDataPayload(proj){
 
 function proyectoToApiPayload(proj){
   if(!proj) return null;
+  const scopeD = (typeof scopeDistrito !== "undefined") ? scopeDistrito : "";
   return {
     legacyId: String(proj.id || ""),
     name: String(proj.nombre || "Proyecto"),
     year: yearFromProyecto(proj) || undefined,
     startDate: proj.fecha_inicio || "",
     endDate: proj.fecha_fin || "",
-    district: proj.distrito || "",
+    district: proj.distrito || scopeD || "",
     data: proyectoDataPayload(proj)
   };
 }
@@ -4758,6 +4759,7 @@ function cargarSesionRol(){
           if(loginOverlay) loginOverlay.classList.add("hidden");
           try{ document.body.classList.add("dash-shell"); }catch(e){}
           abrirDashboard();
+          try{ if(typeof window.UrbbisSyncRemoteData === "function"){ window.UrbbisSyncRemoteData({ reason: "session" }); } }catch(e){}
         })
         .catch(()=> {
           if(window.UrbbisApi) window.UrbbisApi.clearToken();
@@ -4803,6 +4805,7 @@ if(formLogin){
         updateMobileBanner();
         try{ document.body.classList.add("dash-shell"); }catch(e){}
         abrirDashboard();
+        try{ if(typeof window.UrbbisSyncRemoteData === "function"){ window.UrbbisSyncRemoteData({ reason: "login" }); } }catch(e){}
       })
       .catch(()=>{
         alert("Credenciales incorrectas.");
