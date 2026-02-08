@@ -5328,6 +5328,7 @@ function abrirRegistroPanel(tipo){
     icono: "",
     ancho: "",
     largo: "",
+    precio: "",
     lamina: "I",
     soporte: "si",
     inspeccionFoto: null,
@@ -5412,6 +5413,14 @@ function abrirRegistroPanel(tipo){
       + '</div>';
   }
 
+  function fieldPrecio(){
+    return ''
+      + '<div class="registro-field">'
+      +   '<div class="registro-label">Precio (S/)</div>'
+      +   '<input id="regPrecio" type="number" min="0" step="1" class="registro-input" placeholder="Ej: 1200">'
+      + '</div>';
+  }
+
   function fieldLaminaSoporte(){
     return ''
       + '<div class="registro-field">'
@@ -5488,6 +5497,7 @@ function abrirRegistroPanel(tipo){
     bodyHtml = fieldFecha("Fecha de instalaci&oacute;n")
       + fieldIconos("Tipo de se&ntilde;al")
       + fieldDimensiones()
+      + fieldPrecio()
       + fieldLaminaSoporte()
       + fieldEstadoFisico()
       + fieldInspeccion("Inspecci&oacute;n");
@@ -5495,6 +5505,7 @@ function abrirRegistroPanel(tipo){
     bodyHtml = fieldFecha("Fecha de instalaci&oacute;n")
       + fieldIconos("Tipo de marca")
       + fieldDimensionesM2()
+      + fieldPrecio()
       + fieldEstadoFisico()
       + fieldInspeccion("Inspecci&oacute;n");
   } else if(tipo === "mobiliario"){
@@ -5540,7 +5551,8 @@ function actualizarEstadoSubmitRegistro(){
     return;
   }
   // transito / marcas
-  btn.disabled = !registroDraft.icono;
+  const precio = Number(registroDraft.precio);
+  btn.disabled = !registroDraft.icono || !Number.isFinite(precio) || precio <= 0;
 }
 
 function bindRegistroPanelInteractions(tipo){
@@ -5647,6 +5659,16 @@ function bindRegistroPanelInteractions(tipo){
     });
   }
   actualizarAreaM2();
+
+  const inPrecio = registroPanel.querySelector("#regPrecio");
+  if(inPrecio){
+    inPrecio.addEventListener("input", ()=>{
+      if(!registroDraft) return;
+      const val = Number(inPrecio.value);
+      registroDraft.precio = Number.isFinite(val) ? val : "";
+      actualizarEstadoSubmitRegistro();
+    });
+  }
 
   // Foto
   const inFoto = registroPanel.querySelector("#regFoto");
@@ -5820,9 +5842,11 @@ async function registrarRegistroDraft(){
     const estado = estadoFisicoAEstado(registroDraft.estadoFisico);
     const fecha = registroDraft.fecha || hoyISO();
     const icono = registroDraft.icono || "";
+    const precioManual = Number(registroDraft.precio);
+    const precioFinal = (Number.isFinite(precioManual) && precioManual > 0) ? precioManual : undefined;
 
     if(typeof crearSenal === "function"){
-      const nueva = crearSenal(registroLatLng.lat, registroLatLng.lng, estado, icono, fecha, undefined, {
+      const nueva = crearSenal(registroLatLng.lat, registroLatLng.lng, estado, icono, fecha, precioFinal, {
         tipo: registroDraft.categoria ? capitalizar(registroDraft.categoria) : (tipo === "transito" ? "Senal" : "Marca"),
         nombre: (function(){
           try{
