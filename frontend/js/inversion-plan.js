@@ -59,6 +59,14 @@
   const btnIntervencionCancelar = document.getElementById("btnIntervencionCancelar");
   const btnIntervencionGuardar = document.getElementById("btnIntervencionGuardar");
 
+  const modalIntervencionDetalle = document.getElementById("modalIntervencionDetalle");
+  const btnIntervencionDetalleClose = document.getElementById("btnIntervencionDetalleClose");
+  const intervencionDetalleTitle = document.getElementById("intervencionDetalleTitle");
+  const intervencionDetalleMeta = document.getElementById("intervencionDetalleMeta");
+  const intervencionDetalleTransito = document.getElementById("intervencionDetalleTransito");
+  const intervencionDetalleMarcas = document.getElementById("intervencionDetalleMarcas");
+  const intervencionDetalleMobiliario = document.getElementById("intervencionDetalleMobiliario");
+
   const modalPlanProject = document.getElementById("modalPlanProject");
   const planProjectModalTitle = document.getElementById("planProjectModalTitle");
   const planProjectPlanName = document.getElementById("planProjectPlanName");
@@ -926,7 +934,7 @@
                       const pct = monto > 0 ? Math.max(0, Math.min(100, Math.round((avanceMonto / monto) * 100))) : 0;
                       return ""
                         + "<tr data-intervencion-id=\"" + escapeHtml(i.id) + "\">"
-                        +   "<td>" + escapeHtml(nombreAccion) + "</td>"
+                        +   "<td><button type=\"button\" class=\"inv-intervencion-link\" data-intervencion-link>" + escapeHtml(nombreAccion) + "</button></td>"
                         +   "<td><span class=\"inv-phase-pill " + escapeHtml(i.fase || "planificacion") + "\">" + escapeHtml(PLAN_ESTADOS[i.fase] || "En planificacion") + "</span></td>"
                         +   "<td>" + escapeHtml(formatMoney(monto)) + "</td>"
                         +   "<td>" + escapeHtml(formatMoney(avanceMonto)) + " (" + pct + "%)</td>"
@@ -1513,6 +1521,60 @@
     ocultarModal(modalIntervencion);
   }
 
+  function labelEstadoSimple(estado){
+    if(estado === "nueva") return "Operativa";
+    if(estado === "antigua") return "Deteriorada";
+    if(estado === "sin_senal") return "No operativa";
+    return estado || "";
+  }
+
+  function nombreActivo(item){
+    if(!item) return "Activo";
+    return item.nombre || item.tipo || item.icono || "Activo";
+  }
+
+  function renderDetalleList(container, items){
+    if(!container) return;
+    if(!items || !items.length){
+      container.innerHTML = "<div class=\"inv-detail-empty\">Sin registros.</div>";
+      return;
+    }
+    container.innerHTML = "<ul class=\"inv-detail-list\">" + items.map((it)=>{
+      const estado = labelEstadoSimple(it && it.estado);
+      const texto = escapeHtml(nombreActivo(it)) + (estado ? (" <span>(" + escapeHtml(estado) + ")</span>") : "");
+      return "<li>" + texto + "</li>";
+    }).join("") + "</ul>";
+  }
+
+  function abrirModalIntervencionDetalle(intervencion){
+    if(!modalIntervencionDetalle || !intervencion) return;
+    const accion = getAccionById(intervencion.accionId);
+    const nombre = intervencion.nombre || intervencion.accionNombre || (accion ? accion.nombre : "") || "Intervencion";
+    const proyecto = intervencion.proyectoNombre || getAccionProyectoAsociado(accion) || "Sin proyecto asociado";
+    if(intervencionDetalleTitle){
+      intervencionDetalleTitle.textContent = "Detalle: " + nombre;
+    }
+    if(intervencionDetalleMeta){
+      const meta = []
+        .concat(intervencion.planNombre ? ("Plan: " + intervencion.planNombre) : [])
+        .concat(proyecto ? ("Proyecto: " + proyecto) : [])
+        .concat(intervencion.fase ? ("Fase: " + (PLAN_ESTADOS[intervencion.fase] || intervencion.fase)) : [])
+        .filter(Boolean);
+      intervencionDetalleMeta.textContent = meta.join(" · ");
+    }
+    const vertical = accion && Array.isArray(accion.senalesVertical) ? accion.senalesVertical : [];
+    const horizontal = accion && Array.isArray(accion.senalesHorizontal) ? accion.senalesHorizontal : [];
+    const mobiliario = accion && Array.isArray(accion.senalesMobiliario) ? accion.senalesMobiliario : [];
+    renderDetalleList(intervencionDetalleTransito, vertical);
+    renderDetalleList(intervencionDetalleMarcas, horizontal);
+    renderDetalleList(intervencionDetalleMobiliario, mobiliario);
+    mostrarModal(modalIntervencionDetalle);
+  }
+
+  function cerrarModalIntervencionDetalle(){
+    ocultarModal(modalIntervencionDetalle);
+  }
+
   function guardarIntervencionDesdeModal(){
     const planId = intervencionPlan ? intervencionPlan.value : "";
     const plan = getPlanById(planId);
@@ -1645,6 +1707,16 @@
         abrirModalIntervencion(null);
         return;
       }
+      const nameBtn = e.target && e.target.closest ? e.target.closest("[data-intervencion-link]") : null;
+      if(nameBtn){
+        const row = nameBtn.closest("tr");
+        const id = row ? row.getAttribute("data-intervencion-id") : "";
+        const item = getIntervencionById(id);
+        if(item){
+          abrirModalIntervencionDetalle(item);
+        }
+        return;
+      }
       const btn = e.target && e.target.closest ? e.target.closest("[data-intervencion-action]") : null;
       if(!btn) return;
       const action = btn.getAttribute("data-intervencion-action");
@@ -1692,6 +1764,7 @@
   if(btnPlanClose) btnPlanClose.addEventListener("click", cerrarModalPlan);
   if(btnPlanCancelar) btnPlanCancelar.addEventListener("click", cerrarModalPlan);
   if(btnPlanGuardar) btnPlanGuardar.addEventListener("click", guardarPlanDesdeModal);
+  if(btnIntervencionDetalleClose) btnIntervencionDetalleClose.addEventListener("click", cerrarModalIntervencionDetalle);
   if(btnPlanAddProject){
     btnPlanAddProject.addEventListener("click", ()=>{
       if(!planProjectName) return;

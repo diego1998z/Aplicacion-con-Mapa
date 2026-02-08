@@ -834,6 +834,52 @@
   flex-direction:column;
   gap:16px;
 }
+.inv-detail-meta{
+  font-size:12px;
+  color:#6a7a85;
+  margin-bottom:14px;
+}
+.inv-detail-section{
+  margin-bottom:16px;
+}
+.inv-detail-section h4{
+  font-size:13px;
+  font-weight:800;
+  margin-bottom:8px;
+  color:#0b2230;
+}
+.inv-detail-list{
+  list-style:none;
+  padding:0;
+  margin:0;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  font-size:12px;
+  color:#0b2230;
+}
+.inv-detail-list li{
+  padding:6px 8px;
+  border:1px solid rgba(11,34,48,0.08);
+  border-radius:10px;
+  background:#f8fbff;
+}
+.inv-detail-empty{
+  font-size:12px;
+  color:#6a7a85;
+}
+.inv-intervencion-link{
+  border:none;
+  background:none;
+  padding:0;
+  color:#0b3b48;
+  font-weight:800;
+  cursor:pointer;
+  text-align:left;
+}
+.inv-intervencion-link:hover{
+  text-decoration:underline;
+}
 .inv-plan-card{
   background:#f6f8fb;
   border-radius:16px;
