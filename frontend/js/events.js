@@ -2226,6 +2226,7 @@ function renderAccionProjectsList(){
     accionProjectsList.innerHTML = "<div class=\"plan-project-item\">Sin proyectos asociados.</div>";
     updateAccionProjectsCount();
     renderAccionProjectsSelect();
+    updateProyectoPreview();
     return;
   }
   accionProjectsList.innerHTML = accionDraftProjects.map((p)=>{
@@ -2242,6 +2243,7 @@ function renderAccionProjectsList(){
   }).join("");
   updateAccionProjectsCount();
   renderAccionProjectsSelect();
+  updateProyectoPreview();
 }
 
 function setAccionProyectoSeleccionado(id){
@@ -3135,6 +3137,7 @@ function updateProyectoPreview(){
   const name = inputProyectoNombre ? inputProyectoNombre.value.trim() : "";
   const inicio = inputProyectoInicio ? inputProyectoInicio.value : "";
   const fin = inputProyectoFin ? inputProyectoFin.value : "";
+  const isEventos = registroMode === "eventos";
   let cleared = false;
   if(projectSelectionActive){
     if(chkProyectoTransito && !chkProyectoTransito.checked && projectSelection.vertical.size){
@@ -3166,7 +3169,7 @@ function updateProyectoPreview(){
   }
   aplicarSeleccionMetradoMapa();
   const tbody = tablaProyectoPreview ? tablaProyectoPreview.querySelector("tbody") : null;
-  if(registroMode === "eventos"){
+  if(isEventos){
     const tipos = getEventoTypesSelection();
     const allowed = new Set(tipos.map(t => t.id));
     if(projectSelectionActive && projectSelection && projectSelection.eventos){
@@ -3194,10 +3197,8 @@ function updateProyectoPreview(){
     const data = getEventosSeleccionados();
     if(projectPreviewCount) projectPreviewCount.textContent = data.length + " eventos";
     if(tbody){
-      if(!tipos.length){
-        tbody.innerHTML = "<tr><td colspan=\"6\">Selecciona tipos de evento.</td></tr>";
-      } else if(!data.length){
-        tbody.innerHTML = "<tr><td colspan=\"6\">Selecciona eventos en el mapa.</td></tr>";
+      if(!data.length){
+        tbody.innerHTML = "<tr><td colspan=\"6\">Sin eventos seleccionados.</td></tr>";
       } else {
         tbody.innerHTML = data.map((s)=>(
           "<tr>"
@@ -3210,9 +3211,6 @@ function updateProyectoPreview(){
           + "</tr>"
         )).join("");
       }
-    }
-    if(btnProyectoGuardar){
-      btnProyectoGuardar.disabled = !name || tipos.length === 0 || !data.length;
     }
   } else {
     const data = getProyectoSeleccionadoActivos();
@@ -3233,9 +3231,9 @@ function updateProyectoPreview(){
         )).join("");
       }
     }
-    if(btnProyectoGuardar){
-      btnProyectoGuardar.disabled = !name || data.length === 0;
-    }
+  }
+  if(btnProyectoGuardar){
+    btnProyectoGuardar.disabled = false;
   }
   if(cleared){
     try{ if(typeof renderizarTodo === "function"){ renderizarTodo(); } }catch(e){}
@@ -6402,27 +6400,23 @@ if(btnProyectoGuardar){
       return;
     }
     const isEventos = registroMode === "eventos";
+    const inicio = inputProyectoInicio ? inputProyectoInicio.value : "";
+    const fin = inputProyectoFin ? inputProyectoFin.value : "";
+    if(!inicio || !fin){
+      alert("Ingresa fecha de inicio y fecha de fin.");
+      return;
+    }
+    if(fin < inicio){
+      alert("La fecha fin debe ser mayor o igual a la fecha inicio.");
+      return;
+    }
     if(isEventos){
       const tipos = getEventoTypesSelection();
-      if(!tipos.length){
-        alert("Selecciona al menos un tipo de evento.");
-        return;
-      }
       const eventosSeleccionados = obtenerEventosSeleccionadosRaw().map((a)=> String(a && a.id || ""));
-      if(!eventosSeleccionados.length){
-        alert("Selecciona eventos en el mapa.");
-        return;
-      }
-      const inicio = inputProyectoInicio ? inputProyectoInicio.value : "";
-      const fin = inputProyectoFin ? inputProyectoFin.value : "";
-      if(inicio && fin && fin < inicio){
-        alert("La fecha fin debe ser mayor o igual a la fecha inicio.");
-        return;
-      }
       const base = {
         nombre,
-        fecha_inicio: inicio || "",
-        fecha_fin: fin || "",
+        fecha_inicio: inicio,
+        fecha_fin: fin,
         registroTipo: "eventos",
         eventosTipos: tipos.map(t => t.id),
         eventosSeleccionados,
@@ -6470,16 +6464,6 @@ if(btnProyectoGuardar){
     const includeMarcas = !!(chkProyectoMarcas && chkProyectoMarcas.checked);
     const includeMobiliario = !!(chkProyectoMobiliario && chkProyectoMobiliario.checked);
     const includeMetrado = !!(chkProyectoMetrado && chkProyectoMetrado.checked);
-    if(!includeTransito && !includeMarcas && !includeMobiliario && !includeMetrado){
-      alert("Selecciona al menos un tipo de activo.");
-      return;
-    }
-    const inicio = inputProyectoInicio ? inputProyectoInicio.value : "";
-    const fin = inputProyectoFin ? inputProyectoFin.value : "";
-    if(inicio && fin && fin < inicio){
-      alert("La fecha fin debe ser mayor o igual a la fecha inicio.");
-      return;
-    }
 
     const filtrarSeleccion = (list, set, include, cloner)=>{
       if(!include) return [];
@@ -6490,16 +6474,6 @@ if(btnProyectoGuardar){
       return cloneFn(base.filter(s => set.has(String(s.id || ""))));
     };
 
-    const seleccionadas = []
-      .concat(filtrarSeleccion(typeof senalesVertical !== "undefined" ? senalesVertical : [], projectSelection.vertical, includeTransito, cloneSenales))
-      .concat(filtrarSeleccion(typeof senalesHorizontal !== "undefined" ? senalesHorizontal : [], projectSelection.horizontal, includeMarcas, cloneSenales))
-      .concat(filtrarSeleccion(typeof senalesMobiliario !== "undefined" ? senalesMobiliario : [], projectSelection.mobiliario, includeMobiliario, cloneSenales))
-      .concat(filtrarSeleccion(typeof metradoRegistros !== "undefined" ? metradoRegistros : [], projectSelection.metrado, includeMetrado, cloneMetradoRegistros));
-    if(projectSelectionActive && !seleccionadas.length){
-      const labels = getRegistroLabels();
-      alert("Selecciona senales y trazos en el mapa para el " + labels.labelLower + ".");
-      return;
-    }
     let proyectoAsociado = "";
     if(registroMode === "acciones"){
       proyectoAsociado = getAccionProyectoSeleccionadoNombre();
@@ -6511,8 +6485,8 @@ if(btnProyectoGuardar){
 
     const base = {
       nombre,
-      fecha_inicio: inicio || "",
-      fecha_fin: fin || "",
+      fecha_inicio: inicio,
+      fecha_fin: fin,
       registroTipo: registroMode === "acciones" ? "acciones" : "inventario",
       proyectoAsociado,
       senalesHorizontal: filtrarSeleccion(typeof senalesHorizontal !== "undefined" ? senalesHorizontal : [], projectSelection.horizontal, includeMarcas, cloneSenales),
