@@ -3644,10 +3644,25 @@ function labelEstadoSeguro(estado){
 }
 
 function cantidadLabel(s){
+  const qty = Number(s && s.cantidad);
+  if(Number.isFinite(qty) && qty > 0){
+    return qty + " und";
+  }
   if(s && typeof s.area_m2 === "number" && Number.isFinite(s.area_m2)){
     return s.area_m2.toFixed(2) + " m2";
   }
   return "1 und";
+}
+
+function metradoAreaValue(registro){
+  const override = Number(registro && (registro.area_m2_override ?? registro.areaM2Override));
+  if(Number.isFinite(override)) return override;
+  const direct = Number(registro && registro.area_m2);
+  if(Number.isFinite(direct)) return direct;
+  const fromRes = registro && registro.resultados && Number.isFinite(Number(registro.resultados.area))
+    ? Number(registro.resultados.area)
+    : NaN;
+  return Number.isFinite(fromRes) ? fromRes : null;
 }
 
 let invProyectoFiltro = "active";
@@ -3890,7 +3905,7 @@ function updateInversion(){
       kind: "metrado",
       ref: r,
       id: r.id,
-      area_m2: r && r.resultados && Number.isFinite(Number(r.resultados.area)) ? Number(r.resultados.area) : null
+      area_m2: metradoAreaValue(r)
     })));
   invRowsCache = rows.slice();
 
@@ -3955,20 +3970,30 @@ function updateInversion(){
             ? String(s.nombre || "Mobiliario")
             : String(s.tipo || (s.icono ? "Senal" : "Activo"));
         const cantidad = (row.kind === "metrado")
-          ? cantidadLabel({ area_m2: row.area_m2 })
+          ? cantidadLabel({ area_m2: row.area_m2, cantidad: s.cantidad })
           : cantidadLabel(s);
         const precio = precioInversionItem(row.kind, s);
         const idAttr = escapeAttr(String(row.id || ""));
         const kindAttr = escapeAttr(String(row.kind || ""));
+        const canEdit = (typeof rolActual === "undefined" || rolActual === "municipal");
+        const iconPencil = "&#9998;";
+        const qtyBtn = canEdit
+          ? "<button type=\"button\" class=\"inv-icon-btn inv-qty-btn\" data-kind=\"" + kindAttr + "\" data-id=\"" + idAttr + "\" title=\"Editar cantidad\">" + iconPencil + "</button>"
+          : "";
+        const stateBtn = (canEdit && row.kind !== "metrado")
+          ? "<button type=\"button\" class=\"inv-icon-btn inv-state-btn\" data-kind=\"" + kindAttr + "\" data-id=\"" + idAttr + "\" title=\"Editar estado\">" + iconPencil + "</button>"
+          : "";
+        const priceBtn = canEdit
+          ? "<button type=\"button\" class=\"inv-icon-btn inv-price-btn\" data-kind=\"" + kindAttr + "\" data-id=\"" + idAttr + "\" title=\"Editar inversion\">" + iconPencil + "</button>"
+          : "";
         return "<tr data-kind=\"" + kindAttr + "\" data-id=\"" + idAttr + "\" data-row=\"" + idx + "\">"
           + "<td>" + escapeHtml(nombre) + "</td>"
           + "<td>" + escapeHtml(tipo) + "</td>"
-          + "<td>" + escapeHtml(cantidad) + "</td>"
-          + "<td>" + escapeHtml(labelEstadoInversion(row.kind, s)) + "</td>"
+          + "<td><div class=\"inv-inline-cell\"><span>" + escapeHtml(cantidad) + "</span>" + qtyBtn + "</div></td>"
+          + "<td><div class=\"inv-inline-cell\"><span>" + escapeHtml(labelEstadoInversion(row.kind, s)) + "</span>" + stateBtn + "</div></td>"
           + "<td class=\"inv-price-cell\">"
-          +   "<span>" + formatearMonedaPEN(precio) + "</span>"
+          +   "<div class=\"inv-price-value\"><span>" + formatearMonedaPEN(precio) + "</span>" + priceBtn + "</div>"
           +   "<div class=\"inv-price-actions\">"
-          +     "<button type=\"button\" class=\"inv-edit-btn\" data-kind=\"" + kindAttr + "\" data-id=\"" + idAttr + "\">Editar</button>"
           +     "<button type=\"button\" class=\"inv-map-btn\" data-kind=\"" + kindAttr + "\" data-id=\"" + idAttr + "\">Ver mapa</button>"
           +     "<button type=\"button\" class=\"inv-apu-btn\" data-kind=\"" + kindAttr + "\" data-id=\"" + idAttr + "\">Ver APU</button>"
           +   "</div>"
@@ -6255,6 +6280,121 @@ if(invTablaBody){
     const rowIndex = rowEl ? Number(rowEl.getAttribute("data-row")) : NaN;
     const row = Number.isFinite(rowIndex) ? invRowsCache[rowIndex] : null;
 
+    const qtyBtn = target && target.closest ? target.closest(".inv-qty-btn") : null;
+    if(qtyBtn){
+      if(!row || rolActual !== "municipal") return;
+      const item = row.ref;
+      if(!item) return;
+      const kind = row.kind || "";
+      const isMetrado = kind === "metrado";
+      const actual = isMetrado ? metradoAreaValue(item) : Number(item.cantidad);
+      const label = isMetrado ? "Nueva cantidad (m2):" : "Nueva cantidad (und):";
+      const valor = prompt(label, Number.isFinite(actual) ? String(actual) : "");
+      if(valor === null) return;
+      const limpio = String(valor).trim();
+      if(!limpio){
+        if(isMetrado){
+          delete item.area_m2_override;
+          delete item.areaM2Override;
+        } else {
+          delete item.cantidad;
+        }
+      } else {
+        const num = Number(limpio.replace(",", "."));
+        if(!Number.isFinite(num) || num <= 0){
+          alert("Ingresa una cantidad valida.");
+          return;
+        }
+        if(isMetrado){
+          item.area_m2_override = num;
+        } else {
+          item.cantidad = num;
+        }
+      }
+      updateInversion();
+      if(typeof guardarProyectos === "function"){
+        guardarProyectos();
+      } else if(typeof guardarProyectoActivo === "function"){
+        guardarProyectoActivo();
+      }
+      return;
+    }
+
+    const stateBtn = target && target.closest ? target.closest(".inv-state-btn") : null;
+    if(stateBtn){
+      if(!row || rolActual !== "municipal") return;
+      if(row.kind === "metrado") return;
+      const item = row.ref;
+      if(!item) return;
+      const actual = item.estado || "nueva";
+      const valor = prompt("Estado (nueva/antigua/sin_senal):", actual);
+      if(valor === null) return;
+      const limpio = String(valor).trim().toLowerCase();
+      if(!limpio) return;
+      if(limpio !== "nueva" && limpio !== "antigua" && limpio !== "sin_senal"){
+        alert("Estado invalido. Usa: nueva, antigua o sin_senal.");
+        return;
+      }
+      item.estado = limpio;
+      try{
+        if(typeof estadoFisicoValorDesdeEstado === "function"){
+          item.estado_fisico = estadoFisicoValorDesdeEstado(limpio);
+        }
+      }catch(err){}
+      try{
+        if(typeof renderizarTodo === "function"){ renderizarTodo(); }
+      }catch(err){}
+      if(typeof updateReportes === "function"){ updateReportes(); }
+      updateInversion();
+      if(window.UrbbisApi && typeof window.UrbbisApi.updateAsset === "function" && item.dbId){
+        try{
+          const payload = (typeof buildAssetPayload === "function") ? buildAssetPayload(item, row.kind) : null;
+          if(payload) window.UrbbisApi.updateAsset(item.dbId, payload)
+            .catch((err)=> console.warn("No se pudo actualizar el estado en backend.", err));
+        }catch(err){}
+      }
+      if(typeof guardarProyectos === "function"){
+        guardarProyectos();
+      } else if(typeof guardarProyectoActivo === "function"){
+        guardarProyectoActivo();
+      }
+      return;
+    }
+
+    const priceBtn = target && target.closest ? target.closest(".inv-price-btn") : null;
+    if(priceBtn && rolActual === "municipal"){
+      const item = row ? row.ref : null;
+      const kind = row ? row.kind : (priceBtn.getAttribute("data-kind") || "");
+      if(!item) return;
+      const actual = precioInversionItem(kind, item);
+      const valor = prompt("Nuevo valor de inversion (S/):", Number.isFinite(actual) ? actual.toFixed(2) : "");
+      if(valor === null) return;
+      const limpio = String(valor).trim();
+      if(!limpio){
+        setOverrideInversion(item, null);
+        updateInversion();
+        if(typeof guardarProyectos === "function"){
+          guardarProyectos();
+        } else if(typeof guardarProyectoActivo === "function"){
+          guardarProyectoActivo();
+        }
+        return;
+      }
+      const num = Number(limpio.replace(",", "."));
+      if(!Number.isFinite(num) || num < 0){
+        alert("Ingresa un valor valido.");
+        return;
+      }
+      setOverrideInversion(item, num);
+      updateInversion();
+      if(typeof guardarProyectos === "function"){
+        guardarProyectos();
+      } else if(typeof guardarProyectoActivo === "function"){
+        guardarProyectoActivo();
+      }
+      return;
+    }
+
     const apuBtn = target && target.closest ? target.closest(".inv-apu-btn") : null;
     if(apuBtn){
       if(row) abrirApuRelacionado(row);
@@ -6267,37 +6407,6 @@ if(invTablaBody){
       return;
     }
 
-    const btn = target && target.closest ? target.closest(".inv-edit-btn") : null;
-    if(!btn || rolActual !== "municipal") return;
-    const item = row ? row.ref : null;
-    const kind = row ? row.kind : (btn.getAttribute("data-kind") || "");
-    if(!item) return;
-    const actual = precioInversionItem(kind, item);
-    const valor = prompt("Nuevo valor de inversion (S/):", Number.isFinite(actual) ? actual.toFixed(2) : "");
-    if(valor === null) return;
-    const limpio = String(valor).trim();
-    if(!limpio){
-      setOverrideInversion(item, null);
-      updateInversion();
-      if(typeof guardarProyectos === "function"){
-        guardarProyectos();
-      } else if(typeof guardarProyectoActivo === "function"){
-        guardarProyectoActivo();
-      }
-      return;
-    }
-    const num = Number(limpio.replace(",", "."));
-    if(!Number.isFinite(num) || num < 0){
-      alert("Ingresa un valor valido.");
-      return;
-    }
-    setOverrideInversion(item, num);
-    updateInversion();
-    if(typeof guardarProyectos === "function"){
-      guardarProyectos();
-    } else if(typeof guardarProyectoActivo === "function"){
-      guardarProyectoActivo();
-    }
   });
 }
 if(btnAgregarProyecto){
