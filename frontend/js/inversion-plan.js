@@ -465,6 +465,7 @@
     return normalizePlan({
       id: plan.legacyId || plan.id,
       dbId: plan.id,
+      creado: plan.createdAt || plan.created_at || plan.created || plan.createdOn || "",
       nombre: plan.name || "Plan",
       anio: plan.year || new Date().getFullYear(),
       monto: Number(plan.amount || 0),
@@ -706,6 +707,42 @@
     return planesCache.filter(p => Number(p.anio || 0) === Number(anio || 0));
   }
 
+  function planCreatedTs(plan){
+    if(!plan) return NaN;
+    const raw = plan.creado || plan.createdAt || plan.created_at || plan.created || plan.ts || "";
+    if(raw){
+      const parsed = Date.parse(raw);
+      if(Number.isFinite(parsed)) return parsed;
+    }
+    const id = String(plan.id || "");
+    if(id.startsWith("plan-")){
+      const parts = id.split("-");
+      if(parts.length > 1){
+        const parsed = parseInt(parts[1], 36);
+        if(Number.isFinite(parsed)) return parsed;
+      }
+    }
+    const numId = Number(plan.id);
+    return Number.isFinite(numId) ? numId : NaN;
+  }
+
+  function ordenarPlanesRecientes(plans){
+    return (plans || []).map((plan, idx)=>({
+      plan,
+      idx,
+      key: planCreatedTs(plan)
+    })).sort((a,b)=>{
+      const ak = a.key;
+      const bk = b.key;
+      const aOk = Number.isFinite(ak);
+      const bOk = Number.isFinite(bk);
+      if(aOk && bOk && ak !== bk) return bk - ak;
+      if(aOk && !bOk) return -1;
+      if(!aOk && bOk) return 1;
+      return b.idx - a.idx;
+    }).map(item => item.plan);
+  }
+
   function getIntervencionesPlan(planId){
     return intervencionesCache.filter(i => String(i.planId || "") === String(planId || ""));
   }
@@ -806,15 +843,16 @@
 
   function renderPlanBoard(plans){
     if(!invPlanBoardList) return;
-    if(!plans.length){
+    const ordered = ordenarPlanesRecientes(plans);
+    if(!ordered.length){
       invPlanBoardList.innerHTML = "<div class=\"inv-plan-empty\">Registra un plan para visualizar el resumen.</div>";
       planSeleccionadoId = "";
       return;
     }
-    if(!planSeleccionadoId || !plans.some(p => String(p.id || "") === String(planSeleccionadoId))){
-      planSeleccionadoId = plans[0].id;
+    if(!planSeleccionadoId || !ordered.some(p => String(p.id || "") === String(planSeleccionadoId))){
+      planSeleccionadoId = ordered[0].id;
     }
-    invPlanBoardList.innerHTML = plans.map((plan)=>{
+    invPlanBoardList.innerHTML = ordered.map((plan)=>{
       let collapsed = planCollapseState.get(plan.id);
       if(typeof collapsed !== "boolean"){
         collapsed = true;
@@ -1293,6 +1331,9 @@
       anio,
       proyectos: planDraftProjects.slice()
     };
+    if(!planEditId){
+      base.creado = new Date().toISOString();
+    }
     if(planEditId){
       const idx = planesCache.findIndex(p => p.id === planEditId);
       if(idx >= 0){
