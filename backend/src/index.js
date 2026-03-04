@@ -3,11 +3,15 @@ const cors = require("cors");
 const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const fs = require("fs/promises");
+const path = require("path");
 require("dotenv").config();
 
 const app = express();
 const port = process.env.PORT || 3001;
 const prisma = new PrismaClient();
+const ICONS_BASE_DIR = path.resolve(__dirname, "../../frontend-react/public/legacy-icons");
+let iconCatalogCache = null;
 
 app.use(cors());
 app.use(express.json({ limit: "5mb" }));
@@ -49,6 +53,102 @@ function normalizeKey(value) {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function normalizeIconText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function iconCodeFromBaseName(baseName) {
+  return normalizeIconText(baseName)
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toUpperCase();
+}
+
+function iconLabelFromBaseName(baseName) {
+  return normalizeIconText(baseName)
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function iconCategoryFromFolder(folderName) {
+  const key = normalizeIconText(folderName).toLowerCase();
+  if (key.includes("preventiva")) return "preventiva";
+  if (key.includes("reglamentaria")) return "reglamentaria";
+  if (key.includes("informativa")) return "informativa";
+  return undefined;
+}
+
+function toPublicIconSrc(parts) {
+  const encoded = parts.map((segment) => encodeURIComponent(String(segment || "")));
+  return `/${encoded.join("/")}`;
+}
+
+async function walkWebpFiles(dir, acc = []) {
+  const entries = await fs.readdir(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      await walkWebpFiles(fullPath, acc);
+      continue;
+    }
+    if (entry.isFile() && path.extname(entry.name).toLowerCase() === ".webp") {
+      acc.push(fullPath);
+    }
+  }
+  return acc;
+}
+
+function buildIconRecord({ id, src, category }) {
+  return {
+    id,
+    label: iconLabelFromBaseName(id),
+    code: iconCodeFromBaseName(id),
+    ...(category ? { category } : {}),
+    src,
+  };
+}
+
+async function buildIconCatalog() {
+  const horizontalDir = path.join(ICONS_BASE_DIR, "horizontal");
+  const verticalDir = path.join(ICONS_BASE_DIR, "vertical");
+
+  const horizontalFiles = await walkWebpFiles(horizontalDir);
+  const verticalFiles = await walkWebpFiles(verticalDir);
+
+  const horizontal = horizontalFiles
+    .map((fullPath) => {
+      const rel = path.relative(horizontalDir, fullPath).split(path.sep);
+      const baseName = path.basename(fullPath, path.extname(fullPath));
+      return buildIconRecord({
+        id: baseName,
+        src: toPublicIconSrc(["legacy-icons", "horizontal", ...rel]),
+      });
+    })
+    .sort((a, b) => a.id.localeCompare(b.id, "es", { sensitivity: "base" }));
+
+  const vertical = verticalFiles
+    .map((fullPath) => {
+      const rel = path.relative(verticalDir, fullPath).split(path.sep);
+      const baseName = path.basename(fullPath, path.extname(fullPath));
+      const category = iconCategoryFromFolder(rel[0] || "");
+      return buildIconRecord({
+        id: baseName,
+        category,
+        src: toPublicIconSrc(["legacy-icons", "vertical", ...rel]),
+      });
+    })
+    .sort((a, b) => a.id.localeCompare(b.id, "es", { sensitivity: "base" }));
+
+  return {
+    horizontal,
+    vertical,
+    generatedAt: new Date().toISOString(),
+  };
 }
 
 function signToken(payload) {
@@ -103,6 +203,18 @@ function matchesDistrict(record, district) {
 
 app.get("/health", (req, res) => {
   res.json({ ok: true, service: "urbbis-backend" });
+});
+
+app.get("/catalog/icons", authRequired, async (req, res, next) => {
+  try {
+    const forceRefresh = String(req.query.refresh || "") === "1";
+    if (!iconCatalogCache || forceRefresh) {
+      iconCatalogCache = await buildIconCatalog();
+    }
+    res.json(iconCatalogCache);
+  } catch (err) {
+    next(err);
+  }
 });
 
 // Auth
