@@ -1041,6 +1041,25 @@ function colorLineaMetrado(){
   return "#f7d21e";
 }
 
+function dashArrayMetradoActual(){
+  if(!metradoLineas) return "10 16";
+  const raw = String(metradoLineas.value || "").toLowerCase();
+  if(!raw) return "10 16";
+  if(raw.includes("contin")) return null;
+  if(raw.includes("guion") || raw.includes("discon") || raw.includes("dash")) return "10 16";
+  return "10 16";
+}
+
+function dashArrayMetradoRegistro(registro, pendiente){
+  if(pendiente) return "7 10";
+  if(registro && typeof registro.dash_array === "string"){
+    const val = registro.dash_array.trim();
+    if(val) return val;
+  }
+  if(registro && registro.dash_array === null) return null;
+  return dashArrayMetradoActual();
+}
+
 function actualizarResultadosMetrado(){
   if(metradoDistancia){
     metradoDistancia.textContent = metradoDistanciaM ? formatoMetros(metradoDistanciaM) : "-";
@@ -1370,9 +1389,10 @@ async function actualizarInspeccionDesdeItem(item){
 
 function aplicarEstiloRutaMetrado(){
   const color = colorLineaMetrado();
+  const dashArray = dashArrayMetradoActual();
   try{
     if(metradoRouteLine && typeof metradoRouteLine.setStyle === "function"){
-      metradoRouteLine.setStyle({ color: color });
+      metradoRouteLine.setStyle({ color: color, dashArray: dashArray });
     }
     if(metradoRouteFlow && typeof metradoRouteFlow.setStyle === "function"){
       const flowColor = (color === "#ffffff") ? "rgba(12,66,106,0.70)" : "rgba(255,255,255,0.70)";
@@ -1395,10 +1415,12 @@ function guardarRutaMetradoRegistrada(){
     if(!layer) return;
     const color = colorLineaMetrado();
     const weight = metradoPesoPorHighway(metradoSnapHighway);
+    const dashArray = dashArrayMetradoActual();
       L.polyline(metradoPuntos.slice(), {
         color: color,
         weight: weight,
         opacity: 0.8,
+        dashArray: dashArray,
         lineCap: "round",
         lineJoin: "round",
         className: "metrado-route-saved",
@@ -1429,11 +1451,12 @@ function renderMetradoRegistrosOnMap(){
     const baseColor = registro.color || "#0c426a";
     const color = pendiente ? "#d93f3f" : baseColor;
     const weight = metradoPesoPorHighway(registro.highway || "");
+    const dashArray = dashArrayMetradoRegistro(registro, pendiente);
     const opts = {
       color: color,
       weight: weight,
       opacity: pendiente ? 0.75 : 0.85,
-      dashArray: pendiente ? "7 10" : null,
+      dashArray: dashArray,
       lineCap: "round",
       lineJoin: "round",
       className: "metrado-route-saved",
@@ -1662,6 +1685,7 @@ function dibujarRutaMetrado(latlngs){
 
   const color = colorLineaMetrado();
   const weight = metradoPesoPorHighway(metradoSnapHighway);
+  const dashArray = dashArrayMetradoActual();
   const outlineWeight = weight + 4;
   const flowWeight = Math.max(3, weight - 3);
     if(!metradoRouteOutline){
@@ -1685,6 +1709,7 @@ function dibujarRutaMetrado(latlngs){
         color: color,
         weight: weight,
         opacity: 0.88,
+        dashArray: dashArray,
         lineCap: "round",
         lineJoin: "round",
         className: "metrado-route-line",
@@ -1693,7 +1718,7 @@ function dibujarRutaMetrado(latlngs){
     } else {
       metradoRouteLine.setLatLngs(puntos);
       if(typeof metradoRouteLine.setStyle === "function"){
-        metradoRouteLine.setStyle({ weight: weight });
+        metradoRouteLine.setStyle({ weight: weight, dashArray: dashArray });
       }
     }
 
@@ -6173,6 +6198,7 @@ if(btnMetradoRegistrar){
       pintura_tipo: pinturaTipo,
       pintura_label: pinturaLabel,
       color: colorRegistro,
+      dash_array: dashArrayMetradoActual(),
       highway: metradoSnapHighway || "",
       puntos: metradoPuntos.map(p => [Number(p.lat), Number(p.lng)]),
       inspecciones: metradoInspecciones.slice(),
