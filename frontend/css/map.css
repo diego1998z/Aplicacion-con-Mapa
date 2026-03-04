@@ -9,145 +9,6 @@
     margin-left:12px;
 }
 
-.map-floating-controls{
-    position:fixed;
-    top:16px;
-    left:20px;
-    z-index:1600;
-    display:flex;
-    flex-direction:column;
-    gap:10px;
-    pointer-events:auto;
-}
-.map-floating-controls{align-items:flex-start;}
-body.dash-shell .map-floating-controls{
-    left:300px;
-}
-
-/* Flujo Agregar / Registrar */
-.registro-hint{
-    position:fixed;
-    top:86px;
-    left:50%;
-    transform:translateX(-50%);
-    z-index:2600;
-    background:var(--panel-glass-strong);
-    border:1px solid var(--border);
-    border-radius:999px;
-    padding:10px 14px;
-    box-shadow:var(--shadow);
-    font-weight:800;
-    color:var(--text);
-    pointer-events:none;
-}
-body.dash-shell .registro-hint{
-    left:calc(50% + 140px);
-}
-.registro-hint.hidden{display:none;}
-
-.registro-picker{
-    position:fixed;
-    inset:0;
-    z-index:2600;
-    display:grid;
-    place-items:center;
-    pointer-events:auto;
-    background:rgba(15,23,42,0.06);
-}
-.registro-picker.hidden{display:none;}
-.registro-picker-card{
-    pointer-events:auto;
-    width:min(560px, calc(100vw - 24px));
-    background:var(--panel);
-    border:1px solid var(--border);
-    border-radius:22px;
-    box-shadow:0 26px 70px rgba(0,0,0,0.22);
-    padding:18px 18px 14px;
-}
-body.dash-shell .registro-picker-card{
-    margin-left:140px;
-}
-.registro-picker-header{
-    position:relative;
-}
-.registro-picker-back{
-    position:absolute;
-    left:0;
-    top:0;
-    border:none;
-    background:transparent;
-    color:var(--muted);
-    font-weight:900;
-    cursor:pointer;
-    padding:8px 10px;
-    border-radius:12px;
-    transition:background 120ms ease, color 120ms ease;
-}
-.registro-picker-back:hover{
-    background:rgba(15,23,42,0.06);
-    color:var(--text);
-}
-.registro-picker-back.hidden{display:none;}
-.registro-picker-title{
-    font-weight:900;
-    font-size:18px;
-    color:var(--text);
-    text-align:center;
-    margin:2px 0 14px;
-}
-.registro-picker-grid{
-    display:grid;
-    grid-template-columns:repeat(4, 1fr);
-    gap:12px;
-}
-.registro-picker-grid--sub{
-    grid-template-columns:repeat(2, 1fr);
-}
-.registro-picker-option{
-    border:1px solid rgba(11,34,48,0.18);
-    background:#fff;
-    border-radius:16px;
-    padding:14px 10px;
-    display:grid;
-    justify-items:center;
-    gap:10px;
-    cursor:pointer;
-    transition:transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
-    min-height:92px;
-}
-.registro-picker-option:hover{
-    transform:translateY(-1px);
-    box-shadow:0 10px 24px rgba(17,38,62,0.12);
-    border-color:rgba(29,112,184,0.35);
-}
-.registro-picker-option.is-disabled,
-.registro-picker-option:disabled{
-    opacity:0.45;
-    cursor:not-allowed;
-    box-shadow:none;
-    transform:none;
-    border-color:rgba(11,34,48,0.12);
-}
-.registro-picker-option.active{
-    background:#0c426a;
-    border-color:#0c426a;
-    color:#fff;
-}
-.registro-opt-icon{
-    width:26px;
-    height:26px;
-    border-radius:12px;
-    background:#eef2f8;
-    border:1px solid rgba(11,34,48,0.10);
-    background-repeat:no-repeat;
-    background-position:center;
-    background-size:60%;
-}
-.registro-picker-option.active .registro-opt-icon{
-    background:rgba(255,255,255,0.14);
-    border-color:rgba(255,255,255,0.22);
-    filter:brightness(1.15);
-}
 .registro-opt-icon--transito{
     background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230c426a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 2l8 10-8 10L4 12 12 2z'/></svg>");
 }
@@ -183,80 +44,6 @@ body.dash-shell .registro-picker-card{
 }
 .registro-picker-option.active .registro-opt-icon--senalizacion{
     background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M5 12h14'/><path d='M8 18h8'/></svg>");
-}
-.registro-opt-text{
-    font-weight:900;
-    font-size:13px;
-    line-height:1.1;
-    text-align:center;
-    color:inherit;
-}
-.registro-picker-cancel{
-    margin:14px auto 0;
-    display:block;
-    border:none;
-    background:transparent;
-    color:var(--muted);
-    font-weight:800;
-    cursor:pointer;
-    padding:8px 10px;
-}
-.registro-picker-cancel:hover{color:var(--text);}
-
-.registro-panel{
-    position:fixed;
-    top:120px;
-    right:22px;
-    width:360px;
-    max-height:calc(100vh - 160px);
-    overflow:hidden;
-    background:var(--panel);
-    border:1px solid var(--border);
-    border-radius:22px;
-    box-shadow:0 24px 70px rgba(0,0,0,0.22);
-    z-index:2600;
-}
-.registro-panel.hidden{display:none;}
-.registro-panel-head{
-    background:#0c426a;
-    color:#fff;
-    padding:12px 14px;
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:12px;
-}
-.registro-panel-title{
-    font-weight:900;
-    font-size:16px;
-    display:flex;
-    align-items:center;
-    gap:10px;
-}
-.registro-panel-close{
-    border:none;
-    background:rgba(255,255,255,0.12);
-    color:#fff;
-    width:34px;
-    height:34px;
-    border-radius:10px;
-    cursor:pointer;
-    display:grid;
-    place-items:center;
-    font-size:18px;
-    line-height:1;
-}
-.registro-panel-close:hover{background:rgba(255,255,255,0.18);}
-.registro-panel-body{
-    padding:14px 14px 18px;
-    overflow:auto;
-    max-height:calc(100vh - 220px);
-}
-.registro-panel .icon-grid{
-    max-height:210px;
-    overflow-y:auto;
-    padding-right:6px;
-    scrollbar-width:thin;
 }
 .registro-field{
     display:flex;
@@ -442,22 +229,7 @@ body.dash-shell .registro-picker-card{
     filter:drop-shadow(0 6px 10px rgba(0,0,0,0.18));
 }
 
-@media (max-width: 900px){
-    body.dash-shell .registro-picker-card{margin-left:0;}
-    body.dash-shell .registro-hint{left:50%;}
-}
 @media (max-width: 600px){
-    .registro-picker-grid{grid-template-columns:repeat(2, 1fr);}
-    .registro-panel{
-        left:12px;
-        right:12px;
-        top:auto;
-        bottom:12px;
-        width:auto;
-        max-height:78vh;
-    }
-    .registro-panel-body{max-height:calc(78vh - 54px);}
-    .registro-panel .icon-grid{max-height:300px;}
     .metrado-panel .metrado-results{grid-template-columns:1fr;}
 }
 .map-floating-row{
@@ -2039,83 +1811,6 @@ body.dash-shell .modal{
     margin-top:8px;
 }
 
-#loginOverlay{
-    position:fixed;
-    inset:0;
-    background:var(--bg);
-    display:flex;
-    z-index:3000;
-}
-.login-layout{
-    display:grid;
-    grid-template-columns:1.4fr 1fr;
-    width:100%;
-    height:100%;
-}
-.login-hero{
-    background:url(" ../src/assets/login-bg.webp") center/cover no-repeat;
-}
-.login-card{
-    background:var(--panel);
-    padding:48px;
-    display:flex;
-    flex-direction:column;
-    justify-content:center;
-    align-items:center;
-    text-align:center;
-    gap:16px;
-    box-shadow:0 20px 60px rgba(0,0,0,0.18);
-}
-.login-logo{
-    max-width:180px;
-    margin:0 auto;
-}
-.login-card h2{
-    margin:0;
-}
-.login-card p{
-    margin:0;
-    color:var(--muted);
-}
-.login-card form{
-    display:grid;
-    gap:12px;
-    width:100%;
-}
-.login-card label{
-    font-size:13px;
-    color:var(--muted);
-}
-.login-card input{
-    width:100%;
-    height:44px;
-    padding:10px 12px;
-    border-radius:10px;
-    border:1px solid var(--border);
-    background:var(--field-bg);
-    color:var(--text);
-}
-.login-card button{
-    width:auto;
-    margin-top:0;
-}
-.login-actions{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    gap:10px;
-}
-.login-link{
-    color:var(--primary);
-    font-weight:600;
-}
-.login-hint{
-    display:block;
-    margin-top:4px;
-    color:var(--muted);
-    font-size:12px;
-}
-
 @media (max-width: 900px){
     #modalProyecto{
         padding:12px;
@@ -2136,10 +1831,6 @@ body.dash-shell .modal{
         padding:10px 12px 16px;
         grid-template-columns:1fr;
     }
-    #loginOverlay .login-layout{
-        grid-template-columns:1fr;
-    }
-    .login-hero{display:none;}
     .mobile-banner{display:block;}
 }
 
@@ -2208,15 +1899,6 @@ body.dash-shell .modal{
         bottom:0;
         height:auto;
         margin-top:0;
-    }
-    .map-floating-controls{
-        left:12px;
-        right:12px;
-        top:12px;
-    }
-    body.dash-shell .map-floating-controls{
-        left:12px;
-        right:12px;
     }
     .map-floating-row{
         width:100%;
