@@ -30,7 +30,7 @@
                         <button type="submit" id="btnLogin">Iniciar sesión</button>
                     </div>
                 </form>
-                <small class="login-hint">Usa una cuenta creada en el backend. Ejemplo si ya la registraste: muni@muni.gob.pe / Muni123</small>
+                <small class="login-hint">Usa una cuenta creada en el backend. Ejemplo si ya la registraste: muni@muni.gob.pe / Muni123!</small>
             </div>
         </div>
     </div>
@@ -798,30 +798,16 @@
                         </select>
                     </div>
                     <div class="metrado-field">
-                        <div class="map-panel-title">Tipo de v&iacute;a</div>
-                        <div class="metrado-check-col" id="metradoTipoVia">
-                            <label class="map-panel-check"><input type="radio" name="metradoVia" value="urbana" checked> <span>Calle urbana</span></label>
-                            <label class="map-panel-check"><input type="radio" name="metradoVia" value="autopista"> <span>Autopista</span></label>
-                            <label class="map-panel-check"><input type="radio" name="metradoVia" value="carretera"> <span>Carretera</span></label>
-                        </div>
+                        <div class="map-panel-title">Descripci&oacute;n del trabajo</div>
+                        <input id="metradoDetalleDescripcion" type="text" class="metrado-input" placeholder="Ej: L&iacute;nea lateral derecha">
                     </div>
-                    <div id="metradoUrbanExtra" class="metrado-urban-extra">
-                        <div class="metrado-field">
-                            <div class="map-panel-title">&iquest;Tiene separador central f&iacute;sico?</div>
-                            <div class="metrado-check-row" id="metradoSeparador">
-                                <label class="map-panel-check"><input type="radio" name="metradoSep" value="si" checked> <span>S&iacute;</span></label>
-                                <label class="map-panel-check"><input type="radio" name="metradoSep" value="no"> <span>No</span></label>
-                            </div>
-                            <div class="metrado-help">S&iacute; en avenidas, No en calles locales.</div>
-                        </div>
-                        <div class="metrado-field">
-                            <div class="map-panel-title">Sentido de la v&iacute;a</div>
-                            <div class="metrado-check-row" id="metradoSentido">
-                                <label class="map-panel-check"><input type="radio" name="metradoSentido" value="unico" checked> <span>Un solo sentido</span></label>
-                                <label class="map-panel-check"><input type="radio" name="metradoSentido" value="doble"> <span>Doble sentido</span></label>
-                            </div>
-                        </div>
+                    <div class="metrado-field">
+                        <div class="map-panel-title">Metros lineales ejecutados</div>
+                        <input id="metradoDetalleMl" type="number" class="metrado-input" min="0.01" step="0.01" placeholder="Ej: 35.5">
+                        <div class="metrado-help">Puedes registrar varios detalles para un mismo trazo. Luego usa cada detalle para ubicarlo en mapa y subir su inspecci&oacute;n.</div>
                     </div>
+                    <button id="btnMetradoAgregarDetalle" type="button" class="map-panel-btn map-panel-btn--ghost">Agregar detalle al trazo</button>
+                    <div id="metradoDetalleList" class="metrado-breakdown" aria-label="Detalle del trazo"></div>
                     </div>
                 </details>
                 <div class="metrado-results" aria-label="Resultados">
@@ -830,33 +816,20 @@
                         <strong id="metradoDistancia">-</strong>
                     </div>
                     <div class="metrado-kpi">
-                        <span>Total l&iacute;neas</span>
+                        <span>Total registrado</span>
                         <strong id="metradoMetrado">-</strong>
+                    </div>
+                    <div class="metrado-kpi">
+                        <span>&Aacute;rea estimada</span>
+                        <strong id="metradoArea">-</strong>
                     </div>
                 </div>
                 <details class="metrado-options-details metrado-breakdown-details">
-                    <summary class="metrado-options-summary" aria-controls="metradoBreakdown" title="Detalle de l&iacute;neas">
-                        <span class="metrado-options-label">Detalle de l&iacute;neas</span>
+                    <summary class="metrado-options-summary" aria-controls="metradoBreakdown" title="Resumen por pintura y ancho">
+                        <span class="metrado-options-label">Resumen por pintura y ancho</span>
                         <span class="metrado-options-chev" aria-hidden="true">&rsaquo;</span>
                     </summary>
-                    <div id="metradoBreakdown" class="metrado-breakdown" aria-label="Detalle de l&iacute;neas">
-                        <div class="metrado-line metrado-line--yellow">
-                            <span>Eje central (amarillo)</span>
-                            <strong id="metradoEje">-</strong>
-                        </div>
-                        <div class="metrado-line metrado-line--white">
-                            <span>L&iacute;neas laterales (blancas)</span>
-                            <strong id="metradoLaterales">-</strong>
-                        </div>
-                        <div class="metrado-line metrado-line--white">
-                            <span>L&iacute;neas internas (blancas)</span>
-                            <strong id="metradoInternas">-</strong>
-                        </div>
-                        <div class="metrado-line metrado-line--area">
-                            <span>&Aacute;rea estimada (m&sup2;)</span>
-                            <strong id="metradoArea">-</strong>
-                        </div>
-                    </div>
+                    <div id="metradoBreakdown" class="metrado-breakdown" aria-label="Resumen por pintura y ancho"></div>
                 </details>
                 <button id="btnMetradoInspeccion" type="button" class="map-panel-btn map-panel-btn--ghost" disabled>Subir inspecci&oacute;n</button>
                 <button id="btnMetradoRegistrar" type="button" class="map-panel-btn" disabled>Registrar</button>
@@ -895,7 +868,7 @@
             <div class="registro-picker-grid registro-picker-grid--sub hidden" id="registroPickerGridMarcas" role="list" aria-label="Opciones de marcas viales">
                 <button type="button" class="registro-picker-option" data-registro-marcas="pintado" role="listitem">
                     <span class="registro-opt-icon registro-opt-icon--pintado" aria-hidden="true"></span>
-                    <span class="registro-opt-text">Lineas y<br>guionadas</span>
+                    <span class="registro-opt-text">Trazos de<br>pintura</span>
                 </button>
                 <button type="button" class="registro-picker-option" data-registro-marcas="senalizacion" role="listitem">
                     <span class="registro-opt-icon registro-opt-icon--senalizacion" aria-hidden="true"></span>
@@ -1041,7 +1014,7 @@
                         <label class="map-panel-check" id="rowChkProyectoTransito"><input id="chkProyectoTransito" type="checkbox" checked> <span id="lblChkProyectoTransito">Senales de transito</span></label>
                         <label class="map-panel-check" id="rowChkProyectoMarcas"><input id="chkProyectoMarcas" type="checkbox" checked> <span id="lblChkProyectoMarcas">Marcas viales</span></label>
                         <label class="map-panel-check" id="rowChkProyectoMobiliario"><input id="chkProyectoMobiliario" type="checkbox" checked> <span id="lblChkProyectoMobiliario">Mobiliario vial</span></label>
-                        <label class="map-panel-check" id="rowChkProyectoMetrado"><input id="chkProyectoMetrado" type="checkbox" checked> <span id="lblChkProyectoMetrado">Lineas y guionadas</span></label>
+                        <label class="map-panel-check" id="rowChkProyectoMetrado"><input id="chkProyectoMetrado" type="checkbox" checked> <span id="lblChkProyectoMetrado">Trazos de pintura</span></label>
                     </div>
                     <div class="project-hint">Selecciona las senales y los trazos en el mapa con click izquierdo.</div>
                 </div>

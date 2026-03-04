@@ -40,14 +40,15 @@ const metradoLineas = document.getElementById("metradoLineas");
 const metradoDistancia = document.getElementById("metradoDistancia");
 const metradoMetrado = document.getElementById("metradoMetrado");
 const btnMetradoCalcular = document.getElementById("btnMetradoCalcular");
-const metradoUrbanExtra = document.getElementById("metradoUrbanExtra");
-const metradoEje = document.getElementById("metradoEje");
-const metradoLaterales = document.getElementById("metradoLaterales");
-const metradoInternas = document.getElementById("metradoInternas");
 const metradoArea = document.getElementById("metradoArea");
 const metradoSnapVias = document.getElementById("metradoSnapVias");
 const metradoNombre = document.getElementById("metradoNombre");
 const metradoTipoPintura = document.getElementById("metradoTipoPintura");
+const metradoDetalleDescripcion = document.getElementById("metradoDetalleDescripcion");
+const metradoDetalleMl = document.getElementById("metradoDetalleMl");
+const btnMetradoAgregarDetalle = document.getElementById("btnMetradoAgregarDetalle");
+const metradoDetalleList = document.getElementById("metradoDetalleList");
+const metradoBreakdown = document.getElementById("metradoBreakdown");
 const btnMetradoVerRegistros = document.getElementById("btnMetradoVerRegistros");
 const btnMetradoClose = document.getElementById("btnMetradoClose");
 const modalMetradoRegistros = document.getElementById("modalMetradoRegistros");
@@ -129,6 +130,8 @@ const btnInspeccionAgregar = document.getElementById("btnInspeccionAgregar");
 const btnInspeccionFinalizar = document.getElementById("btnInspeccionFinalizar");
 const btnInspeccionVerTodo = document.getElementById("btnInspeccionVerTodo");
 const btnInspeccionListClose = document.getElementById("btnInspeccionListClose");
+const inspeccionTitle = modalInspeccion ? modalInspeccion.querySelector(".inspeccion-head h3") : null;
+const inspeccionListTitle = modalInspeccionListado ? modalInspeccionListado.querySelector(".inspeccion-head h3") : null;
 const inspeccionPrev = document.getElementById("inspeccionPrev");
 const inspeccionPrevBody = document.getElementById("inspeccionPrevBody");
 const inspeccionList = document.getElementById("inspeccionList");
@@ -241,6 +244,9 @@ let metradoFinLatLng = null;
 let metradoDistanciaM = 0;
 let metradoLayer = null;
 let metradoRegistrosLayer = null;
+let metradoDetalleOverlayLayer = null;
+let metradoDetalleDraftLayer = null;
+let metradoDetallePickLayer = null;
 let metradoMarkerInicio = null;
 let metradoMarkerFin = null;
 let metradoRouteOutline = null;
@@ -251,7 +257,14 @@ let metradoCursorMarker = null;
 let metradoLoading = false;
 let metradoCalculoActivo = false;
 let metradoUltimoCalculo = null;
+let metradoDetalleItems = [];
+let metradoDetalleSeq = 1;
 let metradoInspecciones = [];
+let metradoDetalleInspeccionId = "";
+let metradoDetallePickId = "";
+let metradoDetallePickStartRatio = null;
+let metradoDetallePickHoverRatio = null;
+let metradoRegistroDetalleActivoId = "";
 let metradoInspeccionSeq = 1;
 let metradoRegistros = [];
 let metradoSnapEnabled = false;
@@ -274,6 +287,7 @@ const METRADO_SNAP_MAX_JUMP_M = 22;
 const METRADO_SNAP_SEG_SEARCH_M = 45;
 const METRADO_SNAP_CONNECT_WINDOW = 320;
 const METRADO_SNAP_CONNECT_MAX_M = 30;
+const METRADO_DETALLE_MIN_ZOOM = 19;
 
 function mostrarRegistroHint(texto){
   if(!registroHint) return;
@@ -428,6 +442,42 @@ function asegurarMetradoRegistrosLayer(){
   }
 }
 
+function asegurarMetradoDetalleOverlayLayer(){
+  try{
+    if(metradoDetalleOverlayLayer) return metradoDetalleOverlayLayer;
+    if(typeof L === "undefined") return null;
+    if(typeof map === "undefined" || !map) return null;
+    metradoDetalleOverlayLayer = L.layerGroup().addTo(map);
+    return metradoDetalleOverlayLayer;
+  }catch(e){
+    return null;
+  }
+}
+
+function asegurarMetradoDetalleDraftLayer(){
+  try{
+    if(metradoDetalleDraftLayer) return metradoDetalleDraftLayer;
+    if(typeof L === "undefined") return null;
+    if(typeof map === "undefined" || !map) return null;
+    metradoDetalleDraftLayer = L.layerGroup().addTo(map);
+    return metradoDetalleDraftLayer;
+  }catch(e){
+    return null;
+  }
+}
+
+function asegurarMetradoDetallePickLayer(){
+  try{
+    if(metradoDetallePickLayer) return metradoDetallePickLayer;
+    if(typeof L === "undefined") return null;
+    if(typeof map === "undefined" || !map) return null;
+    metradoDetallePickLayer = L.layerGroup().addTo(map);
+    return metradoDetallePickLayer;
+  }catch(e){
+    return null;
+  }
+}
+
 function iconoMetrado(letra, tipo){
   try{
     if(typeof L === "undefined") return null;
@@ -525,20 +575,12 @@ function metradoSnapWidthMeters(highway){
 }
 
 function metradoSnapWeightPx(highway){
-  try{
-    if(typeof map === "undefined" || !map || typeof map.containerPointToLatLng !== "function"){
-      return 10;
-    }
-    const p0 = map.containerPointToLatLng([0, 0]);
-    const p1 = map.containerPointToLatLng([0, 10]);
-    const meters = map.distance(p0, p1);
-    const metersPerPx = meters / 10;
-    if(!metersPerPx || !Number.isFinite(metersPerPx)) return 10;
-    const widthM = metradoSnapWidthMeters(highway);
-    return Math.max(6, Math.min(28, Math.round(widthM / metersPerPx)));
-  }catch(e){
-    return 10;
-  }
+  const widthM = metradoSnapWidthMeters(highway);
+  if(widthM >= 11) return 7;
+  if(widthM >= 9) return 6;
+  if(widthM >= 7) return 5;
+  if(widthM >= 5) return 4;
+  return 3;
 }
 
 function metradoSnapAllowedHighway(highway){
@@ -920,118 +962,342 @@ function getRadioValue(name, fallback){
   }
 }
 
-function getMetradoConfig(){
+function anchoMetradoActual(){
   const ancho = Number(getRadioValue("metradoAncho", "0.10"));
-  const via = getRadioValue("metradoVia", "urbana");
-  const sentido = getRadioValue("metradoSentido", "unico");
-  const sep = getRadioValue("metradoSep", "si");
-  return {
-    ancho: (Number.isFinite(ancho) && ancho > 0) ? ancho : 0.10,
-    via,
-    sentido,
-    separador: sep
-  };
+  return (Number.isFinite(ancho) && ancho > 0) ? ancho : 0.10;
 }
 
-function calcularLineasMetrado(longitudM, cfg){
-  const L = (typeof longitudM === "number" && isFinite(longitudM)) ? Math.max(0, longitudM) : 0;
-  const c = cfg || getMetradoConfig();
+function pinturaMetradoActual(){
+  const tipo = metradoTipoPintura ? String(metradoTipoPintura.value || "pintura_trafico") : "pintura_trafico";
+  const label = metradoTipoPintura
+    ? String((metradoTipoPintura.options[metradoTipoPintura.selectedIndex] || {}).text || etiquetaPinturaMetrado(tipo))
+    : etiquetaPinturaMetrado(tipo);
+  return { tipo, label };
+}
 
-  let eje = 0;
-  let laterales = 0;
-  let internas = 0;
+function etiquetaAnchoMetrado(anchoM){
+  const n = Number(anchoM);
+  if(!Number.isFinite(n) || !(n > 0)) return "-";
+  return Math.round(n * 100) + " cm";
+}
 
-  if(!L){
-    return { eje:0, laterales:0, internas:0, total:0, area:0, cfg:c };
+function normalizarDetalleMetrado(item){
+  if(!item || typeof item !== "object") return null;
+  const descripcion = String(item.descripcion || item.detalle || "").trim();
+  const mlRaw = Number(item.ml ?? item.metros_ml ?? item.total_ml ?? item.total);
+  const ml = (Number.isFinite(mlRaw) && mlRaw > 0) ? mlRaw : 0;
+  const anchoRaw = Number(item.ancho_m ?? item.ancho ?? item.linea_ancho_m);
+  const ancho_m = (Number.isFinite(anchoRaw) && anchoRaw > 0) ? anchoRaw : 0.10;
+  const pintura_tipo = String(item.pintura_tipo || "pintura_trafico");
+  const pintura_label = String(item.pintura_label || etiquetaPinturaMetrado(pintura_tipo));
+  const id = String(item.id || item.detalle_id || "");
+  let pos_ratio = Number(item.pos_ratio ?? item.punto_ratio ?? item.ratio_posicion ?? item.ratio);
+  if(!Number.isFinite(pos_ratio) || pos_ratio < 0 || pos_ratio > 1) pos_ratio = null;
+  let start_ratio = Number(item.start_ratio ?? item.ratio_inicio ?? item.inicio_ratio);
+  let end_ratio = Number(item.end_ratio ?? item.ratio_fin ?? item.fin_ratio);
+  if(!Number.isFinite(start_ratio) || start_ratio < 0 || start_ratio > 1) start_ratio = null;
+  if(!Number.isFinite(end_ratio) || end_ratio < 0 || end_ratio > 1) end_ratio = null;
+  if(start_ratio !== null && end_ratio !== null && end_ratio < start_ratio){
+    const tmp = start_ratio;
+    start_ratio = end_ratio;
+    end_ratio = tmp;
   }
+  if(pos_ratio === null && start_ratio !== null && end_ratio !== null){
+    pos_ratio = (start_ratio + end_ratio) / 2;
+  } else if(pos_ratio === null && start_ratio !== null){
+    pos_ratio = start_ratio;
+  } else if(pos_ratio === null && end_ratio !== null){
+    pos_ratio = end_ratio;
+  }
+  const inspecciones = Array.isArray(item.inspecciones)
+    ? item.inspecciones.map((ins)=> Object.assign({}, ins))
+    : [];
+  if(!(ml > 0)) return null;
+  return { id, descripcion, ml, ancho_m, pintura_tipo, pintura_label, pos_ratio, start_ratio, end_ratio, inspecciones };
+}
 
-  if(c.via === "autopista"){
-    // Autopista (default beta): 2 calzadas separadas, 3 carriles por sentido.
-    // - Internas: 2 calzadas x 2 separaciones internas = 4L
-    // - Laterales: solo bordes externos = 2L
-    internas = L * 4;
-    laterales = L * 2;
-  } else if(c.via === "carretera"){
-    // Carretera: doble sentido, una sola calzada.
-    eje = L * 1;
-    laterales = L * 2;
-  } else {
-    // Calle urbana
-    if(c.sentido === "unico"){
-      laterales = L * 2;
-    } else {
-      if(c.separador === "si"){
-        // Avenida con separador central: 2 calzadas
-        // - Laterales: 2 calzadas x 2 laterales = 4L
-        // - Internas: 2 calzadas x 1 separacion interna = 2L
-        laterales = L * 4;
-        internas = L * 2;
-      } else {
-        // Calle local doble sentido (sin separador)
-        eje = L * 1;
-        laterales = L * 2;
-      }
+function calcularResumenDetallesMetrado(detalles){
+  const list = Array.isArray(detalles) ? detalles : [];
+  const clean = list.map(normalizarDetalleMetrado).filter(Boolean);
+  let total_ml = 0;
+  let total_area = 0;
+  const groupsMap = new Map();
+
+  clean.forEach((d)=>{
+    const area_m2 = d.ml * d.ancho_m;
+    total_ml += d.ml;
+    total_area += area_m2;
+    const key = d.pintura_tipo + "|" + d.ancho_m;
+    if(!groupsMap.has(key)){
+      groupsMap.set(key, {
+        pintura_tipo: d.pintura_tipo,
+        pintura_label: d.pintura_label,
+        ancho_m: d.ancho_m,
+        ml: 0,
+        area_m2: 0
+      });
     }
-  }
+    const g = groupsMap.get(key);
+    g.ml += d.ml;
+    g.area_m2 += area_m2;
+  });
 
-  const total = eje + laterales + internas;
-  const area = total * c.ancho;
-  return { eje, laterales, internas, total, area, cfg:c };
+  const grupos = Array.from(groupsMap.values()).sort((a, b)=> b.ml - a.ml);
+  return { total_ml, total_area, grupos, detalles: clean };
+}
+
+function obtenerDetallesMetrado(registro){
+  if(!registro || typeof registro !== "object") return [];
+  const raw = Array.isArray(registro.detalles)
+    ? registro.detalles
+    : (Array.isArray(registro.tramos) ? registro.tramos : []);
+  const clean = raw.map(normalizarDetalleMetrado).filter(Boolean);
+  if(clean.length) return clean;
+
+  const fallbackMlRaw = Number(
+    registro && registro.resultados && Number.isFinite(Number(registro.resultados.total))
+      ? registro.resultados.total
+      : registro && Number.isFinite(Number(registro.distancia_m))
+        ? registro.distancia_m
+        : 0
+  );
+  if(!(fallbackMlRaw > 0)) return [];
+  const fallbackAncho = Number(
+    registro && registro.config && Number.isFinite(Number(registro.config.ancho))
+      ? registro.config.ancho
+      : 0.10
+  );
+  const pintura_tipo = String(registro.pintura_tipo || "pintura_trafico");
+  return [{
+    id: "",
+    descripcion: "Detalle principal",
+    ml: fallbackMlRaw,
+    ancho_m: (Number.isFinite(fallbackAncho) && fallbackAncho > 0) ? fallbackAncho : 0.10,
+    pintura_tipo,
+    pintura_label: String(registro.pintura_label || etiquetaPinturaMetrado(pintura_tipo)),
+    pos_ratio: null,
+    start_ratio: null,
+    end_ratio: null,
+    inspecciones: Array.isArray(registro && registro.inspecciones) ? registro.inspecciones.map((ins)=> Object.assign({}, ins)) : []
+  }];
+}
+
+function obtenerResumenMetrado(registro){
+  const detalles = obtenerDetallesMetrado(registro);
+  const resumen = calcularResumenDetallesMetrado(detalles);
+  if(resumen.total_ml > 0 || resumen.total_area > 0 || resumen.grupos.length){
+    return resumen;
+  }
+  return { total_ml: 0, total_area: 0, grupos: [], detalles: [] };
+}
+
+function etiquetaTipoMetradoRegistro(registro){
+  const resumen = obtenerResumenMetrado(registro);
+  if(!resumen.grupos.length){
+    return etiquetaPinturaMetrado(registro && registro.pintura_tipo ? registro.pintura_tipo : "pintura_trafico");
+  }
+  if(resumen.grupos.length === 1){
+    return resumen.grupos[0].pintura_label || etiquetaPinturaMetrado(resumen.grupos[0].pintura_tipo);
+  }
+  return "Mixto (" + resumen.grupos.length + " tipos)";
+}
+
+function getDetalleDraftById(id){
+  const key = String(id || "");
+  if(!key) return null;
+  return (Array.isArray(metradoDetalleItems) ? metradoDetalleItems : []).find((d)=> String(d && d.id || "") === key) || null;
+}
+
+function ratioDetalleMetrado(detalle){
+  if(!detalle || typeof detalle !== "object") return null;
+  const direct = clampRatioMetrado(detalle.pos_ratio ?? detalle.punto_ratio ?? detalle.ratio_posicion ?? detalle.ratio);
+  if(direct !== null) return direct;
+  const a = clampRatioMetrado(detalle.start_ratio);
+  const b = clampRatioMetrado(detalle.end_ratio);
+  if(a !== null && b !== null) return clampRatioMetrado((a + b) / 2);
+  if(a !== null) return a;
+  if(b !== null) return b;
+  return null;
+}
+
+function detalleTienePosicionMetrado(detalle){
+  return ratioDetalleMetrado(detalle) !== null;
+}
+
+function conteoInspeccionesDetalle(detalle){
+  return Array.isArray(detalle && detalle.inspecciones) ? detalle.inspecciones.length : 0;
+}
+
+function conteoInspeccionesMetrado(registro){
+  const detalles = obtenerDetallesMetrado(registro);
+  if(detalles.length){
+    return detalles.reduce((sum, d)=> sum + conteoInspeccionesDetalle(d), 0);
+  }
+  return Array.isArray(registro && registro.inspecciones) ? registro.inspecciones.length : 0;
+}
+
+function detallePendienteInspeccion(detalle){
+  return conteoInspeccionesDetalle(detalle) === 0;
+}
+
+function registroPendienteInspeccion(registro){
+  const detalles = obtenerDetallesMetrado(registro);
+  if(detalles.length){
+    return detalles.some((d)=> detallePendienteInspeccion(d));
+  }
+  const ins = Array.isArray(registro && registro.inspecciones) ? registro.inspecciones.length : 0;
+  return !!(registro && registro.inspeccion_pendiente) || ins === 0;
+}
+
+function actualizarTitulosInspeccion(){
+  const detalle = getDetalleDraftById(metradoDetalleInspeccionId);
+  const nombre = detalle && detalle.descripcion ? detalle.descripcion : "";
+  if(inspeccionTitle){
+    inspeccionTitle.textContent = nombre ? ("Registro de inspeccion: " + nombre) : "Registro de inspeccion";
+  }
+  if(inspeccionListTitle){
+    inspeccionListTitle.textContent = nombre ? ("Registro completo: " + nombre) : "Registro completo";
+  }
+}
+
+function syncInspeccionesDetalleActivo(){
+  const detalle = getDetalleDraftById(metradoDetalleInspeccionId);
+  if(!detalle) return;
+  detalle.inspecciones = Array.isArray(metradoInspecciones)
+    ? metradoInspecciones.map((ins)=> Object.assign({}, ins))
+    : [];
+}
+
+function renderMetradoBreakdown(resumen){
+  if(!metradoBreakdown) return;
+  const r = resumen && typeof resumen === "object" ? resumen : { grupos: [] };
+  const grupos = Array.isArray(r.grupos) ? r.grupos : [];
+  if(!grupos.length){
+    metradoBreakdown.innerHTML = "<div class=\"inspeccion-item\"><div class=\"inspeccion-item-title\">Sin resumen disponible.</div></div>";
+    return;
+  }
+  const rows = grupos.map((g)=>{
+    return "<tr>"
+      + "<td>" + escapeHtml(String(g.pintura_label || etiquetaPinturaMetrado(g.pintura_tipo))) + "</td>"
+      + "<td>" + escapeHtml(etiquetaAnchoMetrado(g.ancho_m)) + "</td>"
+      + "<td style=\"text-align:right\">" + escapeHtml(formatoML(g.ml)) + "</td>"
+      + "<td style=\"text-align:right\">" + escapeHtml(formatoM2(g.area_m2)) + "</td>"
+      + "</tr>";
+  }).join("");
+  metradoBreakdown.innerHTML = ""
+    + "<div style=\"overflow:auto\">"
+    + "<table style=\"width:100%;border-collapse:collapse;font-size:13px\">"
+    + "<thead><tr>"
+    + "<th style=\"text-align:left;padding:6px 4px\">Pintura</th>"
+    + "<th style=\"text-align:left;padding:6px 4px\">Ancho</th>"
+    + "<th style=\"text-align:right;padding:6px 4px\">ML</th>"
+    + "<th style=\"text-align:right;padding:6px 4px\">Area</th>"
+    + "</tr></thead>"
+    + "<tbody>" + rows + "</tbody>"
+    + "</table>"
+    + "</div>";
 }
 
 function renderResultadosLineas(res){
-  if(!metradoMetrado || !metradoEje || !metradoLaterales || !metradoInternas || !metradoArea) return;
-  const setLinea = (el, valor, emptyText)=>{
-    if(!el) return;
-    const line = (typeof el.closest === "function") ? el.closest(".metrado-line") : null;
-    const v = (typeof valor === "number" && isFinite(valor)) ? Math.max(0, valor) : 0;
-    const zero = !(v > 0);
-    if(line) line.classList.toggle("is-zero", zero);
-    el.textContent = zero ? (emptyText || "No aplica") : formatoML(v);
-  };
-  if(!res || !res.total){
-    metradoMetrado.textContent = "-";
-    [metradoEje, metradoLaterales, metradoInternas, metradoArea].forEach((el)=>{
-      if(!el) return;
-      const line = (typeof el.closest === "function") ? el.closest(".metrado-line") : null;
-      if(line) line.classList.remove("is-zero");
-      el.textContent = "-";
-    });
+  if(metradoMetrado){
+    metradoMetrado.textContent = (res && Number.isFinite(Number(res.total)))
+      ? formatoML(Number(res.total))
+      : "-";
+  }
+  if(metradoArea){
+    metradoArea.textContent = (res && Number.isFinite(Number(res.area)))
+      ? formatoM2(Number(res.area))
+      : "-";
+  }
+  renderMetradoBreakdown(res && Array.isArray(res.grupos) ? { grupos: res.grupos } : null);
+}
+
+function renderMetradoDetalleDraftList(){
+  if(!metradoDetalleList) return;
+  const list = Array.isArray(metradoDetalleItems) ? metradoDetalleItems : [];
+  if(!list.length){
+    metradoDetalleList.innerHTML = "<div class=\"inspeccion-item\"><div class=\"inspeccion-item-title\">Aun no agregaste detalles al trazo.</div></div>";
+    renderMetradoDetalleDraftPreview();
+    renderMetradoDetallePickPreview();
     return;
   }
-  metradoMetrado.textContent = formatoML(res.total);
-  setLinea(metradoEje, res.eje, "No aplica");
-  setLinea(metradoLaterales, res.laterales, "No aplica");
-  setLinea(metradoInternas, res.internas, "No aplica");
-  metradoArea.textContent = formatoM2(res.area);
+  metradoDetalleList.innerHTML = list.map((d)=>{
+    const id = escapeAttr(String(d.id || ""));
+    const desc = escapeHtml(d.descripcion || "Detalle sin descripcion");
+    const tipo = escapeHtml(d.pintura_label || etiquetaPinturaMetrado(d.pintura_tipo));
+    const ancho = escapeHtml(etiquetaAnchoMetrado(d.ancho_m));
+    const ml = escapeHtml(formatoML(d.ml));
+    const hasPos = detalleTienePosicionMetrado(d);
+    const posText = hasPos
+      ? "Ubicacion en trazo: definida"
+      : "Ubicacion pendiente";
+    const insCount = conteoInspeccionesDetalle(d);
+    const insText = "Inspeccion: " + insCount + " medicion" + (insCount === 1 ? "" : "es");
+    const pickActive = String(metradoDetallePickId || "") === String(d.id || "");
+    const btnPos = pickActive ? "Cancelar ubicacion" : (hasPos ? "Reubicar en mapa" : "Ubicar en mapa");
+    return ""
+      + "<div class=\"inspeccion-item\" data-detalle-id=\"" + id + "\">"
+      +   "<div class=\"inspeccion-item-head\">"
+      +     "<div>"
+      +       "<div class=\"inspeccion-item-title\">" + desc + "</div>"
+      +       "<div class=\"inspeccion-item-sub\">" + tipo + " \u00B7 " + ancho + " \u00B7 " + ml + "</div>"
+      +       "<div class=\"inspeccion-item-sub\">" + escapeHtml(posText) + "</div>"
+      +       "<div class=\"inspeccion-item-sub\">" + escapeHtml(insText) + "</div>"
+      +     "</div>"
+      +     "<div class=\"inspeccion-item-actions\">"
+      +       "<button type=\"button\" class=\"inspeccion-btn btn-metrado-det-pick\" data-detalle-id=\"" + id + "\">" + escapeHtml(btnPos) + "</button>"
+      +       "<button type=\"button\" class=\"inspeccion-btn btn-metrado-det-ins\" data-detalle-id=\"" + id + "\">Inspeccion</button>"
+      +       "<button type=\"button\" class=\"inspeccion-btn inspeccion-btn--danger btn-metrado-det-remove\" data-detalle-id=\"" + id + "\">Quitar</button>"
+      +     "</div>"
+      +   "</div>"
+      + "</div>";
+  }).join("");
+  renderMetradoDetalleDraftPreview();
+  renderMetradoDetallePickPreview();
+}
+
+function limpiarDetalleMetradoForm(){
+  if(metradoDetalleDescripcion) metradoDetalleDescripcion.value = "";
+  if(metradoDetalleMl) metradoDetalleMl.value = "";
+}
+
+function agregarDetalleMetradoDesdeForm(){
+  const descripcion = metradoDetalleDescripcion ? String(metradoDetalleDescripcion.value || "").trim() : "";
+  const mlVal = metradoDetalleMl ? Number(String(metradoDetalleMl.value || "").replace(",", ".")) : NaN;
+  if(!Number.isFinite(mlVal) || !(mlVal > 0)){
+    setMetradoStatus("Ingresa una cantidad valida de metros lineales.");
+    return;
+  }
+  const ancho_m = anchoMetradoActual();
+  const pintura = pinturaMetradoActual();
+  metradoDetalleItems.push({
+    id: "det-" + (metradoDetalleSeq++),
+    descripcion: descripcion || ("Detalle " + (metradoDetalleItems.length + 1)),
+    ml: mlVal,
+    ancho_m,
+    pintura_tipo: pintura.tipo,
+    pintura_label: pintura.label,
+    pos_ratio: null,
+    start_ratio: null,
+    end_ratio: null,
+    inspecciones: []
+  });
+  renderMetradoDetalleDraftList();
+  limpiarDetalleMetradoForm();
+  actualizarResultadosMetrado();
 }
 
 function actualizarEstadoBtnCalcular(){
   const listo = (typeof metradoDistanciaM === "number" && metradoDistanciaM > 0) && Array.isArray(metradoPuntos) && metradoPuntos.length >= 2;
+  const detalles = Array.isArray(metradoDetalleItems) ? metradoDetalleItems : [];
+  const hasDetalle = detalles.length > 0;
+  const hasPosDetalle = !hasDetalle ? false : detalles.every((d)=> detalleTienePosicionMetrado(d));
   if(btnMetradoCalcular) btnMetradoCalcular.disabled = !listo;
-  if(btnMetradoInspeccion) btnMetradoInspeccion.disabled = !listo;
-  if(btnMetradoRegistrar) btnMetradoRegistrar.disabled = !listo;
+  if(btnMetradoInspeccion) btnMetradoInspeccion.disabled = !listo || !hasDetalle;
+  if(btnMetradoRegistrar) btnMetradoRegistrar.disabled = !listo || !hasDetalle || !hasPosDetalle;
 }
 
 function syncMetradoFormState(){
-  const via = getRadioValue("metradoVia", "urbana");
-  const isUrbana = via === "urbana";
-  if(metradoUrbanExtra){
-    metradoUrbanExtra.classList.toggle("hidden", !isUrbana);
-  }
-  if(isUrbana){
-    const sentido = getRadioValue("metradoSentido", "unico");
-    const disableSep = sentido === "unico";
-    try{
-      document.querySelectorAll('input[name="metradoSep"]').forEach((i)=>{
-        i.disabled = disableSep;
-      });
-      if(disableSep){
-        const no = document.querySelector('input[name="metradoSep"][value="no"]');
-        if(no) no.checked = true;
-      }
-    }catch(e){}
-  }
   actualizarEstadoBtnCalcular();
 }
 
@@ -1069,15 +1335,19 @@ function actualizarResultadosMetrado(){
   metradoCalculoActivo = listo;
   actualizarEstadoBtnCalcular();
 
-  if(!metradoCalculoActivo){
+  const resumen = calcularResumenDetallesMetrado(metradoDetalleItems);
+  metradoUltimoCalculo = {
+    total: resumen.total_ml,
+    area: resumen.total_area,
+    grupos: resumen.grupos,
+    detalles: resumen.detalles
+  };
+
+  if(!metradoCalculoActivo && !(resumen.total_ml > 0)){
     renderResultadosLineas(null);
     return;
   }
-
-  const cfg = getMetradoConfig();
-  const res = calcularLineasMetrado(metradoDistanciaM, cfg);
-  metradoUltimoCalculo = res;
-  renderResultadosLineas(res);
+  renderResultadosLineas(metradoUltimoCalculo);
 }
 
 function escapeHtml(str){
@@ -1284,6 +1554,7 @@ async function crearInspeccionDesdeForm(){
   }
   return {
     id: metradoInspeccionSeq++,
+    detalle_id: metradoDetalleInspeccionId || "",
     fecha: hoyISO(),
     distancia,
     ubicacion,
@@ -1294,7 +1565,27 @@ async function crearInspeccionDesdeForm(){
   };
 }
 
-function abrirModalInspeccion(){
+function abrirModalInspeccion(detalleId){
+  if(detalleId !== undefined && detalleId !== null){
+    metradoDetalleInspeccionId = String(detalleId || "");
+  }
+  const detalle = getDetalleDraftById(metradoDetalleInspeccionId);
+  if(detalle){
+    metradoInspecciones = Array.isArray(detalle.inspecciones)
+      ? detalle.inspecciones.map((ins)=> Object.assign({}, ins))
+      : [];
+    if(insDistancia && Number.isFinite(Number(detalle.ml)) && Number(detalle.ml) > 0){
+      insDistancia.value = String(Math.round(Number(detalle.ml)));
+    }
+  } else if(Array.isArray(metradoDetalleItems) && metradoDetalleItems.length === 1){
+    const unico = metradoDetalleItems[0];
+    metradoDetalleInspeccionId = String(unico.id || "");
+    metradoInspecciones = Array.isArray(unico.inspecciones)
+      ? unico.inspecciones.map((ins)=> Object.assign({}, ins))
+      : [];
+  }
+  actualizarTitulosInspeccion();
+  limpiarInspeccionForm();
   if(!modalInspeccion) return;
   modalInspeccion.classList.remove("hidden");
   modalInspeccion.setAttribute("aria-hidden","false");
@@ -1308,6 +1599,7 @@ function cerrarModalInspeccion(){
 }
 
 function abrirModalInspeccionListado(){
+  actualizarTitulosInspeccion();
   if(!modalInspeccionListado) return;
   renderInspeccionList();
   modalInspeccionListado.classList.remove("hidden");
@@ -1383,8 +1675,11 @@ async function actualizarInspeccionDesdeItem(item){
     ins.historial = Array.isArray(ins.historial) ? ins.historial : [];
     ins.historial.push({ fecha: hoyISO(), cambios: cambios.join(" | ") });
   }
+  syncInspeccionesDetalleActivo();
   renderInspeccionList();
   renderInspeccionPrev();
+  renderMetradoDetalleDraftList();
+  actualizarResultadosMetrado();
 }
 
 function aplicarEstiloRutaMetrado(){
@@ -1436,6 +1731,67 @@ function nombreRegistroMetrado(registro){
   return "Trazado " + (id || "-");
 }
 
+function popupResumenMetradoRegistro(registro){
+  const resumen = obtenerResumenMetrado(registro);
+  const nombre = escapeHtml(nombreRegistroMetrado(registro));
+  const fecha = escapeHtml(String(registro && registro.fecha ? registro.fecha : "-"));
+  const dist = (registro && Number.isFinite(Number(registro.distancia_m)))
+    ? (Math.round(Number(registro.distancia_m)) + " m")
+    : "-";
+  const totalMl = resumen.total_ml > 0 ? formatoML(resumen.total_ml) : "-";
+  const totalArea = resumen.total_area > 0 ? formatoM2(resumen.total_area) : "-";
+  const rows = (resumen.grupos || []).map((g)=>{
+    return "<tr>"
+      + "<td style=\"padding:4px 6px;border-bottom:1px solid #e2e8f0\">" + escapeHtml(String(g.pintura_label || etiquetaPinturaMetrado(g.pintura_tipo))) + "</td>"
+      + "<td style=\"padding:4px 6px;border-bottom:1px solid #e2e8f0\">" + escapeHtml(etiquetaAnchoMetrado(g.ancho_m)) + "</td>"
+      + "<td style=\"padding:4px 6px;border-bottom:1px solid #e2e8f0;text-align:right\">" + escapeHtml(formatoML(g.ml)) + "</td>"
+      + "</tr>";
+  }).join("");
+  const detalleRows = (resumen.detalles || []).map((d)=>{
+    const desc = escapeHtml(d.descripcion || "Detalle sin descripcion");
+    const hasPos = detalleTienePosicionMetrado(d);
+    const rango = hasPos ? "Punto definido" : "Sin posicion";
+    const insCount = conteoInspeccionesDetalle(d);
+    return "<tr>"
+      + "<td style=\"padding:4px 6px;border-bottom:1px solid #e2e8f0\">" + desc + "</td>"
+      + "<td style=\"padding:4px 6px;border-bottom:1px solid #e2e8f0\">" + escapeHtml(String(d.pintura_label || etiquetaPinturaMetrado(d.pintura_tipo))) + "</td>"
+      + "<td style=\"padding:4px 6px;border-bottom:1px solid #e2e8f0\">" + escapeHtml(etiquetaAnchoMetrado(d.ancho_m)) + "</td>"
+      + "<td style=\"padding:4px 6px;border-bottom:1px solid #e2e8f0\">" + escapeHtml(rango) + "</td>"
+      + "<td style=\"padding:4px 6px;border-bottom:1px solid #e2e8f0;text-align:center\">" + escapeHtml(String(insCount)) + "</td>"
+      + "<td style=\"padding:4px 6px;border-bottom:1px solid #e2e8f0;text-align:right\">" + escapeHtml(formatoML(d.ml)) + "</td>"
+      + "</tr>";
+  }).join("");
+
+  return ""
+    + "<div style=\"min-width:320px;max-width:460px\">"
+    +   "<div style=\"font-weight:700;color:#0f172a;margin-bottom:4px\">" + nombre + "</div>"
+    +   "<div style=\"font-size:12px;color:#475569;margin-bottom:8px\">Fecha: " + fecha + " \u00B7 Distancia: " + escapeHtml(dist) + "</div>"
+    +   "<div style=\"display:flex;gap:8px;margin-bottom:8px\">"
+    +     "<span style=\"font-size:12px;background:#eef2ff;color:#1e3a8a;padding:2px 8px;border-radius:999px\">ML: " + escapeHtml(totalMl) + "</span>"
+    +     "<span style=\"font-size:12px;background:#ecfeff;color:#155e75;padding:2px 8px;border-radius:999px\">Area: " + escapeHtml(totalArea) + "</span>"
+    +   "</div>"
+    +   "<div style=\"font-size:12px;font-weight:600;color:#334155;margin:6px 0 4px\">Resumen por pintura y ancho</div>"
+    +   ((rows && rows.length)
+      ? ("<table style=\"width:100%;border-collapse:collapse;font-size:12px\"><thead><tr>"
+        + "<th style=\"text-align:left;padding:4px 6px;border-bottom:1px solid #cbd5e1\">Pintura</th>"
+        + "<th style=\"text-align:left;padding:4px 6px;border-bottom:1px solid #cbd5e1\">Ancho</th>"
+        + "<th style=\"text-align:right;padding:4px 6px;border-bottom:1px solid #cbd5e1\">ML</th>"
+        + "</tr></thead><tbody>" + rows + "</tbody></table>")
+      : "<div style=\"font-size:12px;color:#64748b\">Sin resumen.</div>")
+    +   "<div style=\"font-size:12px;font-weight:600;color:#334155;margin:8px 0 4px\">Detalle del trazo</div>"
+    +   ((detalleRows && detalleRows.length)
+      ? ("<table style=\"width:100%;border-collapse:collapse;font-size:12px\"><thead><tr>"
+        + "<th style=\"text-align:left;padding:4px 6px;border-bottom:1px solid #cbd5e1\">Trabajo</th>"
+        + "<th style=\"text-align:left;padding:4px 6px;border-bottom:1px solid #cbd5e1\">Pintura</th>"
+        + "<th style=\"text-align:left;padding:4px 6px;border-bottom:1px solid #cbd5e1\">Ancho</th>"
+        + "<th style=\"text-align:left;padding:4px 6px;border-bottom:1px solid #cbd5e1\">Posicion</th>"
+        + "<th style=\"text-align:center;padding:4px 6px;border-bottom:1px solid #cbd5e1\">Ins.</th>"
+        + "<th style=\"text-align:right;padding:4px 6px;border-bottom:1px solid #cbd5e1\">ML</th>"
+        + "</tr></thead><tbody>" + detalleRows + "</tbody></table>")
+      : "<div style=\"font-size:12px;color:#64748b\">Sin detalle.</div>")
+    + "</div>";
+}
+
 function renderMetradoRegistrosOnMap(){
   const layer = asegurarMetradoRegistrosLayer();
   if(!layer) return;
@@ -1446,8 +1802,7 @@ function renderMetradoRegistrosOnMap(){
   const list = Array.isArray(metradoRegistros) ? metradoRegistros : [];
   list.forEach((registro)=>{
     if(!registro || !Array.isArray(registro.puntos) || registro.puntos.length < 2) return;
-    const inspecciones = Array.isArray(registro.inspecciones) ? registro.inspecciones.length : 0;
-    const pendiente = !!registro.inspeccion_pendiente || inspecciones === 0;
+    const pendiente = registroPendienteInspeccion(registro);
     const baseColor = registro.color || "#0c426a";
     const color = pendiente ? "#d93f3f" : baseColor;
     const weight = metradoPesoPorHighway(registro.highway || "");
@@ -1460,42 +1815,55 @@ function renderMetradoRegistrosOnMap(){
       lineCap: "round",
       lineJoin: "round",
       className: "metrado-route-saved",
-      interactive: false
-    };
-    const line = L.polyline(registro.puntos.slice(), opts).addTo(layer);
-    const hitWeight = Math.max(weight + 10, 14);
-    const hitLine = L.polyline(registro.puntos.slice(), {
-      color: "#000000",
-      weight: hitWeight,
-      opacity: 0.01,
-      lineCap: "round",
-      lineJoin: "round",
-      className: "metrado-route-hit",
       interactive: true,
       bubblingMouseEvents: false
-    }).addTo(layer);
+    };
+    const line = L.polyline(registro.puntos.slice(), opts).addTo(layer);
     line._metradoId = registro.id;
     line._metradoHighway = registro.highway || "";
     line._metradoRecord = registro;
+    line._metradoPopupHtml = popupResumenMetradoRegistro(registro);
     line._metradoBaseStyle = {
       color: opts.color,
       weight: opts.weight,
       opacity: opts.opacity,
       dashArray: opts.dashArray
     };
+    try{
+      line.bindPopup(line._metradoPopupHtml, { maxWidth: 460 });
+    }catch(e){}
     line.on("add", ()=>{ aplicarSeleccionMetradoLinea(line, registro); });
-    hitLine.on("click", ()=>{
+    line.on("click", (ev)=>{
       try{
-        if(!projectSelectionActive) return;
-        if(chkProyectoMetrado && !chkProyectoMetrado.checked){
-          chkProyectoMetrado.checked = true;
+        if(projectSelectionActive){
+          if(chkProyectoMetrado && !chkProyectoMetrado.checked){
+            chkProyectoMetrado.checked = true;
+          }
+          toggleProjectItemSelection("metrado", registro);
+          aplicarSeleccionMetradoLinea(line, registro);
         }
-        toggleProjectItemSelection("metrado", registro);
-        aplicarSeleccionMetradoLinea(line, registro);
+      }catch(err){}
+      metradoRegistroDetalleActivoId = String(registro.id || "");
+      renderMetradoDetalleOverlayLista(list, metradoRegistroDetalleActivoId);
+      try{
+        const popupHtml = line._metradoPopupHtml || popupResumenMetradoRegistro(registro);
+        if(typeof line.setPopupContent === "function"){
+          line.setPopupContent(popupHtml);
+        }
+        if(typeof line.openPopup === "function"){
+          line.openPopup(ev && ev.latlng ? ev.latlng : undefined);
+        }
       }catch(err){}
     });
     aplicarSeleccionMetradoLinea(line, registro);
   });
+  if(metradoRegistroDetalleActivoId){
+    const active = list.find((r)=> String(r && r.id || "") === String(metradoRegistroDetalleActivoId));
+    if(!active){
+      metradoRegistroDetalleActivoId = "";
+    }
+  }
+  renderMetradoDetalleOverlayLista(list, metradoRegistroDetalleActivoId);
 }
 
 function aplicarSeleccionMetradoLinea(line, registro){
@@ -1529,12 +1897,13 @@ function renderMetradoRegistrosList(){
     return;
   }
   metradoRegistrosList.innerHTML = list.map((registro)=>{
+    const resumen = obtenerResumenMetrado(registro);
     const nombre = escapeHtml(nombreRegistroMetrado(registro));
     const fecha = escapeHtml(registro.fecha || "-");
     const dist = Number.isFinite(Number(registro.distancia_m)) ? (Math.round(Number(registro.distancia_m)) + " m") : "-";
-    const inspecciones = Array.isArray(registro.inspecciones) ? registro.inspecciones.length : 0;
-    const pendiente = !!registro.inspeccion_pendiente || inspecciones === 0;
-    const totalLineas = (registro.resultados && Number.isFinite(registro.resultados.total)) ? formatoML(registro.resultados.total) : "-";
+    const inspecciones = conteoInspeccionesMetrado(registro);
+    const pendiente = registroPendienteInspeccion(registro);
+    const totalLineas = resumen.total_ml > 0 ? formatoML(resumen.total_ml) : "-";
     const insText = pendiente
       ? "Inspeccion pendiente"
       : ("Inspeccion: " + inspecciones + " medicion" + (inspecciones === 1 ? "" : "es"));
@@ -1554,7 +1923,7 @@ function renderMetradoRegistrosList(){
       +   "</div>"
       +   "<div class=\"metrado-registro-meta\">"
       +     "<span class=\"metrado-registro-tag " + tagClass + "\">" + escapeHtml(insText) + "</span>"
-      +     "<span class=\"metrado-registro-tag\">Total lineas: " + escapeHtml(String(totalLineas)) + "</span>"
+      +     "<span class=\"metrado-registro-tag\">Total ML: " + escapeHtml(String(totalLineas)) + "</span>"
       +   "</div>"
       + "</div>";
   }).join("");
@@ -1583,6 +1952,8 @@ function focusMetradoRegistro(id){
   if(!id) return;
   const registro = (Array.isArray(metradoRegistros) ? metradoRegistros : []).find(r => String(r.id) === String(id));
   if(!registro || !Array.isArray(registro.puntos) || registro.puntos.length < 2) return;
+  metradoRegistroDetalleActivoId = String(registro.id || "");
+  renderMetradoDetalleOverlayLista((Array.isArray(metradoRegistros) ? metradoRegistros : []), metradoRegistroDetalleActivoId);
   try{
     if(typeof map !== "undefined" && map && typeof map.fitBounds === "function"){
       const latlngs = registro.puntos.map(p => L.latLng(p[0], p[1]));
@@ -1590,6 +1961,7 @@ function focusMetradoRegistro(id){
     }
   }catch(e){}
   try{
+    let popupLine = null;
     if(metradoRegistrosLayer && typeof metradoRegistrosLayer.eachLayer === "function"){
       metradoRegistrosLayer.eachLayer((layer)=>{
         if(layer && layer.setStyle && layer._metradoBaseStyle){
@@ -1607,8 +1979,23 @@ function focusMetradoRegistro(id){
             ? layer._metradoBaseStyle.weight
             : 7;
           layer.setStyle({ weight: baseWeight + 3, opacity: 1 });
+          if(!popupLine){
+            if(layer._metradoPopupHtml && typeof layer.openPopup === "function"){
+              popupLine = layer;
+            }
+          }
         }
       });
+      if(popupLine){
+        try{
+          if(typeof popupLine.setPopupContent === "function"){
+            popupLine.setPopupContent(popupLine._metradoPopupHtml);
+          }
+          const b = (typeof popupLine.getBounds === "function") ? popupLine.getBounds() : null;
+          const center = b && typeof b.getCenter === "function" ? b.getCenter() : null;
+          popupLine.openPopup(center || undefined);
+        }catch(err){}
+      }
     }
   }catch(e){}
 }
@@ -1642,11 +2029,24 @@ function limpiarRutaMetrado(){
   metradoLoading = false;
   metradoCalculoActivo = false;
   metradoUltimoCalculo = null;
+  metradoDetalleItems = [];
+  metradoDetalleSeq = 1;
   metradoInspecciones = [];
+  metradoDetalleInspeccionId = "";
+  metradoDetallePickId = "";
+  metradoDetallePickStartRatio = null;
+  metradoDetallePickHoverRatio = null;
+  metradoRegistroDetalleActivoId = "";
+  actualizarTitulosInspeccion();
+  limpiarMetradoDetalleOverlay();
+  renderMetradoDetalleDraftPreview();
+  renderMetradoDetallePickPreview();
   if(metradoNombre) metradoNombre.value = "";
+  limpiarDetalleMetradoForm();
+  renderMetradoDetalleDraftList();
   renderInspeccionPrev();
   renderInspeccionList();
-    if(btnMetradoFin) btnMetradoFin.disabled = true;
+  if(btnMetradoFin) btnMetradoFin.disabled = true;
   if(btnMetradoUndo) btnMetradoUndo.disabled = true;
   setMetradoStatus("Inicia el trazado y marca puntos sobre la pista.");
   actualizarResultadosMetrado();
@@ -1665,6 +2065,390 @@ function distanciaPolylineMetrado(puntos){
   }catch(e){
     return 0;
   }
+}
+
+function clampRatioMetrado(value){
+  const n = Number(value);
+  if(!Number.isFinite(n)) return null;
+  if(n < 0) return 0;
+  if(n > 1) return 1;
+  return n;
+}
+
+function interpLatLngMetrado(a, b, t){
+  if(!a || !b) return null;
+  const tt = Math.max(0, Math.min(1, Number(t) || 0));
+  return L.latLng(
+    Number(a.lat) + (Number(b.lat) - Number(a.lat)) * tt,
+    Number(a.lng) + (Number(b.lng) - Number(a.lng)) * tt
+  );
+}
+
+function puntoEnPolylinePorRatio(puntos, ratio){
+  if(!Array.isArray(puntos) || puntos.length === 0) return null;
+  if(puntos.length === 1) return puntos[0];
+  const r = clampRatioMetrado(ratio);
+  if(r === null) return null;
+  if(r <= 0) return puntos[0];
+  if(r >= 1) return puntos[puntos.length - 1];
+
+  const total = distanciaPolylineMetrado(puntos);
+  if(!(total > 0)) return puntos[0];
+  const target = total * r;
+  let acc = 0;
+  for(let i = 1; i < puntos.length; i++){
+    const a = puntos[i - 1];
+    const b = puntos[i];
+    const seg = (map && typeof map.distance === "function") ? map.distance(a, b) : 0;
+    if(!(seg > 0)) continue;
+    if(acc + seg >= target){
+      const localT = (target - acc) / seg;
+      return interpLatLngMetrado(a, b, localT);
+    }
+    acc += seg;
+  }
+  return puntos[puntos.length - 1];
+}
+
+function ratioCercanoEnPolyline(puntos, latlng){
+  if(!Array.isArray(puntos) || puntos.length < 2 || !latlng || !map || typeof map.latLngToLayerPoint !== "function") return null;
+  const total = distanciaPolylineMetrado(puntos);
+  if(!(total > 0)) return null;
+
+  const p = map.latLngToLayerPoint(latlng);
+  let accLen = 0;
+  let best = { dist2: Infinity, ratio: 0 };
+
+  for(let i = 1; i < puntos.length; i++){
+    const aLL = puntos[i - 1];
+    const bLL = puntos[i];
+    const segLen = map.distance(aLL, bLL);
+    if(!(segLen > 0)) continue;
+    const a = map.latLngToLayerPoint(aLL);
+    const b = map.latLngToLayerPoint(bLL);
+    const vx = b.x - a.x;
+    const vy = b.y - a.y;
+    const wx = p.x - a.x;
+    const wy = p.y - a.y;
+    const v2 = vx * vx + vy * vy;
+    if(!(v2 > 0)){
+      accLen += segLen;
+      continue;
+    }
+    let t = (wx * vx + wy * vy) / v2;
+    if(t < 0) t = 0;
+    if(t > 1) t = 1;
+    const projX = a.x + vx * t;
+    const projY = a.y + vy * t;
+    const dx = p.x - projX;
+    const dy = p.y - projY;
+    const d2 = dx * dx + dy * dy;
+    if(d2 < best.dist2){
+      best = {
+        dist2: d2,
+        ratio: (accLen + segLen * t) / total
+      };
+    }
+    accLen += segLen;
+  }
+  const maxPx = 36;
+  if(!(best.dist2 <= (maxPx * maxPx))) return null;
+  return clampRatioMetrado(best.ratio);
+}
+
+function slicePolylineByRatio(puntos, startRatio, endRatio){
+  if(!Array.isArray(puntos) || puntos.length < 2) return [];
+  let a = clampRatioMetrado(startRatio);
+  let b = clampRatioMetrado(endRatio);
+  if(a === null || b === null) return [];
+  if(b < a){
+    const tmp = a;
+    a = b;
+    b = tmp;
+  }
+  if(a === b){
+    const p = puntoEnPolylinePorRatio(puntos, a);
+    return p ? [p, p] : [];
+  }
+  const total = distanciaPolylineMetrado(puntos);
+  if(!(total > 0)) return [];
+  const targetA = total * a;
+  const targetB = total * b;
+  let acc = 0;
+  const out = [];
+
+  for(let i = 1; i < puntos.length; i++){
+    const p0 = puntos[i - 1];
+    const p1 = puntos[i];
+    const seg = map.distance(p0, p1);
+    if(!(seg > 0)){
+      continue;
+    }
+    const next = acc + seg;
+    const overlapStart = Math.max(targetA, acc);
+    const overlapEnd = Math.min(targetB, next);
+    if(overlapStart <= overlapEnd){
+      const t0 = (overlapStart - acc) / seg;
+      const t1 = (overlapEnd - acc) / seg;
+      const s0 = interpLatLngMetrado(p0, p1, t0);
+      const s1 = interpLatLngMetrado(p0, p1, t1);
+      if(s0){
+        const last = out.length ? out[out.length - 1] : null;
+        if(!last || last.lat !== s0.lat || last.lng !== s0.lng){
+          out.push(s0);
+        }
+      }
+      if(s1){
+        const last = out.length ? out[out.length - 1] : null;
+        if(!last || last.lat !== s1.lat || last.lng !== s1.lng){
+          out.push(s1);
+        }
+      }
+    }
+    acc = next;
+    if(acc > targetB) break;
+  }
+  return out.length >= 2 ? out : [];
+}
+
+function limpiarMetradoDetalleOverlay(){
+  const layer = asegurarMetradoDetalleOverlayLayer();
+  if(!layer) return;
+  try{
+    if(typeof layer.clearLayers === "function") layer.clearLayers();
+  }catch(e){}
+}
+
+function limpiarMetradoDetalleLayers(){
+  try{ limpiarMetradoDetalleOverlay(); }catch(e){}
+  try{
+    const draft = asegurarMetradoDetalleDraftLayer();
+    if(draft && typeof draft.clearLayers === "function") draft.clearLayers();
+  }catch(e){}
+  try{
+    const pick = asegurarMetradoDetallePickLayer();
+    if(pick && typeof pick.clearLayers === "function") pick.clearLayers();
+  }catch(e){}
+}
+
+function desplazarLatLngMetrado(latlng, dx, dy){
+  if(!latlng) return null;
+  if(typeof L === "undefined") return latlng;
+  if(!map || typeof map.latLngToLayerPoint !== "function" || typeof map.layerPointToLatLng !== "function"){
+    return latlng;
+  }
+  try{
+    const p = map.latLngToLayerPoint(latlng);
+    return map.layerPointToLatLng(L.point(p.x + dx, p.y + dy));
+  }catch(e){
+    return latlng;
+  }
+}
+
+function dibujarCalloutDetalleMetrado(layer, puntos, detalle, idx, cfg){
+  if(!layer || !Array.isArray(puntos) || puntos.length < 2 || typeof L === "undefined") return;
+  const ratio = ratioDetalleMetrado(detalle);
+  if(ratio === null) return;
+  const anchor = puntoEnPolylinePorRatio(puntos, ratio);
+  if(!anchor) return;
+
+  const conf = cfg && typeof cfg === "object" ? cfg : {};
+  const side = Number.isFinite(Number(conf.side)) ? (Number(conf.side) >= 0 ? 1 : -1) : ((idx % 2 === 0) ? 1 : -1);
+  const spread = Number.isFinite(Number(conf.spread)) ? Number(conf.spread) : 16;
+  const tail = Number.isFinite(Number(conf.tail)) ? Number(conf.tail) : 44;
+  const lift = Number.isFinite(Number(conf.lift)) ? Number(conf.lift) : 20;
+  const jitter = (idx % 3) * 6;
+  const knee = desplazarLatLngMetrado(anchor, side * spread, -lift - jitter);
+  const tip = desplazarLatLngMetrado(anchor, side * (spread + tail), -lift - jitter);
+  const lineColor = String(conf.lineColor || "#111827");
+  const labelColor = String(conf.labelColor || "#111827");
+  const labelBg = String(conf.labelBg || "rgba(255,255,255,0.92)");
+  const weight = Number.isFinite(Number(conf.weight)) ? Number(conf.weight) : 2.4;
+  const dashArray = conf.dashArray ? String(conf.dashArray) : null;
+  const label = escapeHtml(String((detalle && detalle.descripcion) || ("Detalle " + (idx + 1))));
+
+  try{
+    L.circleMarker(anchor, {
+      radius: 4,
+      color: lineColor,
+      weight: 2,
+      fillColor: lineColor,
+      fillOpacity: 1,
+      interactive: false
+    }).addTo(layer);
+    L.polyline([anchor, knee, tip], {
+      color: lineColor,
+      weight: weight,
+      opacity: 0.95,
+      dashArray: dashArray,
+      lineCap: "round",
+      lineJoin: "round",
+      interactive: false
+    }).addTo(layer);
+    const labelPt = desplazarLatLngMetrado(tip, side * 8, 0);
+    L.marker(labelPt, {
+      interactive: false,
+      keyboard: false,
+      icon: L.divIcon({
+        className: "metrado-detail-tag-icon",
+        iconSize: [1, 1],
+        iconAnchor: [0, 0],
+        html: "<div style=\"display:inline-block;pointer-events:none;background:" + labelBg + ";color:" + labelColor + ";padding:1px 6px;border-radius:6px;border:1px solid rgba(15,23,42,.22);font-size:12px;font-weight:600;white-space:nowrap\">" + label + "</div>"
+      })
+    }).addTo(layer);
+  }catch(e){}
+}
+
+function metradoDetalleVisiblePorZoom(){
+  try{
+    if(typeof map === "undefined" || !map || typeof map.getZoom !== "function") return true;
+    return Number(map.getZoom()) >= METRADO_DETALLE_MIN_ZOOM;
+  }catch(e){
+    return true;
+  }
+}
+
+function renderMetradoDetalleDraftPreview(){
+  const layer = asegurarMetradoDetalleDraftLayer();
+  if(!layer) return;
+  try{
+    if(typeof layer.clearLayers === "function") layer.clearLayers();
+  }catch(e){}
+  if(typeof L === "undefined") return;
+  if(!Array.isArray(metradoPuntos) || metradoPuntos.length < 2) return;
+  if(!metradoDetalleVisiblePorZoom()) return;
+  const detalles = Array.isArray(metradoDetalleItems) ? metradoDetalleItems : [];
+  detalles.forEach((d, idx)=>{
+    dibujarCalloutDetalleMetrado(layer, metradoPuntos, d, idx, {
+      lineColor: "#0f172a",
+      labelColor: "#0f172a",
+      labelBg: "rgba(255,255,255,0.92)"
+    });
+  });
+}
+
+function renderMetradoDetallePickPreview(){
+  const layer = asegurarMetradoDetallePickLayer();
+  if(!layer) return;
+  try{
+    if(typeof layer.clearLayers === "function") layer.clearLayers();
+  }catch(e){}
+  if(typeof L === "undefined") return;
+  if(!metradoDetallePickId) return;
+  if(!Array.isArray(metradoPuntos) || metradoPuntos.length < 2) return;
+  if(!metradoDetalleVisiblePorZoom()) return;
+
+  const detalle = getDetalleDraftById(metradoDetallePickId);
+  if(!detalle) return;
+  const actual = ratioDetalleMetrado(detalle);
+  const hover = clampRatioMetrado(metradoDetallePickHoverRatio);
+  if(actual !== null){
+    dibujarCalloutDetalleMetrado(layer, metradoPuntos, Object.assign({}, detalle, { pos_ratio: actual }), 0, {
+      lineColor: "#64748b",
+      labelColor: "#475569",
+      labelBg: "rgba(248,250,252,0.96)",
+      dashArray: "5 6"
+    });
+  }
+  if(hover !== null){
+    dibujarCalloutDetalleMetrado(layer, metradoPuntos, Object.assign({}, detalle, { pos_ratio: hover }), 1, {
+      lineColor: "#166534",
+      labelColor: "#14532d",
+      labelBg: "rgba(220,252,231,0.95)"
+    });
+  }
+}
+
+function renderMetradoDetalleOverlay(registro){
+  if(!registro){
+    limpiarMetradoDetalleOverlay();
+    return;
+  }
+  renderMetradoDetalleOverlayLista([registro], String(registro.id || ""));
+}
+
+function renderMetradoDetalleOverlayLista(registros, activeId){
+  limpiarMetradoDetalleOverlay();
+  const list = Array.isArray(registros) ? registros : [];
+  if(!list.length) return;
+  const layer = asegurarMetradoDetalleOverlayLayer();
+  if(!layer || typeof L === "undefined") return;
+  if(!metradoDetalleVisiblePorZoom()) return;
+  const activeKey = String(activeId || "");
+  list.forEach((registro, ridx)=>{
+    if(!registro || !Array.isArray(registro.puntos) || registro.puntos.length < 2) return;
+    const detalles = obtenerDetallesMetrado(registro);
+    const isActive = activeKey && String(registro.id || "") === activeKey;
+    detalles.forEach((d, idx)=>{
+      dibujarCalloutDetalleMetrado(layer, registro.puntos, d, idx, {
+        lineColor: isActive ? "#0f172a" : "#334155",
+        labelColor: isActive ? "#0f172a" : "#334155",
+        labelBg: isActive ? "rgba(255,255,255,0.95)" : "rgba(248,250,252,0.92)",
+        side: ((ridx + idx) % 2 === 0) ? 1 : -1
+      });
+    });
+  });
+}
+
+function cancelarSeleccionDetalleMapa(){
+  if(metradoDetallePickId){
+    setMetradoStatus("Seleccion de posicion cancelada.");
+  }
+  metradoDetallePickId = "";
+  metradoDetallePickStartRatio = null;
+  metradoDetallePickHoverRatio = null;
+  mostrarRegistroHint("");
+  renderMetradoDetalleDraftPreview();
+  renderMetradoDetallePickPreview();
+  renderMetradoDetalleDraftList();
+}
+
+function iniciarSeleccionDetalleMapa(detalleId){
+  const detalle = getDetalleDraftById(detalleId);
+  if(!detalle) return;
+  if(metradoPicking === "draw"){
+    setMetradoStatus("Finaliza el trazado antes de ubicar un detalle.");
+    return;
+  }
+  if(!Array.isArray(metradoPuntos) || metradoPuntos.length < 2){
+    setMetradoStatus("Primero crea y finaliza un trazado.");
+    return;
+  }
+  metradoDetallePickId = String(detalleId || "");
+  metradoDetallePickStartRatio = null;
+  metradoDetallePickHoverRatio = null;
+  ocultarMetradoPreview();
+  setMetradoStatus("Haz click en el trazo para ubicar este detalle.");
+  mostrarRegistroHint("Selecciona un punto del trazo para este detalle.");
+  renderMetradoDetallePickPreview();
+  renderMetradoDetalleDraftList();
+}
+
+function procesarClickSeleccionDetalleMapa(latlng){
+  if(!metradoDetallePickId) return false;
+  const detalle = getDetalleDraftById(metradoDetallePickId);
+  if(!detalle){
+    cancelarSeleccionDetalleMapa();
+    return true;
+  }
+  const ratio = ratioCercanoEnPolyline(metradoPuntos, latlng);
+  if(ratio === null){
+    setMetradoStatus("No se pudo ubicar sobre el trazado. Haz click mas cerca.");
+    return true;
+  }
+  detalle.pos_ratio = ratio;
+  detalle.start_ratio = null;
+  detalle.end_ratio = null;
+  metradoDetallePickId = "";
+  metradoDetallePickStartRatio = null;
+  metradoDetallePickHoverRatio = null;
+  renderMetradoDetalleDraftPreview();
+  renderMetradoDetallePickPreview();
+  renderMetradoDetalleDraftList();
+  actualizarResultadosMetrado();
+  setMetradoStatus("Detalle ubicado en el trazado.");
+  mostrarRegistroHint("");
+  return true;
 }
 
 function dibujarRutaMetrado(latlngs){
@@ -1776,6 +2560,8 @@ function actualizarTrazadoMetrado(){
   }catch(e){}
 
   dibujarRutaMetrado(metradoPuntos);
+  renderMetradoDetalleDraftPreview();
+  renderMetradoDetallePickPreview();
   metradoDistanciaM = distanciaPolylineMetrado(metradoPuntos);
   actualizarResultadosMetrado();
 
@@ -2133,7 +2919,8 @@ let projectSelection = {
   vertical: new Set(),
   horizontal: new Set(),
   mobiliario: new Set(),
-  metrado: new Set()
+  metrado: new Set(),
+  eventos: new Set()
 };
 let proyectoEditId = "";
 let registroMode = "inventario";
@@ -2358,7 +3145,7 @@ function updateProjectChecksForMode(){
   if(lblChkProyectoTransito) lblChkProyectoTransito.textContent = isEventos ? "Falta de señal" : "Senales de transito";
   if(lblChkProyectoMarcas) lblChkProyectoMarcas.textContent = isEventos ? "Señal dañada" : "Marcas viales";
   if(lblChkProyectoMobiliario) lblChkProyectoMobiliario.textContent = isEventos ? "Otro" : "Mobiliario vial";
-  if(lblChkProyectoMetrado) lblChkProyectoMetrado.textContent = isEventos ? "Obstruida" : "Lineas y guionadas";
+  if(lblChkProyectoMetrado) lblChkProyectoMetrado.textContent = isEventos ? "Obstruida" : "Trazos de pintura";
   if(typeof projectHint !== "undefined" && projectHint){
     projectHint.textContent = isEventos
       ? "Selecciona tipos de evento y luego haz click en el mapa para agregar eventos al registro."
@@ -2514,14 +3301,29 @@ function etiquetaPinturaMetrado(tipo){
 
 function obtenerCostoApuMetrado(registro){
   if(!registro) return NaN;
+  const resumen = obtenerResumenMetrado(registro);
+  const grupos = Array.isArray(resumen.grupos) ? resumen.grupos : [];
+  if(grupos.length){
+    let total = 0;
+    let hasCost = false;
+    grupos.forEach((g)=>{
+      const tipo = String(g.pintura_tipo || "pintura_trafico");
+      const codigo = APU_MAP_MARCAS[tipo];
+      const area = Number(g.area_m2);
+      if(!codigo || !Number.isFinite(area) || !(area > 0)) return;
+      const costoUnitario = obtenerCostoDirectoApu("marcas", codigo);
+      if(!Number.isFinite(costoUnitario)) return;
+      total += (costoUnitario * area);
+      hasCost = true;
+    });
+    if(hasCost) return total;
+  }
   const tipo = String(registro.pintura_tipo || "pintura_trafico");
   const codigo = APU_MAP_MARCAS[tipo];
   if(!codigo) return NaN;
   const costoUnitario = obtenerCostoDirectoApu("marcas", codigo);
-  const area = registro.resultados && Number.isFinite(Number(registro.resultados.area))
-    ? Number(registro.resultados.area)
-    : 0;
-  if(!Number.isFinite(costoUnitario) || !(area > 0)) return NaN;
+  const area = metradoAreaValue(registro);
+  if(!Number.isFinite(costoUnitario) || !Number.isFinite(area) || !(area > 0)) return NaN;
   return costoUnitario * area;
 }
 
@@ -2538,7 +3340,11 @@ function obtenerApuRelacion(kind, item){
     return { categoria: "mobiliario", codigo };
   }
   if(kind === "metrado"){
-    const tipo = String(item.pintura_tipo || "pintura_trafico");
+    const resumen = obtenerResumenMetrado(item);
+    const principal = Array.isArray(resumen.grupos) && resumen.grupos.length
+      ? resumen.grupos[0]
+      : null;
+    const tipo = String((principal && principal.pintura_tipo) || item.pintura_tipo || "pintura_trafico");
     const codigo = APU_MAP_MARCAS[tipo] || APU_MAP_MARCAS.pintura_trafico || "";
     return { categoria: "marcas", codigo };
   }
@@ -2699,7 +3505,7 @@ async function cargarProyectos(){
   const canApi = window.UrbbisApi && typeof window.UrbbisApi.getProjects === "function";
   if(canApi){
     try{
-      const items = await window.UrbbisApi.getProjects();
+      const items = await window.UrbbisApi.getProjects({ summary: 1 });
       if(Array.isArray(items) && items.length){
         proyectosCache = items.map(proyectoFromApi).filter(Boolean);
         proyectoActivoId = proyectosCache[0] ? proyectosCache[0].id : "";
@@ -3140,14 +3946,18 @@ function getProyectoSeleccionadoActivos(){
     const base = Array.isArray(metradoRegistros) ? metradoRegistros : [];
     (filtrarPorSet(base, projectSelection.metrado)).forEach((r)=>{
       const nombre = nombreRegistroMetrado(r);
-      const insCount = Array.isArray(r.inspecciones) ? r.inspecciones.length : 0;
-      const pendiente = !!r.inspeccion_pendiente || insCount === 0;
+      const resumen = obtenerResumenMetrado(r);
+      const insCount = conteoInspeccionesMetrado(r);
+      const pendiente = registroPendienteInspeccion(r);
       const estado = pendiente ? "Pendiente" : "Con inspeccion";
-      const ubicacion = r.highway ? ("Via: " + r.highway) : (r.config && r.config.via ? ("Via: " + r.config.via) : "-");
+      const mlLabel = (Number.isFinite(Number(resumen.total_ml)) && Number(resumen.total_ml) > 0)
+        ? formatoML(Number(resumen.total_ml))
+        : (Number.isFinite(Number(r.distancia_m)) ? (Math.round(Number(r.distancia_m)) + " m") : "-");
+      const ubicacion = r.highway ? ("Via: " + r.highway + " \u00B7 " + mlLabel) : ("Longitud: " + mlLabel);
       items.push({
         id: String(r.id || ""),
         modo: "metrado",
-        tipo: "Trazos (lineas y guionadas)",
+        tipo: "Trazos de pintura",
         nombre,
         estado,
         verificado: !pendiente,
@@ -3574,6 +4384,10 @@ function updateDashboard(){
   const totalHoriz = aggHoriz.length;
   const totalMob = aggMob.length;
   const totalMl = aggMetrado.reduce((sum, r)=>{
+    const resumen = obtenerResumenMetrado(r);
+    if(Number.isFinite(Number(resumen.total_ml)) && Number(resumen.total_ml) > 0){
+      return sum + Number(resumen.total_ml);
+    }
     if(r && r.resultados && Number.isFinite(Number(r.resultados.total))){
       return sum + Number(r.resultados.total);
     }
@@ -3682,6 +4496,10 @@ function cantidadLabel(s){
 function metradoAreaValue(registro){
   const override = Number(registro && (registro.area_m2_override ?? registro.areaM2Override));
   if(Number.isFinite(override)) return override;
+  const resumen = obtenerResumenMetrado(registro);
+  if(Number.isFinite(Number(resumen.total_area)) && Number(resumen.total_area) > 0){
+    return Number(resumen.total_area);
+  }
   const direct = Number(registro && registro.area_m2);
   if(Number.isFinite(direct)) return direct;
   const fromRes = registro && registro.resultados && Number.isFinite(Number(registro.resultados.area))
@@ -3807,14 +4625,14 @@ function estadoClaveInversion(kind, item){
 
 function labelEstadoInversion(kind, item){
   if(kind === "metrado"){
-    return item && item.inspeccion_pendiente ? "Inspeccion pendiente" : "Inspeccion registrada";
+    return registroPendienteInspeccion(item) ? "Inspeccion pendiente" : "Inspeccion registrada";
   }
   return labelEstadoSeguro(item ? item.estado : "");
 }
 
 function verificadoInversion(kind, item){
   if(kind === "metrado"){
-    return item ? !item.inspeccion_pendiente : false;
+    return item ? !registroPendienteInspeccion(item) : false;
   }
   return !!(item && item.inspeccionFoto);
 }
@@ -3990,7 +4808,7 @@ function updateInversion(){
           ? String(s.nombre || "Trazado")
           : String(s.nombre || s.tipo || "Activo");
         const tipo = (row.kind === "metrado")
-          ? String(s.pintura_label || etiquetaPinturaMetrado(s.pintura_tipo))
+          ? String(etiquetaTipoMetradoRegistro(s))
           : (row.kind === "mobiliario")
             ? String(s.nombre || "Mobiliario")
             : String(s.tipo || (s.icono ? "Senal" : "Activo"));
@@ -5197,6 +6015,7 @@ function cerrarMetradoPanel(){
   metradoPanel.classList.add("hidden");
   if(btnMapMetrado) btnMapMetrado.classList.remove("active");
   metradoPicking = "";
+  cancelarSeleccionDetalleMapa();
   mostrarRegistroHint("");
   ocultarMetradoPreview();
 }
@@ -5231,6 +6050,9 @@ if(btnMapMetrado){
       cerrarMetradoPanel();
     }
   });
+}
+if(btnMetradoClose){
+  btnMetradoClose.addEventListener("click", cerrarMetradoPanel);
 }
 if(btnMapAgregar){
   btnMapAgregar.addEventListener("click", ()=>{
@@ -6149,6 +6971,12 @@ if(btnMetradoFin){
     }
     if(metradoOptionsDetails) metradoOptionsDetails.open = false;
     actualizarResultadosMetrado();
+    if(metradoDetalleMl){
+      const raw = String(metradoDetalleMl.value || "").trim();
+      if(!raw && Number.isFinite(metradoDistanciaM) && metradoDistanciaM > 0){
+        metradoDetalleMl.value = String(Math.round(metradoDistanciaM * 100) / 100);
+      }
+    }
   });
 }
 if(btnMetradoUndo){
@@ -6156,6 +6984,60 @@ if(btnMetradoUndo){
 }
 if(btnMetradoLimpiar){
   btnMetradoLimpiar.addEventListener("click", limpiarRutaMetrado);
+}
+if(btnMetradoAgregarDetalle){
+  btnMetradoAgregarDetalle.addEventListener("click", ()=>{
+    if(!metradoCalculoActivo){
+      setMetradoStatus("Primero finaliza un trazo para agregar detalle.");
+      return;
+    }
+    agregarDetalleMetradoDesdeForm();
+  });
+}
+if(metradoDetalleList){
+  metradoDetalleList.addEventListener("click", (e)=>{
+    const target = e && e.target ? e.target : null;
+    if(!target || !target.closest) return;
+    const pickBtn = target.closest(".btn-metrado-det-pick");
+    if(pickBtn){
+      const id = pickBtn.getAttribute("data-detalle-id") || "";
+      if(String(metradoDetallePickId || "") === String(id)){
+        cancelarSeleccionDetalleMapa();
+      } else {
+        iniciarSeleccionDetalleMapa(id);
+      }
+      return;
+    }
+    const insBtn = target.closest(".btn-metrado-det-ins");
+    if(insBtn){
+      const id = insBtn.getAttribute("data-detalle-id") || "";
+      abrirModalInspeccion(id);
+      return;
+    }
+    const removeBtn = target.closest(".btn-metrado-det-remove");
+    if(!removeBtn) return;
+    const id = removeBtn.getAttribute("data-detalle-id") || "";
+    metradoDetalleItems = (Array.isArray(metradoDetalleItems) ? metradoDetalleItems : []).filter(d => String(d.id || "") !== String(id));
+    if(String(metradoDetalleInspeccionId || "") === String(id)){
+      metradoDetalleInspeccionId = "";
+      metradoInspecciones = [];
+      actualizarTitulosInspeccion();
+    }
+    if(String(metradoDetallePickId || "") === String(id)){
+      cancelarSeleccionDetalleMapa();
+    }
+    renderMetradoDetalleDraftList();
+    actualizarResultadosMetrado();
+  });
+}
+if(metradoDetalleMl){
+  metradoDetalleMl.addEventListener("keydown", (e)=>{
+    if(!e || e.key !== "Enter") return;
+    e.preventDefault();
+    if(btnMetradoAgregarDetalle && !btnMetradoAgregarDetalle.disabled){
+      btnMetradoAgregarDetalle.click();
+    }
+  });
 }
 if(btnMetradoInspeccion){
   btnMetradoInspeccion.addEventListener("click", ()=>{
@@ -6167,7 +7049,13 @@ if(btnMetradoInspeccion){
       setMetradoStatus("Primero traza una l\u00ednea para abrir inspeccion.");
       return;
     }
-    abrirModalInspeccion();
+    const detalles = Array.isArray(metradoDetalleItems) ? metradoDetalleItems : [];
+    if(!detalles.length){
+      setMetradoStatus("Primero agrega un detalle al trazo.");
+      return;
+    }
+    const objetivo = detalles.find((d)=> detallePendienteInspeccion(d)) || detalles[0];
+    abrirModalInspeccion(objetivo && objetivo.id ? objetivo.id : "");
   });
 }
 if(btnMetradoRegistrar){
@@ -6180,39 +7068,82 @@ if(btnMetradoRegistrar){
       setMetradoStatus("Primero traza una l\u00ednea.");
       return;
     }
-    const tieneInspeccion = metradoInspecciones.length > 0;
+    syncInspeccionesDetalleActivo();
+    const resumen = calcularResumenDetallesMetrado(metradoDetalleItems);
+    if(!(resumen.total_ml > 0)){
+      setMetradoStatus("Agrega al menos un detalle con metros lineales.");
+      return;
+    }
+    const detallesRegistro = (resumen.detalles || []).map((d, idx)=>({
+      id: String(d.id || ("det-" + (idx + 1))),
+      descripcion: d.descripcion || "",
+      ml: Number(d.ml) || 0,
+      ancho_m: Number(d.ancho_m) || 0.10,
+      pintura_tipo: String(d.pintura_tipo || "pintura_trafico"),
+      pintura_label: String(d.pintura_label || etiquetaPinturaMetrado(d.pintura_tipo || "pintura_trafico")),
+      pos_ratio: ratioDetalleMetrado(d),
+      start_ratio: null,
+      end_ratio: null,
+      inspecciones: Array.isArray(d.inspecciones) ? d.inspecciones.map((ins)=> Object.assign({}, ins, { detalle_id: String(d.id || ("det-" + (idx + 1))) })) : []
+    }));
+    const detallesSinUbicar = detallesRegistro.filter((d)=> ratioDetalleMetrado(d) === null);
+    if(detallesSinUbicar.length){
+      setMetradoStatus("Falta ubicar en mapa: " + detallesSinUbicar.map((d)=> d.descripcion || d.id).join(", "));
+      return;
+    }
+    const flatInspecciones = [];
+    detallesRegistro.forEach((d)=>{
+      (Array.isArray(d.inspecciones) ? d.inspecciones : []).forEach((ins)=>{
+        flatInspecciones.push(Object.assign({}, ins, {
+          detalle_id: d.id,
+          detalle_descripcion: d.descripcion || ""
+        }));
+      });
+    });
+    const pendienteDetalles = detallesRegistro.filter((d)=> !Array.isArray(d.inspecciones) || d.inspecciones.length === 0);
+    const tieneInspeccion = flatInspecciones.length > 0 && pendienteDetalles.length === 0;
     const nombreInput = metradoNombre ? metradoNombre.value.trim() : "";
     const nombreRegistro = nombreInput || ("Trazado " + (metradoRegistros.length + 1));
     const colorRegistro = colorLineaMetrado();
-    const pinturaTipo = metradoTipoPintura ? String(metradoTipoPintura.value || "") : "";
-    const pinturaLabel = metradoTipoPintura
-      ? String((metradoTipoPintura.options[metradoTipoPintura.selectedIndex] || {}).text || "")
-      : "";
+    const principal = (Array.isArray(resumen.grupos) && resumen.grupos.length) ? resumen.grupos[0] : null;
+    const pinturaTipo = principal ? String(principal.pintura_tipo || "") : (pinturaMetradoActual().tipo || "");
+    const pinturaLabel = principal ? String(principal.pintura_label || "") : (pinturaMetradoActual().label || "");
     const registro = {
       id: metradoRegistros.length + 1,
       nombre: nombreRegistro,
       fecha: hoyISO(),
       distancia_m: Math.round(metradoDistanciaM || 0),
-      resultados: metradoUltimoCalculo,
-      config: getMetradoConfig(),
+      resultados: {
+        total: resumen.total_ml,
+        area: resumen.total_area,
+        grupos: (resumen.grupos || []).map((g)=>({
+          pintura_tipo: g.pintura_tipo,
+          pintura_label: g.pintura_label,
+          ancho_m: g.ancho_m,
+          ml: g.ml,
+          area_m2: g.area_m2
+        }))
+      },
+      detalles: detallesRegistro,
+      config: { ancho: principal ? Number(principal.ancho_m || 0.10) : anchoMetradoActual() },
       pintura_tipo: pinturaTipo,
       pintura_label: pinturaLabel,
-      color: colorRegistro,
+      color: pendienteDetalles.length > 0 ? "#d93f3f" : colorRegistro,
       dash_array: dashArrayMetradoActual(),
       highway: metradoSnapHighway || "",
       puntos: metradoPuntos.map(p => [Number(p.lat), Number(p.lng)]),
-      inspecciones: metradoInspecciones.slice(),
-      inspeccion_pendiente: !tieneInspeccion
+      inspecciones: flatInspecciones,
+      inspeccion_pendiente: pendienteDetalles.length > 0
     };
     metradoRegistros.push(registro);
     if(metradoNombre) metradoNombre.value = "";
+    limpiarRutaMetrado();
     actualizarMetradoRegistrosUI();
     if(typeof guardarProyectoActivo === "function"){ guardarProyectoActivo(); }
-    limpiarRutaMetrado();
     setMetradoStatus(
       tieneInspeccion
-        ? "Registro guardado con inspeccion. Trazado conservado en el registro."
-        : "Registro guardado. Falta inspeccion. Trazado conservado en el registro."
+        ? "Registro guardado con inspeccion por detalle."
+        : "Registro guardado. Faltan inspecciones en algunos detalles."
     );
   });
 }
@@ -6220,7 +7151,7 @@ if(btnMetradoRegistrar){
     metradoPanel.addEventListener("change", (e)=>{
       const t = e && e.target ? e.target : null;
       if(!t || !t.name) return;
-      if(["metradoAncho","metradoVia","metradoSep","metradoSentido"].includes(t.name)){
+      if(["metradoAncho"].includes(t.name)){
         try{ syncMetradoFormState(); }catch(err){}
         if(metradoCalculoActivo){
           actualizarResultadosMetrado();
@@ -6251,6 +7182,9 @@ if(metradoLineas){
   });
 }
 try{ syncMetradoFormState(); }catch(e){}
+try{ renderMetradoDetalleDraftList(); }catch(e){}
+try{ renderMetradoBreakdown(null); }catch(e){}
+try{ actualizarTitulosInspeccion(); }catch(e){}
 
 if(selectProyecto){
   selectProyecto.addEventListener("change", ()=>{
@@ -6699,6 +7633,10 @@ if(metradoRegistrosList){
       if(deleteBtn){
         const id = deleteBtn.getAttribute("data-id") || "";
         metradoRegistros = (Array.isArray(metradoRegistros) ? metradoRegistros : []).filter(r => String(r.id) !== String(id));
+        if(String(metradoRegistroDetalleActivoId || "") === String(id)){
+          metradoRegistroDetalleActivoId = "";
+          limpiarMetradoDetalleOverlay();
+        }
         actualizarMetradoRegistrosUI();
         guardarProyectoActivo();
         return;
@@ -6721,9 +7659,12 @@ if(btnInspeccionAgregar){
     const ins = await crearInspeccionDesdeForm();
     if(!ins) return;
     metradoInspecciones.push(ins);
+    syncInspeccionesDetalleActivo();
     limpiarInspeccionForm();
     renderInspeccionPrev();
     renderInspeccionList();
+    renderMetradoDetalleDraftList();
+    actualizarResultadosMetrado();
   });
 }
 if(btnInspeccionFinalizar){
@@ -6739,9 +7680,12 @@ if(btnInspeccionFinalizar){
       const ins = await crearInspeccionDesdeForm();
       if(!ins) return;
       metradoInspecciones.push(ins);
+      syncInspeccionesDetalleActivo();
       limpiarInspeccionForm();
       renderInspeccionPrev();
       renderInspeccionList();
+      renderMetradoDetalleDraftList();
+      actualizarResultadosMetrado();
     }
     cerrarModalInspeccion();
   });
@@ -6764,8 +7708,11 @@ if(inspeccionList){
     if(target.classList.contains("btn-inspeccion-delete")){
       const id = Number(item.getAttribute("data-id"));
       metradoInspecciones = metradoInspecciones.filter(i => i.id !== id);
+      syncInspeccionesDetalleActivo();
       renderInspeccionList();
       renderInspeccionPrev();
+      renderMetradoDetalleDraftList();
+      actualizarResultadosMetrado();
       return;
     }
     if(target.classList.contains("btn-inspeccion-history")){
@@ -6789,6 +7736,12 @@ if(inspeccionList){
 try{
   if(typeof map !== "undefined" && map && typeof map.on === "function"){
     map.on("click", (e)=>{
+      if(metradoDetallePickId){
+        if(e && e.latlng){
+          procesarClickSeleccionDetalleMapa(e.latlng);
+        }
+        return;
+      }
       if(metradoPicking !== "draw") return;
       if(!e || !e.latlng) return;
       if(metradoLoading) return;
@@ -6837,6 +7790,12 @@ try{
     });
 
     map.on("mousemove", (e)=>{
+      if(metradoDetallePickId){
+        if(!e || !e.latlng) return;
+        metradoDetallePickHoverRatio = ratioCercanoEnPolyline(metradoPuntos, e.latlng);
+        renderMetradoDetallePickPreview();
+        return;
+      }
       if(metradoPicking !== "draw") return;
       if(!e || !e.latlng) return;
       asegurarMetradoCursor();
@@ -6864,8 +7823,15 @@ try{
       }catch(err){}
     });
 
+    map.on("zoomstart", ()=>{
+      limpiarMetradoDetalleLayers();
+    });
+
     map.on("zoomend", ()=>{
       actualizarPesosMetrado();
+      renderMetradoDetalleDraftPreview();
+      renderMetradoDetallePickPreview();
+      renderMetradoDetalleOverlayLista((Array.isArray(metradoRegistros) ? metradoRegistros : []), metradoRegistroDetalleActivoId);
     });
   }
 }catch(e){}
@@ -6874,7 +7840,7 @@ try{
 document.addEventListener("click", (e)=>{
   if(!metradoPanel || metradoPanel.classList.contains("hidden")) return;
   const target = e.target;
-  if(metradoPicking) return;
+  if(metradoPicking || metradoDetallePickId) return;
   if(btnMapMetrado && (target === btnMapMetrado || btnMapMetrado.contains(target))) return;
   if(metradoPanel.contains(target)) return;
   if(mapContainer && mapContainer.contains(target)) return;

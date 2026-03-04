@@ -671,7 +671,7 @@
 .metrado-panel .metrado-line--area strong{color:var(--muted);}
 
 .metrado-route-line{
-    filter:drop-shadow(0 12px 18px rgba(0,0,0,0.10));
+    filter:none;
 }
 .metrado-route-flow{
     stroke-dashoffset:0;
@@ -707,6 +707,11 @@
 .metrado-pin{
     background:transparent;
     border:none;
+}
+.metrado-detail-tag-icon{
+    background:transparent !important;
+    border:none !important;
+    box-shadow:none !important;
 }
 .metrado-pin-icon{
     width:28px;
