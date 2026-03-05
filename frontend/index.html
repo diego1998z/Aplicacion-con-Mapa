@@ -284,25 +284,6 @@
                     </table>
                 </section>
 
-                <div class="ai-chat" aria-live="polite">
-                    <button id="aiChatToggle" class="ai-chat-toggle" type="button" aria-label="Abrir chat AI" aria-controls="aiChatPanel" aria-expanded="false">AI</button>
-                    <div id="aiChatPanel" class="ai-chat-panel hidden" role="dialog" aria-label="Chat de inversion AI" aria-modal="false">
-                        <div class="ai-chat-head">
-                            <div>
-                                <div class="ai-chat-title">Asistente de inversion</div>
-                                <div class="ai-chat-sub" id="aiChatStatus">Simulacion desactivada</div>
-                            </div>
-                            <button id="aiChatClose" class="ai-chat-close" type="button" aria-label="Cerrar chat">&times;</button>
-                        </div>
-                        <div class="ai-chat-body" id="aiChatBody"></div>
-                        <div class="ai-chat-quick" id="aiChatQuick"></div>
-                        <form id="aiChatForm" class="ai-chat-form" autocomplete="off">
-                            <input id="aiChatInput" type="text" placeholder="Escribe tu consulta..." autocomplete="off">
-                            <button type="submit" class="ai-chat-send">Enviar</button>
-                        </form>
-                        <div class="ai-chat-footer">Soporte: +51 993931475</div>
-                    </div>
-                </div>
             </div>
 
             <div class="dash-page hidden" data-dash-page="inversion-plan">
@@ -352,6 +333,35 @@
                         </div>
                     </div>
                     <div id="invPlanBoardList" class="inv-plan-board-list"></div>
+                </section>
+                <section id="aiPlanCompareCard" class="inv-plan-ai-card hidden" aria-label="Comparativo IA de planes">
+                    <div class="inv-plan-ai-head">
+                        <div>
+                            <h3>Comparativo IA de planes</h3>
+                            <span id="aiPlanCompareMeta" class="inv-plan-ai-sub">Escenario sugerido por IA.</span>
+                        </div>
+                        <button id="btnPlanAISuggest" type="button" class="dash-btn dash-btn--primary">Sugerir con IA</button>
+                    </div>
+                    <div class="inv-plan-ai-table-wrap">
+                        <table class="inv-plan-ai-table">
+                            <thead>
+                                <tr>
+                                    <th>Plan</th>
+                                    <th>Actual</th>
+                                    <th>Sugerido IA</th>
+                                    <th>Delta</th>
+                                    <th>Motivo</th>
+                                </tr>
+                            </thead>
+                            <tbody id="aiPlanCompareBody"></tbody>
+                        </table>
+                    </div>
+                    <div id="aiPlanCompareNote" class="inv-plan-ai-note"></div>
+                    <div class="inv-plan-ai-actions">
+                        <button id="btnPlanAIApply" type="button" class="dash-btn dash-btn--primary">Aplicar opcion IA</button>
+                        <button id="btnPlanAIRevert" type="button" class="dash-btn">Revertir cambio aplicado</button>
+                        <button id="btnPlanAIDiscard" type="button" class="dash-btn dash-btn--ghost">Descartar sugerencia</button>
+                    </div>
                 </section>
             </div>
 
@@ -647,6 +657,25 @@
                 <div class="dash-placeholder">
                     <strong>En construccion</strong>
                     <p>Aqui podras configurar costos por señal, permisos, catálogos de iconos y parametros de reportes.</p>
+                </div>
+            </div>
+            <div class="ai-chat" aria-live="polite">
+                <button id="aiChatToggle" class="ai-chat-toggle" type="button" aria-label="Abrir chat AI" aria-controls="aiChatPanel" aria-expanded="false">AI</button>
+                <div id="aiChatPanel" class="ai-chat-panel hidden" role="dialog" aria-label="Chat de inversion AI" aria-modal="false">
+                    <div class="ai-chat-head">
+                        <div>
+                            <div class="ai-chat-title" id="aiChatTitle">Asistente de inversion</div>
+                            <div class="ai-chat-sub" id="aiChatStatus">Simulacion desactivada</div>
+                        </div>
+                        <button id="aiChatClose" class="ai-chat-close" type="button" aria-label="Cerrar chat">&times;</button>
+                    </div>
+                    <div class="ai-chat-body" id="aiChatBody"></div>
+                    <div class="ai-chat-quick" id="aiChatQuick"></div>
+                    <form id="aiChatForm" class="ai-chat-form" autocomplete="off">
+                        <input id="aiChatInput" type="text" placeholder="Escribe tu consulta..." autocomplete="off">
+                        <button type="submit" class="ai-chat-send">Enviar</button>
+                    </form>
+                    <div class="ai-chat-footer">Soporte: +51 993931475</div>
                 </div>
             </div>
         </main>

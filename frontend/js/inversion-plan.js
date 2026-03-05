@@ -78,6 +78,14 @@
   const btnPlanProjectClose = document.getElementById("btnPlanProjectClose");
   const btnPlanProjectCancel = document.getElementById("btnPlanProjectCancel");
   const btnPlanProjectSave = document.getElementById("btnPlanProjectSave");
+  const aiPlanCompareCard = document.getElementById("aiPlanCompareCard");
+  const aiPlanCompareMeta = document.getElementById("aiPlanCompareMeta");
+  const aiPlanCompareBody = document.getElementById("aiPlanCompareBody");
+  const aiPlanCompareNote = document.getElementById("aiPlanCompareNote");
+  const btnPlanAISuggest = document.getElementById("btnPlanAISuggest");
+  const btnPlanAIApply = document.getElementById("btnPlanAIApply");
+  const btnPlanAIRevert = document.getElementById("btnPlanAIRevert");
+  const btnPlanAIDiscard = document.getElementById("btnPlanAIDiscard");
 
   if(!invAnualTrack || !invPlanBoardList){
     return;
@@ -120,6 +128,15 @@
   let planDraftProjects = [];
   const groupFilters = new Map();
   const planCollapseState = new Map();
+  let aiPlanScenario = null;
+  let aiPlanSnapshotBeforeApply = null;
+  let aiPlanAppliedScenarioId = "";
+
+  const PLAN_AI_KEYWORDS = {
+    hospital: ["hospital", "clinica", "salud", "emergencia", "posta", "centro medico", "ambulancia"],
+    escuela: ["colegio", "escuela", "nido", "instituto", "universidad", "escolar", "estudiante"],
+    evento: ["accidente", "choque", "atropello", "evento", "siniestro", "incidente", "riesgo", "peligro"]
+  };
 
   function toPositiveNumber(value){
     const n = Number(value);
@@ -223,6 +240,55 @@
       return formatearMonedaPEN(n);
     }
     return "S/ " + Math.round(n).toLocaleString("es-PE");
+  }
+
+  function normalizeText(value){
+    return String(value || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, " ")
+      .replace(/[^a-z0-9]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function containsAnyKeyword(text, keywords){
+    if(!text || !Array.isArray(keywords) || !keywords.length) return false;
+    return keywords.some((k)=> text.includes(normalizeText(k)));
+  }
+
+  function safeAvisosList(){
+    try{
+      if(Array.isArray(avisos)) return avisos.slice();
+    }catch(e){}
+    return [];
+  }
+
+  function planScenarioRound(value){
+    return Math.max(0, Math.round(Number(value || 0)));
+  }
+
+  function getPlanAmountSignature(plans){
+    return (plans || [])
+      .map((plan)=> String(plan.id || "") + ":" + planScenarioRound(plan.monto))
+      .sort()
+      .join("|");
+  }
+
+  function formatDateTimeShort(value){
+    try{
+      const date = value ? new Date(value) : new Date();
+      if(!Number.isFinite(date.getTime())) return "";
+      return date.toLocaleString("es-PE", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    }catch(e){
+      return "";
+    }
   }
 
   function normalizarProyectoKey(nombre){
@@ -1232,6 +1298,469 @@
     }).join("");
   }
 
+  function collectPlanAIReportSignals(){
+    const list = safeAvisosList();
+    const zoneCounts = new Map();
+    let hospital = 0;
+    let escuela = 0;
+    let evento = 0;
+    let pendiente = 0;
+
+    list.forEach((item)=>{
+      const rawText = [
+        item && (item.tipo || item.type || ""),
+        item && (item.descripcion || item.description || ""),
+        item && (item.distrito || item.district || ""),
+        item && (item.zona || "")
+      ].join(" ");
+      const text = normalizeText(rawText);
+      if(containsAnyKeyword(text, PLAN_AI_KEYWORDS.hospital)) hospital += 1;
+      if(containsAnyKeyword(text, PLAN_AI_KEYWORDS.escuela)) escuela += 1;
+      if(containsAnyKeyword(text, PLAN_AI_KEYWORDS.evento)) evento += 1;
+
+      const estado = normalizeText(item && (item.estado || item.status || ""));
+      if(estado.includes("pendiente") || estado.includes("nuevo") || estado.includes("abierto")){
+        pendiente += 1;
+      }
+
+      const zona = String(item && (item.distrito || item.district || item.zona) || "Sin zona");
+      zoneCounts.set(zona, (zoneCounts.get(zona) || 0) + 1);
+    });
+
+    const hotspots = Array.from(zoneCounts.entries())
+      .map(([zone, count])=> ({ zone, count }))
+      .sort((a,b)=> b.count - a.count)
+      .slice(0, 3);
+
+    return { total: list.length, hospital, escuela, evento, pendiente, hotspots };
+  }
+
+  function buildPlanAIText(plan){
+    const chunks = [plan && plan.nombre || ""];
+    (plan && plan.proyectos || []).forEach((p)=>{
+      chunks.push(p && p.nombre || "");
+    });
+    getIntervencionesPlan(plan && plan.id).forEach((i)=>{
+      chunks.push(i && (i.nombre || i.accionNombre || ""), i && (i.proyectoNombre || ""));
+    });
+    return normalizeText(chunks.join(" "));
+  }
+
+  function evaluatePlanForAI(plan, reportSignals){
+    const text = buildPlanAIText(plan);
+    const totals = calcPlanPhaseTotals(plan.id);
+    const monto = toPositiveNumber(plan && plan.monto);
+    const executionRatio = monto > 0 ? Math.min(1, totals.asignado / monto) : 0;
+    const planningRatio = monto > 0 ? Math.min(1, totals.planificacion / monto) : 0;
+    const interventions = getIntervencionesPlan(plan.id);
+
+    const hasHospital = containsAnyKeyword(text, PLAN_AI_KEYWORDS.hospital);
+    const hasEscuela = containsAnyKeyword(text, PLAN_AI_KEYWORDS.escuela);
+    const hasEvento = containsAnyKeyword(text, PLAN_AI_KEYWORDS.evento);
+
+    let score = 1;
+    const reasonParts = [];
+
+    if(hasHospital){
+      score += 2 + Math.min(1.6, reportSignals.hospital / 4);
+      reasonParts.push("prioriza entorno de salud y accesos de emergencia");
+    }
+    if(hasEscuela){
+      score += 1.7 + Math.min(1.4, reportSignals.escuela / 5);
+      reasonParts.push("refuerza seguridad en zonas escolares");
+    }
+    if(hasEvento){
+      score += 1.2 + Math.min(1.1, reportSignals.evento / 6);
+      reasonParts.push("atiende tramos con mayor recurrencia de eventos");
+    }
+
+    if(executionRatio < 0.45){
+      score += 1;
+      reasonParts.push("avance bajo frente al monto planificado");
+    } else if(executionRatio > 0.8){
+      score -= 0.2;
+    }
+
+    if(planningRatio > 0.4){
+      score += Math.min(1.1, planningRatio * 1.4);
+      reasonParts.push("alto saldo en planificacion sin ejecutar");
+    }
+
+    if(!interventions.length){
+      score += 0.45;
+      reasonParts.push("requiere activar intervenciones asociadas");
+    }
+
+    if(reportSignals.pendiente > 0){
+      score += Math.min(1, reportSignals.pendiente / 12);
+    }
+
+    if(score < 0.35) score = 0.35;
+    if(!reasonParts.length){
+      reasonParts.push("redistribucion balanceada para sostener ejecucion");
+    }
+
+    return {
+      planId: String(plan.id || ""),
+      planName: plan.nombre || "Plan",
+      actual: planScenarioRound(plan.monto),
+      score,
+      reason: reasonParts.slice(0, 2).join("; "),
+      executionRatio,
+      planningRatio
+    };
+  }
+
+  function buildPlanAIScenarioForYear(plans, presupuesto){
+    const year = Number(presupuesto && presupuesto.year || new Date().getFullYear());
+    const budgetTotal = toPositiveNumber(presupuesto && presupuesto.total || 0);
+    const assignedBefore = planScenarioRound((plans || []).reduce((sum, p)=> sum + toPositiveNumber(p && p.monto), 0));
+    const reportSignals = collectPlanAIReportSignals();
+
+    const evaluations = (plans || []).map((plan)=> evaluatePlanForAI(plan, reportSignals));
+    const scoreTotal = evaluations.reduce((sum, item)=> sum + Math.max(0.001, Number(item.score || 0)), 0);
+
+    let pool = assignedBefore;
+    const remainingBudget = Math.max(0, budgetTotal - assignedBefore);
+    if(budgetTotal > 0){
+      if(pool <= 0){
+        pool = budgetTotal * 0.82;
+      } else {
+        pool += remainingBudget * 0.75;
+      }
+    }
+    if(pool <= 0){
+      pool = Math.max(1000, evaluations.length * 1000);
+    }
+    pool = planScenarioRound(pool);
+
+    const avgCurrent = evaluations.length ? (assignedBefore > 0 ? (assignedBefore / evaluations.length) : (pool / evaluations.length)) : 0;
+    const minFloor = Math.max(0, planScenarioRound(Math.min(avgCurrent * 0.35, pool * 0.2)));
+
+    const rows = evaluations.map((item)=> {
+      const weightedTarget = scoreTotal > 0 ? (pool * item.score / scoreTotal) : (pool / Math.max(1, evaluations.length));
+      const blended = item.actual > 0 ? (item.actual * 0.55 + weightedTarget * 0.45) : weightedTarget;
+      const suggested = planScenarioRound(Math.max(minFloor, blended));
+      return {
+        planId: item.planId,
+        planName: item.planName,
+        actual: item.actual,
+        suggested,
+        delta: 0,
+        reason: item.reason,
+        score: item.score
+      };
+    });
+
+    let diff = pool - rows.reduce((sum, row)=> sum + row.suggested, 0);
+    const orderUp = rows.slice().sort((a,b)=> b.score - a.score || b.delta - a.delta);
+    const orderDown = rows.slice().sort((a,b)=> b.suggested - a.suggested || a.score - b.score);
+    let guard = 0;
+    let idx = 0;
+    while(diff !== 0 && rows.length && guard < 10000){
+      const targetList = diff > 0 ? orderUp : orderDown;
+      const row = targetList[idx % targetList.length];
+      if(!row){
+        break;
+      }
+      if(diff > 0){
+        row.suggested += 1;
+        diff -= 1;
+      } else if(row.suggested > 0){
+        row.suggested -= 1;
+        diff += 1;
+      }
+      idx += 1;
+      guard += 1;
+    }
+
+    rows.forEach((row)=>{
+      row.delta = planScenarioRound(row.suggested - row.actual);
+      if(row.suggested < row.actual){
+        row.delta = -planScenarioRound(row.actual - row.suggested);
+      }
+    });
+
+    const assignedAfter = planScenarioRound(rows.reduce((sum, row)=> sum + row.suggested, 0));
+    const remainingAfter = Math.max(0, planScenarioRound(budgetTotal - assignedAfter));
+    const baseSignature = getPlanAmountSignature(plans);
+    const hotspotsText = reportSignals.hotspots.map((h)=> h.zone + " (" + h.count + ")").join(", ");
+    const note = [
+      "IA sugirio una redistribucion usando avance de planes, intervenciones y reportes locales.",
+      reportSignals.total ? ("Reportes analizados: " + reportSignals.total + ".") : "No hay reportes cargados en este distrito.",
+      hotspotsText ? ("Zonas con mas eventos: " + hotspotsText + ".") : "",
+      budgetTotal > 0 ? ("Saldo sugerido sin asignar: " + formatMoney(remainingAfter) + ".") : "No hay presupuesto anual definido."
+    ].filter(Boolean).join(" ");
+
+    return {
+      id: "plan-ai-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,5),
+      year,
+      createdAt: new Date().toISOString(),
+      budgetTotal: planScenarioRound(budgetTotal),
+      assignedBefore: planScenarioRound(assignedBefore),
+      assignedAfter: planScenarioRound(assignedAfter),
+      remainingBefore: Math.max(0, planScenarioRound(budgetTotal - assignedBefore)),
+      remainingAfter,
+      reportSignals,
+      rows,
+      note,
+      baseSignature
+    };
+  }
+
+  function getPlanAISummaryLine(scenario){
+    if(!scenario || !Array.isArray(scenario.rows) || !scenario.rows.length){
+      return "No hay comparativo IA disponible.";
+    }
+    const increases = scenario.rows
+      .filter((row)=> row.delta > 0)
+      .sort((a,b)=> b.delta - a.delta);
+    const decreases = scenario.rows
+      .filter((row)=> row.delta < 0)
+      .sort((a,b)=> a.delta - b.delta);
+    const up = increases[0];
+    const down = decreases[0];
+    const parts = [
+      "Comparativo IA generado para " + scenario.rows.length + " planes."
+    ];
+    if(up){
+      parts.push("Mayor refuerzo: " + up.planName + " (" + formatMoney(up.delta) + ").");
+    }
+    if(down){
+      parts.push("Mayor ajuste: " + down.planName + " (" + formatMoney(down.delta) + ").");
+    }
+    parts.push("Total sugerido: " + formatMoney(scenario.assignedAfter) + ".");
+    return parts.join(" ");
+  }
+
+  function renderPlanAIScenario(plans, presupuesto){
+    if(!aiPlanCompareCard || !aiPlanCompareBody) return;
+    aiPlanCompareCard.classList.remove("hidden");
+
+    const year = Number(presupuesto && presupuesto.year || new Date().getFullYear());
+    const currentSignature = getPlanAmountSignature(plans || []);
+    if(aiPlanScenario && aiPlanScenario.year !== year){
+      aiPlanScenario = null;
+      aiPlanAppliedScenarioId = "";
+    }
+
+    if(!Array.isArray(plans) || !plans.length){
+      aiPlanCompareMeta.textContent = "No hay planes registrados para el periodo.";
+      aiPlanCompareBody.innerHTML = "<tr><td colspan=\"5\" class=\"empty\">Registra al menos un plan para solicitar sugerencias IA.</td></tr>";
+      if(aiPlanCompareNote) aiPlanCompareNote.textContent = "Define planes y luego usa \"Sugerir con IA\" para obtener un comparativo.";
+      if(btnPlanAIApply) btnPlanAIApply.disabled = true;
+      if(btnPlanAIRevert) btnPlanAIRevert.disabled = !aiPlanSnapshotBeforeApply;
+      if(btnPlanAIDiscard) btnPlanAIDiscard.disabled = !aiPlanScenario;
+      return;
+    }
+
+    if(!aiPlanScenario || !Array.isArray(aiPlanScenario.rows) || !aiPlanScenario.rows.length){
+      aiPlanCompareMeta.textContent = "Periodo " + year + " · Sin escenario IA aplicado.";
+      aiPlanCompareBody.innerHTML = "<tr><td colspan=\"5\" class=\"empty\">Solicita una sugerencia para ver comparativo.</td></tr>";
+      if(aiPlanCompareNote){
+        const baseNote = "La IA puede proponer una redistribucion segun hospitales, colegios y zonas con mas eventos.";
+        aiPlanCompareNote.textContent = aiPlanSnapshotBeforeApply
+          ? "Hay un cambio IA aplicado pendiente de revertir. " + baseNote
+          : baseNote;
+      }
+      if(btnPlanAIApply) btnPlanAIApply.disabled = true;
+      if(btnPlanAIRevert) btnPlanAIRevert.disabled = !aiPlanSnapshotBeforeApply;
+      if(btnPlanAIDiscard) btnPlanAIDiscard.disabled = true;
+      return;
+    }
+
+    const stale = aiPlanScenario.baseSignature && aiPlanScenario.baseSignature !== currentSignature;
+    const generatedAt = formatDateTimeShort(aiPlanScenario.createdAt);
+    aiPlanCompareMeta.textContent = "Periodo " + aiPlanScenario.year
+      + " · Generado " + (generatedAt || "recientemente")
+      + (stale ? " · Desactualizado por cambios manuales" : "");
+
+    aiPlanCompareBody.innerHTML = aiPlanScenario.rows.map((row)=>{
+      const delta = Number(row.delta || 0);
+      const deltaClass = delta > 0 ? "inv-plan-ai-delta-up" : (delta < 0 ? "inv-plan-ai-delta-down" : "");
+      const sign = delta > 0 ? "+" : "";
+      return ""
+        + "<tr data-plan-id=\"" + escapeHtml(row.planId) + "\">"
+        +   "<td>" + escapeHtml(row.planName || "Plan") + "</td>"
+        +   "<td>" + escapeHtml(formatMoney(row.actual)) + "</td>"
+        +   "<td>" + escapeHtml(formatMoney(row.suggested)) + "</td>"
+        +   "<td class=\"" + deltaClass + "\">" + escapeHtml(sign + formatMoney(delta)) + "</td>"
+        +   "<td>" + escapeHtml(row.reason || "Ajuste balanceado") + "</td>"
+        + "</tr>";
+    }).join("");
+
+    if(aiPlanCompareNote){
+      aiPlanCompareNote.textContent = aiPlanScenario.note || getPlanAISummaryLine(aiPlanScenario);
+    }
+
+    if(btnPlanAIApply){
+      btnPlanAIApply.disabled = aiPlanAppliedScenarioId === aiPlanScenario.id;
+    }
+    if(btnPlanAIRevert){
+      btnPlanAIRevert.disabled = !aiPlanSnapshotBeforeApply;
+    }
+    if(btnPlanAIDiscard){
+      btnPlanAIDiscard.disabled = false;
+    }
+  }
+
+  function suggestPlanAIScenario(){
+    const presupuesto = getPresupuesto();
+    const year = Number(presupuesto && presupuesto.year || new Date().getFullYear());
+    const plans = getPlanesDelAnio(year);
+    if(!plans.length){
+      renderPlanAIScenario(plans, presupuesto);
+      return {
+        ok: false,
+        message: "Primero registra al menos un plan para generar sugerencias."
+      };
+    }
+    aiPlanScenario = buildPlanAIScenarioForYear(plans, presupuesto);
+    aiPlanAppliedScenarioId = "";
+    renderPlanAIScenario(plans, presupuesto);
+    return {
+      ok: true,
+      scenario: aiPlanScenario,
+      message: getPlanAISummaryLine(aiPlanScenario)
+    };
+  }
+
+  function applyPlanAIScenario(){
+    const presupuesto = getPresupuesto();
+    const year = Number(presupuesto && presupuesto.year || new Date().getFullYear());
+    const plans = getPlanesDelAnio(year);
+    if(!plans.length){
+      return { ok: false, message: "No hay planes para aplicar la sugerencia IA." };
+    }
+    if(!aiPlanScenario || !Array.isArray(aiPlanScenario.rows) || !aiPlanScenario.rows.length){
+      return { ok: false, message: "Genera primero un comparativo IA." };
+    }
+
+    const currentSignature = getPlanAmountSignature(plans);
+    if(aiPlanScenario.baseSignature && aiPlanScenario.baseSignature !== currentSignature){
+      aiPlanScenario = buildPlanAIScenarioForYear(plans, presupuesto);
+    }
+
+    if(!aiPlanSnapshotBeforeApply){
+      aiPlanSnapshotBeforeApply = {
+        year,
+        items: plans.map((plan)=> ({ id: String(plan.id || ""), monto: planScenarioRound(plan.monto) }))
+      };
+    }
+
+    let changed = 0;
+    aiPlanScenario.rows.forEach((row)=>{
+      const plan = plans.find((item)=> String(item.id || "") === String(row.planId || ""));
+      if(!plan) return;
+      const nextAmount = planScenarioRound(row.suggested);
+      if(planScenarioRound(plan.monto) === nextAmount) return;
+      plan.monto = nextAmount;
+      changed += 1;
+      syncPlanToBackend(plan);
+    });
+
+    if(changed === 0){
+      return { ok: false, message: "No hubo cambios que aplicar en los planes." };
+    }
+
+    guardarPlanes();
+    aiPlanAppliedScenarioId = aiPlanScenario.id;
+    updateInversionPlanes();
+    return {
+      ok: true,
+      changed,
+      message: "Se aplico la sugerencia IA en " + changed + " planes."
+    };
+  }
+
+  function revertPlanAIScenario(){
+    if(!aiPlanSnapshotBeforeApply || !Array.isArray(aiPlanSnapshotBeforeApply.items) || !aiPlanSnapshotBeforeApply.items.length){
+      return { ok: false, message: "No hay cambios IA aplicados para revertir." };
+    }
+    const year = Number(aiPlanSnapshotBeforeApply.year || (getPresupuesto().year || new Date().getFullYear()));
+    const plans = getPlanesDelAnio(year);
+    let changed = 0;
+    aiPlanSnapshotBeforeApply.items.forEach((saved)=>{
+      const plan = plans.find((item)=> String(item.id || "") === String(saved.id || ""));
+      if(!plan) return;
+      const prevAmount = planScenarioRound(saved.monto);
+      if(planScenarioRound(plan.monto) === prevAmount) return;
+      plan.monto = prevAmount;
+      changed += 1;
+      syncPlanToBackend(plan);
+    });
+
+    if(changed === 0){
+      aiPlanSnapshotBeforeApply = null;
+      aiPlanAppliedScenarioId = "";
+      updateInversionPlanes();
+      return { ok: false, message: "No se detectaron diferencias para revertir." };
+    }
+
+    guardarPlanes();
+    aiPlanSnapshotBeforeApply = null;
+    aiPlanAppliedScenarioId = "";
+    updateInversionPlanes();
+    return {
+      ok: true,
+      changed,
+      message: "Se revirtieron " + changed + " cambios aplicados por IA."
+    };
+  }
+
+  function discardPlanAISuggestion(){
+    aiPlanScenario = null;
+    aiPlanAppliedScenarioId = "";
+    updateInversionPlanes();
+    return {
+      ok: true,
+      message: "Comparativo IA descartado."
+    };
+  }
+
+  function getPlanAIChatContext(){
+    const presupuesto = getPresupuesto();
+    const year = Number(presupuesto && presupuesto.year || new Date().getFullYear());
+    const plans = getPlanesDelAnio(year);
+    const assigned = plans.reduce((sum, plan)=> sum + toPositiveNumber(plan.monto), 0);
+    const reportSignals = collectPlanAIReportSignals();
+    return {
+      year,
+      budgetTotal: planScenarioRound(presupuesto && presupuesto.total || 0),
+      assigned: planScenarioRound(assigned),
+      remaining: Math.max(0, planScenarioRound((presupuesto && presupuesto.total || 0) - assigned)),
+      plans: plans.map((plan)=> ({
+        id: String(plan.id || ""),
+        name: plan.nombre || "Plan",
+        amount: planScenarioRound(plan.monto)
+      })),
+      reportSignals,
+      scenario: aiPlanScenario ? {
+        assignedAfter: aiPlanScenario.assignedAfter,
+        remainingAfter: aiPlanScenario.remainingAfter,
+        topChanges: aiPlanScenario.rows
+          .slice()
+          .sort((a,b)=> Math.abs(b.delta) - Math.abs(a.delta))
+          .slice(0, 3)
+          .map((row)=> ({
+            plan: row.planName,
+            delta: row.delta,
+            reason: row.reason
+          }))
+      } : null,
+      hasApplied: !!aiPlanSnapshotBeforeApply
+    };
+  }
+
+  function getPlanAIStatus(){
+    return {
+      hasScenario: !!(aiPlanScenario && Array.isArray(aiPlanScenario.rows) && aiPlanScenario.rows.length),
+      hasApplied: !!aiPlanSnapshotBeforeApply,
+      scenarioId: aiPlanScenario ? aiPlanScenario.id : "",
+      appliedScenarioId: aiPlanAppliedScenarioId || ""
+    };
+  }
+
   function updateInversionPlanes(){
     cargarPlanes();
     cargarIntervenciones();
@@ -1241,6 +1770,7 @@
     renderAnual(plans, presupuesto);
     renderPlanBoard(plans);
     renderIntervencionesGrouped();
+    renderPlanAIScenario(plans, presupuesto);
   }
 
   function prepararProyectosParaModal(plan){
@@ -1870,6 +2400,48 @@
       syncIntervencionProyectoFromAccion(accion);
     });
   }
+
+  if(btnPlanAISuggest){
+    btnPlanAISuggest.addEventListener("click", ()=>{
+      const result = suggestPlanAIScenario();
+      if(!result.ok){
+        alert(result.message || "No se pudo generar una sugerencia IA.");
+      }
+    });
+  }
+  if(btnPlanAIApply){
+    btnPlanAIApply.addEventListener("click", ()=>{
+      const result = applyPlanAIScenario();
+      if(!result.ok){
+        alert(result.message || "No se pudo aplicar la sugerencia IA.");
+      }
+    });
+  }
+  if(btnPlanAIRevert){
+    btnPlanAIRevert.addEventListener("click", ()=>{
+      const result = revertPlanAIScenario();
+      if(!result.ok){
+        alert(result.message || "No se pudo revertir el escenario IA.");
+      }
+    });
+  }
+  if(btnPlanAIDiscard){
+    btnPlanAIDiscard.addEventListener("click", ()=>{
+      const result = discardPlanAISuggestion();
+      if(!result.ok){
+        alert(result.message || "No se pudo descartar la sugerencia IA.");
+      }
+    });
+  }
+
+  window.UrbbisPlanAI = {
+    suggest: suggestPlanAIScenario,
+    apply: applyPlanAIScenario,
+    revert: revertPlanAIScenario,
+    discard: discardPlanAISuggestion,
+    getContext: getPlanAIChatContext,
+    getStatus: getPlanAIStatus
+  };
 
   window.updateInversionPlanes = updateInversionPlanes;
   updateInversionPlanes();

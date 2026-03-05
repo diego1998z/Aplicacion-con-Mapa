@@ -3,7 +3,8 @@ const cors = require("cors");
 const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-require("dotenv").config();
+const path = require("path");
+require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -99,6 +100,198 @@ function matchesDistrict(record, district) {
   const data = record && record.data && typeof record.data === "object" ? record.data : null;
   if (data && data.distrito && String(data.distrito).toLowerCase() === district.toLowerCase()) return true;
   return false;
+}
+
+function countBy(list, keyGetter) {
+  const out = {};
+  const arr = Array.isArray(list) ? list : [];
+  arr.forEach((item) => {
+    const key = String(keyGetter(item) || "").trim().toLowerCase();
+    if (!key) return;
+    out[key] = (out[key] || 0) + 1;
+  });
+  return out;
+}
+
+function sumBy(list, valueGetter) {
+  const arr = Array.isArray(list) ? list : [];
+  return arr.reduce((acc, item) => {
+    const num = Number(valueGetter(item));
+    return Number.isFinite(num) ? acc + num : acc;
+  }, 0);
+}
+
+function parseJsonSafe(text) {
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function extractGeminiText(payload) {
+  const candidates = Array.isArray(payload && payload.candidates) ? payload.candidates : [];
+  if (!candidates.length) return "";
+  const parts = Array.isArray(candidates[0] && candidates[0].content && candidates[0].content.parts)
+    ? candidates[0].content.parts
+    : [];
+  return parts
+    .map((p) => (p && typeof p.text === "string" ? p.text : ""))
+    .filter(Boolean)
+    .join("\n")
+    .trim();
+}
+
+function formatMoneyPEN(value) {
+  const num = Number(value || 0);
+  if (!Number.isFinite(num)) return "S/ 0";
+  return "S/ " + Math.round(num).toLocaleString("es-PE");
+}
+
+function pickTopEntries(dict, limit = 3) {
+  const entries = Object.entries(dict && typeof dict === "object" ? dict : {});
+  return entries
+    .map(([key, value]) => ({ key, value: Number(value || 0) }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, limit);
+}
+
+function construirRespuestaLocalGratis({ prompt, contextJson }) {
+  const ctx = parseJsonSafe(contextJson);
+  const resumen = ctx && ctx.resumen && typeof ctx.resumen === "object" ? ctx.resumen : {};
+  const inversion = ctx && ctx.inversion && typeof ctx.inversion === "object" ? ctx.inversion : {};
+  const reportesPorTipo = resumen && resumen.reportesPorTipo && typeof resumen.reportesPorTipo === "object"
+    ? resumen.reportesPorTipo
+    : {};
+  const topTipos = pickTopEntries(reportesPorTipo, 3);
+  const topDistritos = Array.isArray(resumen.topDistritos) ? resumen.topDistritos.slice(0, 3) : [];
+  const planes = Array.isArray(inversion.planesRecientes) ? inversion.planesRecientes : [];
+  const planificado = Number(inversion.montoPlanificado || 0);
+  const ejecutado = Number(inversion.montoEjecutado || 0);
+  const avance = planificado > 0 ? Math.round((ejecutado / planificado) * 100) : 0;
+
+  const zonasTexto = topDistritos.length
+    ? topDistritos
+      .map((z, i) => `${i + 1}. ${z.district || "Sin distrito"} (${Number(z.count || 0)} reportes)`)
+      .join("\n")
+    : "1. Sin concentracion clara de reportes en los datos actuales.";
+
+  const tiposTexto = topTipos.length
+    ? topTipos.map((t) => `${t.key} (${t.value})`).join(", ")
+    : "sin tipologia predominante";
+
+  const recs = [];
+  recs.push("- Priorizar activos deteriorados y por reponer en zonas con mayor concentracion de reportes.");
+  recs.push("- Ejecutar mantenimiento preventivo mensual en corredores con alto flujo antes de reposicion masiva.");
+  if (topTipos.some((t) => t.key.includes("falta") || t.key.includes("sin"))) {
+    recs.push("- Acelerar reposicion de señalizacion ausente y reforzar vertical/horizontal en cruces criticos.");
+  }
+  if (topTipos.some((t) => t.key.includes("danad") || t.key.includes("deterior"))) {
+    recs.push("- Programar renovacion de marcas viales y senales con desgaste visible en ventanas quincenales.");
+  }
+  if (!recs.length) {
+    recs.push("- Mantener esquema mixto: 60% mantenimiento preventivo, 40% reposicion dirigida por reportes.");
+  }
+
+  const consulta = String(prompt || "").trim();
+  const diagnostico = [
+    `Se analizaron ${Number(resumen.totalActivos || 0)} activos y ${Number(resumen.totalReportes || 0)} reportes.`,
+    `Planes: ${planes.length} registrados, avance aproximado ${Math.max(0, Math.min(100, avance))}% (${formatMoneyPEN(ejecutado)} de ${formatMoneyPEN(planificado)}).`,
+    `Tipos de reporte mas frecuentes: ${tiposTexto}.`
+  ].join(" ");
+
+  return [
+    "Modo IA local gratuito activo (sin GEMINI_API_KEY).",
+    "1) Diagnostico breve",
+    diagnostico,
+    "",
+    "2) Zonas prioritarias (max 3, con motivo)",
+    zonasTexto,
+    "",
+    "3) Recomendaciones concretas",
+    recs.slice(0, 4).join("\n"),
+    "",
+    "4) Riesgos/supuestos",
+    "- Analisis basado en datos cargados actualmente; si faltan reportes de campo, la prioridad puede variar.",
+    "- La precision mejora al registrar eventos georreferenciados y actualizar estado real de activos.",
+    "",
+    "Consulta recibida:",
+    consulta || "(sin consulta)"
+  ].join("\n");
+}
+
+async function consultarGeminiPresupuesto({ prompt, contextJson }) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
+  if (!apiKey) {
+    return {
+      model: "local-free-fallback",
+      answer: construirRespuestaLocalGratis({ prompt, contextJson })
+    };
+  }
+
+  const systemInstruction = [
+    "Eres un analista tecnico de inversion vial para municipalidades del Peru.",
+    "Responde solo en espanol.",
+    "Usa exclusivamente el contexto JSON proporcionado y la consulta del usuario.",
+    "Si faltan datos, dilo explicitamente y propone como obtenerlos.",
+    "Entrega una respuesta accionable con este formato:",
+    "1) Diagnostico breve",
+    "2) Zonas prioritarias (max 3, con motivo)",
+    "3) Recomendaciones concretas (marcas viales, senalizacion horizontal y vertical)",
+    "4) Riesgos/supuestos",
+    "No inventes cifras ni cites fuentes no entregadas."
+  ].join(" ");
+
+  const userPrompt = [
+    "Consulta del usuario:",
+    prompt,
+    "",
+    "Contexto local (JSON):",
+    contextJson
+  ].join("\n");
+
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25000);
+
+  try {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: systemInstruction }] },
+        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+        generationConfig: {
+          temperature: 0.2,
+          topP: 0.9,
+          maxOutputTokens: 900
+        }
+      })
+    });
+
+    const rawText = await res.text();
+    const payload = parseJsonSafe(rawText);
+    if (!res.ok) {
+      const msg = payload && payload.error && payload.error.message
+        ? String(payload.error.message)
+        : (rawText || `Gemini HTTP ${res.status}`);
+      const err = new Error(msg);
+      err.status = 502;
+      throw err;
+    }
+
+    const answer = extractGeminiText(payload);
+    if (!answer) {
+      const err = new Error("Gemini no devolvio contenido util");
+      err.status = 502;
+      throw err;
+    }
+    return { model, answer };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 app.get("/health", (req, res) => {
@@ -881,6 +1074,139 @@ app.post("/budgets", authRequired, requireRole(["admin", "municipal"]), async (r
   }
 });
 
+// AI presupuesto (Gemini)
+app.post("/ai/presupuesto-chat", authRequired, async (req, res, next) => {
+  try {
+    const query = String(req.body && req.body.query || "").trim();
+    if (!query) {
+      return res.status(400).json({ error: "query es requerido" });
+    }
+
+    const scope = getScopeFromUser(req.user || {});
+    const ownerKeyInput = req.body && req.body.ownerKey ? String(req.body.ownerKey) : "";
+    const ownerKey = scope.role === "admin"
+      ? (ownerKeyInput || scope.scopeKey || "")
+      : (scope.scopeKey || "");
+
+    const assetWhere = {};
+    const reportWhere = {};
+    if (scope.role !== "admin" && scope.district) {
+      assetWhere.district = scope.district;
+      reportWhere.district = scope.district;
+    } else if (req.body && req.body.district) {
+      const district = String(req.body.district);
+      assetWhere.district = district;
+      reportWhere.district = district;
+    }
+
+    const planWhere = ownerKey ? { ownerKey } : undefined;
+    const budgetWhere = ownerKey ? { ownerKey } : undefined;
+
+    const [assets, reports, plans, budgets] = await Promise.all([
+      prisma.asset.findMany({
+        where: assetWhere,
+        select: { type: true, state: true, statePhysical: true, district: true, price: true }
+      }),
+      prisma.report.findMany({
+        where: reportWhere,
+        select: { type: true, status: true, district: true, createdAt: true }
+      }),
+      prisma.plan.findMany({
+        where: planWhere,
+        orderBy: { year: "desc" },
+        take: 8,
+        select: { id: true, name: true, year: true, amount: true, executed: true, status: true }
+      }),
+      prisma.annualBudget.findMany({
+        where: budgetWhere,
+        orderBy: { year: "desc" },
+        take: 5,
+        select: { year: true, total: true }
+      })
+    ]);
+
+    const activosPorTipo = countBy(assets, (a) => a.type || "sin_tipo");
+    const reportesPorTipo = countBy(reports, (r) => r.type || "sin_tipo");
+    const reportesPorEstado = countBy(reports, (r) => r.status || "sin_estado");
+    const reportesPorDistrito = countBy(reports, (r) => r.district || "sin_distrito");
+    const topDistritos = Object.entries(reportesPorDistrito)
+      .map(([district, count]) => ({ district, count: Number(count) || 0 }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    const inversionBase = req.body && req.body.inversionBase && typeof req.body.inversionBase === "object"
+      ? req.body.inversionBase
+      : null;
+    const inversionOverride = req.body && req.body.override && typeof req.body.override === "object"
+      ? req.body.override
+      : null;
+    const preference = req.body && req.body.preference ? String(req.body.preference) : "";
+
+    const context = {
+      fecha: new Date().toISOString().slice(0, 10),
+      alcance: {
+        role: scope.role || "",
+        district: scope.district || "",
+        region: scope.region || "",
+        ownerKey: ownerKey || ""
+      },
+      resumen: {
+        totalActivos: assets.length,
+        totalReportes: reports.length,
+        activosPorTipo,
+        reportesPorTipo,
+        reportesPorEstado,
+        topDistritos
+      },
+      inversion: {
+        presupuestoReciente: budgets.map((b) => ({ year: b.year, total: Number(b.total || 0) })),
+        planesRecientes: plans.map((p) => ({
+          id: p.id,
+          name: p.name,
+          year: p.year,
+          amount: Number(p.amount || 0),
+          executed: Number(p.executed || 0),
+          status: p.status
+        })),
+        montoPlanificado: sumBy(plans, (p) => p.amount),
+        montoEjecutado: sumBy(plans, (p) => p.executed),
+        preferenciaUsuario: preference || "",
+        snapshotFrontend: inversionBase ? {
+          total: Number(inversionBase.total || 0),
+          operativos: Number(inversionBase.sumOper || 0),
+          deteriorados: Number(inversionBase.sumDet || 0),
+          reposicion: Number(inversionBase.sumRepo || 0)
+        } : null,
+        escenarioFrontend: inversionOverride ? {
+          total: Number(inversionOverride.total || 0),
+          operativos: Number(inversionOverride.operativos || 0),
+          deteriorados: Number(inversionOverride.deteriorados || 0),
+          reposicion: Number(inversionOverride.reposicion || 0),
+          preferencia: inversionOverride.pref ? String(inversionOverride.pref) : ""
+        } : null
+      }
+    };
+
+    const contextJson = JSON.stringify(context, null, 2);
+    const ai = await consultarGeminiPresupuesto({
+      prompt: query,
+      contextJson
+    });
+
+    res.json({
+      answer: ai.answer,
+      model: ai.model,
+      stats: {
+        totalActivos: assets.length,
+        totalReportes: reports.length,
+        distritosAnalizados: topDistritos.length
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 app.put("/reports/:id", authRequired, requireRole(["admin", "municipal"]), async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -946,7 +1272,14 @@ app.delete("/reports/:id", authRequired, requireRole(["admin", "municipal"]), as
 
 app.use((err, req, res, next) => {
   console.error(err);
-  res.status(500).json({ error: "Internal server error" });
+  const status = Number(err && err.status) || 500;
+  const expose = !!(err && (err.expose || status < 500 || status === 502 || status === 503));
+  const message = expose
+    ? String((err && err.message) || "Error")
+    : "Internal server error";
+  const payload = { error: message };
+  if (err && err.code) payload.code = String(err.code);
+  res.status(status).json(payload);
 });
 
 app.listen(port, () => {

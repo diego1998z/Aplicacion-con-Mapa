@@ -1,11 +1,28 @@
 (() => {
   const DEFAULT_BASE = "https://aplicacion-con-mapa-production.up.railway.app";
+  const DEFAULT_LOCAL_BASE = "http://localhost:3001";
+
+  function isLocalHost() {
+    try {
+      const host = String(window.location && window.location.hostname || "").toLowerCase();
+      return host === "localhost" || host === "127.0.0.1";
+    } catch (e) {
+      return false;
+    }
+  }
 
   function getBaseUrl() {
     try {
-      return localStorage.getItem("urbbisApiBase") || DEFAULT_BASE;
+      const stored = localStorage.getItem("urbbisApiBase");
+      if (stored) {
+        if (isLocalHost() && stored === DEFAULT_BASE) {
+          return DEFAULT_LOCAL_BASE;
+        }
+        return stored;
+      }
+      return isLocalHost() ? DEFAULT_LOCAL_BASE : DEFAULT_BASE;
     } catch (e) {
-      return DEFAULT_BASE;
+      return isLocalHost() ? DEFAULT_LOCAL_BASE : DEFAULT_BASE;
     }
   }
 
@@ -53,7 +70,14 @@
         clearToken();
       }
       const text = await res.text().catch(() => "");
-      throw new Error(text || `HTTP ${res.status}`);
+      let message = text || `HTTP ${res.status}`;
+      try {
+        const parsed = text ? JSON.parse(text) : null;
+        if (parsed && typeof parsed.error === "string" && parsed.error.trim()) {
+          message = parsed.error.trim();
+        }
+      } catch (e) {}
+      throw new Error(message);
     }
     if (res.status === 204) return null;
     return res.json();
@@ -116,7 +140,8 @@
       const suffix = qs.toString() ? `?${qs.toString()}` : "";
       return request(`/budgets${suffix}`);
     },
-    upsertBudget: (data) => request("/budgets", { method: "POST", ...jsonBody(data) })
+    upsertBudget: (data) => request("/budgets", { method: "POST", ...jsonBody(data) }),
+    chatPresupuestoAI: (data) => request("/ai/presupuesto-chat", { method: "POST", ...jsonBody(data) })
   };
 
   window.UrbbisApi = api;
