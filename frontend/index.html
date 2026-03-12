@@ -761,6 +761,15 @@
                             </svg>
                             <span class="metrado-btn-text">Trazos</span>
                         </button>
+                        <button id="btnMetradoHistorialInspecciones" type="button" class="map-panel-btn map-panel-btn--ghost metrado-btn-inline" title="Historial de inspecciones">
+                            <svg class="metrado-btn-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M8 7h8"/>
+                                <path d="M8 12h8"/>
+                                <path d="M8 17h5"/>
+                                <rect x="4" y="3" width="16" height="18" rx="2"/>
+                            </svg>
+                            <span class="metrado-btn-text">Historial de inspecciones</span>
+                        </button>
                         <button id="btnMetradoClose" type="button" class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50" title="Cerrar metrado" aria-label="Cerrar metrado">&times;</button>
                     </div>
                 </div>
@@ -1076,6 +1085,13 @@
                 <h3>Registro de inspecci&oacute;n</h3>
                 <button id="btnInspeccionClose" type="button" class="inspeccion-close">&times;</button>
             </div>
+            <label for="insFecha">Fecha de inspecci&oacute;n</label>
+            <input id="insFecha" type="date">
+            <label for="insColor">Color de inspecci&oacute;n</label>
+            <select id="insColor">
+                <option value="amarillo">Amarillo</option>
+                <option value="blanco">Blanco</option>
+            </select>
             <label for="insDistancia">Distancia de medici&oacute;n (m)</label>
             <input id="insDistancia" type="number" min="0" step="1" value="100">
             <label for="insUbicacion">Ubicaci&oacute;n / progresiva</label>
@@ -1132,10 +1148,20 @@
     <div id="modalInspeccionListado" class="modal hidden" aria-hidden="true">
         <div class="modal-content inspeccion-modal inspeccion-modal--list">
             <div class="inspeccion-head">
+                <button id="btnInspeccionListBack" type="button" class="inspeccion-close inspeccion-close--back" title="Atras" aria-label="Atras">&#8592;</button>
                 <h3>Registro completo</h3>
                 <button id="btnInspeccionListClose" type="button" class="inspeccion-close">&times;</button>
             </div>
-            <div id="inspeccionList" class="inspeccion-list"></div>
+            <div class="inspeccion-tabs" role="tablist" aria-label="Vista de inspecciones">
+                <button id="btnInspeccionTabHistorial" type="button" class="inspeccion-tab is-active" role="tab" aria-selected="true">Historial</button>
+                <button id="btnInspeccionTabGraficas" type="button" class="inspeccion-tab" role="tab" aria-selected="false">Graficas</button>
+            </div>
+            <div id="inspeccionTabHistorial" class="inspeccion-tab-panel" role="tabpanel">
+                <div id="inspeccionList" class="inspeccion-list"></div>
+            </div>
+            <div id="inspeccionTabGraficas" class="inspeccion-tab-panel hidden" role="tabpanel">
+                <div id="inspeccionChartsList" class="inspeccion-charts"></div>
+            </div>
         </div>
     </div>
 
