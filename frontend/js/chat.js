@@ -767,6 +767,10 @@
     const ctx = planAI.getContext();
     const reportSignals = ctx && ctx.reportSignals ? ctx.reportSignals : { total: 0, hotspots: [] };
     const summary = ctx && ctx.summary ? ctx.summary : null;
+    const sensitiveParts = [];
+    if(summary && Number(summary.nearHospitalCount || 0) > 0) sensitiveParts.push("salud (" + Number(summary.nearHospitalCount || 0) + ")");
+    if(summary && Number(summary.nearEscuelaCount || 0) > 0) sensitiveParts.push("escuela (" + Number(summary.nearEscuelaCount || 0) + ")");
+    if(summary && Number(summary.nearEventCount || 0) > 0) sensitiveParts.push("eventos (" + Number(summary.nearEventCount || 0) + ")");
     const hotspots = Array.isArray(reportSignals.hotspots) && reportSignals.hotspots.length
       ? reportSignals.hotspots.map((h)=> h.zone + " (" + h.count + ")").join(", ")
       : "Sin hotspots detectados";
@@ -778,7 +782,7 @@
         + "\nReportes analizados " + (reportSignals.total || 0)
         + (summary && Number(summary.assetCount || 0) > 0 ? ("\nActivos vinculados " + Number(summary.assetCount || 0)) : "")
         + (summary && Number(summary.criticalCount || 0) > 0 ? ("\nActivos criticos " + Number(summary.criticalCount || 0)) : "")
-        + (summary && Number(summary.sensitiveCount || 0) > 0 ? ("\nFrentes sensibles " + Number(summary.sensitiveCount || 0)) : "")
+        + (sensitiveParts.length ? ("\nLugares sensibles " + sensitiveParts.join(", ")) : "")
         + (summary && Number(summary.traceMeters || 0) > 0 ? ("\nTrazos asociados " + Math.round(Number(summary.traceMeters || 0)) + " m") : "")
         + "\nZonas clave: " + hotspots,
       "ai"

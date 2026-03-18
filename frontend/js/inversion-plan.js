@@ -1766,13 +1766,36 @@
       .join("; ");
   }
 
+  function buildPlanAISensitiveSummary(metrics, options){
+    const opts = options && typeof options === "object" ? options : {};
+    const entries = [];
+    if(Number(metrics && metrics.nearHospitalCount || 0) > 0){
+      entries.push({ label: "salud", count: Number(metrics.nearHospitalCount || 0) });
+    }
+    if(Number(metrics && metrics.nearEscuelaCount || 0) > 0){
+      entries.push({ label: "escuela", count: Number(metrics.nearEscuelaCount || 0) });
+    }
+    if(Number(metrics && metrics.nearEventCount || 0) > 0){
+      entries.push({ label: "eventos", count: Number(metrics.nearEventCount || 0) });
+    }
+    if(!entries.length){
+      return "";
+    }
+    const max = Math.max(1, Number(opts.max || entries.length));
+    return entries
+      .slice(0, max)
+      .map((entry)=> opts.withCount ? (entry.label + " (" + entry.count + ")") : entry.label)
+      .join(", ");
+  }
+
   function buildPlanAIImpactSummary(metrics, executionRatio, planningRatio){
     const parts = [];
     if(Number(metrics && metrics.criticalCount || 0) > 0){
       parts.push("prioriza " + metrics.criticalCount + " activos criticos");
     }
-    if(Number(metrics && metrics.sensitiveCount || 0) > 0){
-      parts.push(metrics.sensitiveCount + " frentes sensibles por cercania");
+    const sensitiveSummary = buildPlanAISensitiveSummary(metrics, { withCount: true, max: 2 });
+    if(sensitiveSummary){
+      parts.push("cerca de " + sensitiveSummary);
     }
     if(Number(metrics && metrics.traceMeters || 0) > 0){
       parts.push("cubre " + formatCompactMeters(metrics.traceMeters) + " de trazos");
@@ -1795,6 +1818,10 @@
     }
     if(Number(metrics && metrics.criticalCount || 0) > 0){
       chips.push((metrics.criticalCount || 0) + " criticos");
+    }
+    const sensitiveSummary = buildPlanAISensitiveSummary(metrics, { withCount: true, max: 3 });
+    if(sensitiveSummary){
+      chips.push("Sensibles: " + sensitiveSummary);
     }
     if(Number(metrics && metrics.coveredProjectCount || 0) > 0 && Number(metrics && metrics.projectCount || 0) > 0){
       chips.push(metrics.coveredProjectCount + "/" + metrics.projectCount + " proyectos enlazados");
@@ -2004,6 +2031,9 @@
       acc.assetCount += Number(metrics.assetCount || 0);
       acc.criticalCount += Number(metrics.criticalCount || 0);
       acc.sensitiveCount += Number(metrics.sensitiveCount || 0);
+      acc.nearHospitalCount += Number(metrics.nearHospitalCount || 0);
+      acc.nearEscuelaCount += Number(metrics.nearEscuelaCount || 0);
+      acc.nearEventCount += Number(metrics.nearEventCount || 0);
       acc.traceMeters += Number(metrics.traceMeters || 0);
       acc.geocodedAssets += Number(metrics.geocodedAssets || 0);
       acc.actionsCount += Number(metrics.actionsCount || 0);
@@ -2012,6 +2042,9 @@
       assetCount: 0,
       criticalCount: 0,
       sensitiveCount: 0,
+      nearHospitalCount: 0,
+      nearEscuelaCount: 0,
+      nearEventCount: 0,
       traceMeters: 0,
       geocodedAssets: 0,
       actionsCount: 0
@@ -2034,8 +2067,9 @@
     if(summary.criticalCount > 0){
       chips.push({ label: "Activos criticos", value: String(summary.criticalCount) });
     }
-    if(summary.sensitiveCount > 0){
-      chips.push({ label: "Frentes sensibles", value: String(summary.sensitiveCount) });
+    const sensitiveSummary = buildPlanAISensitiveSummary(summary, { withCount: true, max: 3 });
+    if(sensitiveSummary){
+      chips.push({ label: "Lugares sensibles", value: sensitiveSummary });
     }
     if(summary.traceMeters > 0){
       chips.push({ label: "Trazos", value: formatCompactMeters(summary.traceMeters) });
@@ -2071,8 +2105,13 @@
       const named = focusBoosts.map((row)=> row.planName).join(" y ");
       const criticalFocus = focusBoosts.reduce((sum, row)=> sum + Number(row.metrics && row.metrics.criticalCount || 0), 0);
       const sensitiveFocus = focusBoosts.reduce((sum, row)=> sum + Number(row.metrics && row.metrics.sensitiveCount || 0), 0);
+      const sensitiveSummary = buildPlanAISensitiveSummary({
+        nearHospitalCount: focusBoosts.reduce((sum, row)=> sum + Number(row.metrics && row.metrics.nearHospitalCount || 0), 0),
+        nearEscuelaCount: focusBoosts.reduce((sum, row)=> sum + Number(row.metrics && row.metrics.nearEscuelaCount || 0), 0),
+        nearEventCount: focusBoosts.reduce((sum, row)=> sum + Number(row.metrics && row.metrics.nearEventCount || 0), 0)
+      }, { withCount: true, max: 3 });
       if(criticalFocus || sensitiveFocus){
-        lines.push("Refuerza " + named + " porque concentran " + criticalFocus + " activos criticos y " + sensitiveFocus + " frentes sensibles vinculados.");
+        lines.push("Refuerza " + named + " porque concentran " + criticalFocus + " activos criticos y cercania sensible en " + (sensitiveSummary || (sensitiveFocus + " casos vinculados")) + ".");
       } else {
         lines.push("Refuerza " + named + " por su mayor necesidad relativa y margen de impacto.");
       }
@@ -2145,12 +2184,13 @@
     }
     const summary = scenario.summary || summarizePlanAIScenarioRows(scenario.rows);
     const lines = [getPlanAISummaryLine(scenario)];
+    const sensitiveSummary = buildPlanAISensitiveSummary(summary, { withCount: true, max: 3 });
     if(summary.assetCount > 0){
       lines.push(
         "Base analizada: "
         + summary.assetCount + " activos, "
         + summary.criticalCount + " criticos, "
-        + summary.sensitiveCount + " frentes sensibles"
+        + (sensitiveSummary ? ("lugares sensibles en " + sensitiveSummary) : "sin lugares sensibles destacados")
         + (summary.traceMeters > 0 ? (", " + formatCompactMeters(summary.traceMeters) + " de trazos.") : ".")
       );
     }
