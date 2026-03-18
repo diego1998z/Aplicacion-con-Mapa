@@ -306,6 +306,22 @@
     return best;
   }
 
+  function nearestPointInfo(point, list){
+    if(!point || !Array.isArray(list) || !list.length){
+      return { point: null, distance: Infinity };
+    }
+    let bestPoint = null;
+    let bestDistance = Infinity;
+    list.forEach((target)=>{
+      const next = distanceMeters(point, target);
+      if(next < bestDistance){
+        bestDistance = next;
+        bestPoint = target;
+      }
+    });
+    return { point: bestPoint, distance: bestDistance };
+  }
+
   function distanceScore(distance, maxDistance){
     if(!Number.isFinite(distance) || distance > maxDistance) return 0;
     const ratio = 1 - (distance / maxDistance);
@@ -381,6 +397,31 @@
       }) + " km";
     }
     return n.toLocaleString("es-PE") + " m";
+  }
+
+  function compactPlanAILabel(value, maxLength){
+    const limit = Math.max(12, Number(maxLength || 64));
+    const clean = String(value || "").replace(/\s+/g, " ").trim();
+    if(!clean) return "";
+    if(clean.length <= limit) return clean;
+    return clean.slice(0, limit - 3).trim() + "...";
+  }
+
+  function buildPlanAIReportPointLabel(item, kind){
+    const description = compactPlanAILabel(item && (item.descripcion || item.description || ""), 58);
+    const type = compactPlanAILabel(item && (item.tipo || item.type || ""), 34);
+    const zone = compactPlanAILabel(item && (item.zona || item.distrito || item.district || ""), 26);
+    let label = description || type || zone || "Punto reportado";
+    const normalizedLabel = normalizeText(label);
+    const normalizedZone = normalizeText(zone);
+    if(zone && normalizedZone && normalizedLabel && !normalizedLabel.includes(normalizedZone)){
+      if(kind === "evento"){
+        label += " - " + zone;
+      } else if(kind === "hospital" || kind === "escuela"){
+        label += " - " + zone;
+      }
+    }
+    return compactPlanAILabel(label, 76);
   }
 
   function planAIConfidenceLabel(value){
@@ -1509,6 +1550,7 @@
     const assets = [];
     const typeCounts = { horizontal: 0, vertical: 0, mobiliario: 0, metrado: 0 };
     const points = reportSignals && reportSignals.points ? reportSignals.points : { hospital: [], escuela: [], evento: [] };
+    const closestSensitive = { hospital: null, escuela: null, evento: null };
     let geocodedAssets = 0;
     let totalCost = 0;
     let criticalCost = 0;
@@ -1525,6 +1567,21 @@
     let closestEscuela = Infinity;
     let closestEvent = Infinity;
 
+    const updateClosestSensitive = (kind, info, maxDistance)=>{
+      if(!info || !info.point || !Number.isFinite(info.distance) || info.distance > maxDistance){
+        return;
+      }
+      const current = closestSensitive[kind];
+      if(current && Number(current.distance || Infinity) <= info.distance){
+        return;
+      }
+      closestSensitive[kind] = {
+        label: compactPlanAILabel(info.point.label || info.point.zone || "Punto sensible", 76),
+        zone: compactPlanAILabel(info.point.zone || "", 32),
+        distance: Math.round(info.distance)
+      };
+    };
+
     const registerAsset = (kind, list, action)=>{
       const source = Array.isArray(list) ? list : [];
       source.forEach((item, idx)=>{
@@ -1538,9 +1595,12 @@
         const point = getPlanAIAssetPoint(kind, item);
         const state = getPlanAIAssetState(kind, item);
         const cost = getPlanAIAssetCost(kind, item);
-        const nearEvent = nearestDistanceMeters(point, points.evento);
-        const nearHospital = nearestDistanceMeters(point, points.hospital);
-        const nearEscuela = nearestDistanceMeters(point, points.escuela);
+        const nearEventInfo = nearestPointInfo(point, points.evento);
+        const nearHospitalInfo = nearestPointInfo(point, points.hospital);
+        const nearEscuelaInfo = nearestPointInfo(point, points.escuela);
+        const nearEvent = nearEventInfo.distance;
+        const nearHospital = nearHospitalInfo.distance;
+        const nearEscuela = nearEscuelaInfo.distance;
         const isCritical = state === "sin_senal" || state === "antigua" || state === "pendiente";
         const severity = state === "sin_senal" ? 2.4 : (state === "antigua" ? 1.8 : (state === "pendiente" ? 1.2 : 0.7));
         const typeWeight = kind === "vertical" ? 1.15 : (kind === "horizontal" ? 1.05 : (kind === "metrado" ? 0.95 : 0.9));
@@ -1567,6 +1627,9 @@
         if(Number.isFinite(nearEvent) && nearEvent <= PLAN_AI_PROX_RADII.evento) nearEventCount += 1;
         if(Number.isFinite(nearHospital) && nearHospital <= PLAN_AI_PROX_RADII.hospital) nearHospitalCount += 1;
         if(Number.isFinite(nearEscuela) && nearEscuela <= PLAN_AI_PROX_RADII.escuela) nearEscuelaCount += 1;
+        updateClosestSensitive("evento", nearEventInfo, PLAN_AI_PROX_RADII.evento);
+        updateClosestSensitive("hospital", nearHospitalInfo, PLAN_AI_PROX_RADII.hospital);
+        updateClosestSensitive("escuela", nearEscuelaInfo, PLAN_AI_PROX_RADII.escuela);
         if(Number.isFinite(nearEvent) && nearEvent < closestEvent) closestEvent = nearEvent;
         if(Number.isFinite(nearHospital) && nearHospital < closestHospital) closestHospital = nearHospital;
         if(Number.isFinite(nearEscuela) && nearEscuela < closestEscuela) closestEscuela = nearEscuela;
@@ -1625,6 +1688,7 @@
       traceCount,
       traceMeters: planScenarioRound(traceMeters),
       typeCounts,
+      closestSensitive,
       closest: {
         hospital: Number.isFinite(closestHospital) ? Math.round(closestHospital) : null,
         escuela: Number.isFinite(closestEscuela) ? Math.round(closestEscuela) : null,
@@ -1681,9 +1745,24 @@
       );
       if(point){
         geocoded += 1;
-        if(hasHospital) points.hospital.push(point);
-        if(hasEscuela) points.escuela.push(point);
-        points.evento.push(point);
+        const basePoint = {
+          lat: point.lat,
+          lng: point.lng,
+          zone: compactPlanAILabel(item && (item.zona || item.distrito || item.district || ""), 32)
+        };
+        if(hasHospital){
+          points.hospital.push(Object.assign({}, basePoint, {
+            label: buildPlanAIReportPointLabel(item, "hospital")
+          }));
+        }
+        if(hasEscuela){
+          points.escuela.push(Object.assign({}, basePoint, {
+            label: buildPlanAIReportPointLabel(item, "escuela")
+          }));
+        }
+        points.evento.push(Object.assign({}, basePoint, {
+          label: buildPlanAIReportPointLabel(item, "evento")
+        }));
       }
 
       const zona = String(item && (item.distrito || item.district || item.zona) || "Sin zona");
@@ -1788,14 +1867,38 @@
       .join(", ");
   }
 
+  function buildPlanAISensitivePlacesSummary(metrics, options){
+    const opts = options && typeof options === "object" ? options : {};
+    const closest = metrics && metrics.closestSensitive ? metrics.closestSensitive : {};
+    const entries = [
+      { key: "hospital", label: "salud", item: closest.hospital },
+      { key: "escuela", label: "escuela", item: closest.escuela },
+      { key: "evento", label: "eventos", item: closest.evento }
+    ].filter((entry)=> entry.item && entry.item.label);
+    if(!entries.length){
+      return "";
+    }
+    const max = Math.max(1, Number(opts.max || entries.length));
+    return entries
+      .slice(0, max)
+      .map((entry)=>{
+        const base = (opts.withType === false ? entry.item.label : (entry.label + ": " + entry.item.label));
+        if(opts.withDistance === false || !Number.isFinite(Number(entry.item.distance))){
+          return base;
+        }
+        return base + " (" + formatCompactMeters(entry.item.distance) + ")";
+      })
+      .join(", ");
+  }
+
   function buildPlanAIImpactSummary(metrics, executionRatio, planningRatio){
     const parts = [];
     if(Number(metrics && metrics.criticalCount || 0) > 0){
       parts.push("prioriza " + metrics.criticalCount + " activos criticos");
     }
-    const sensitiveSummary = buildPlanAISensitiveSummary(metrics, { withCount: true, max: 2 });
-    if(sensitiveSummary){
-      parts.push("cerca de " + sensitiveSummary);
+    const sensitivePlaces = buildPlanAISensitivePlacesSummary(metrics, { withType: true, withDistance: false, max: 2 });
+    if(sensitivePlaces){
+      parts.push("cerca de " + sensitivePlaces);
     }
     if(Number(metrics && metrics.traceMeters || 0) > 0){
       parts.push("cubre " + formatCompactMeters(metrics.traceMeters) + " de trazos");
@@ -1913,6 +2016,7 @@
       score,
       reason,
       impact: buildPlanAIImpactSummary(metrics, executionRatio, planningRatio),
+      sensitivePlacesText: buildPlanAISensitivePlacesSummary(metrics, { withType: true, withDistance: true, max: 3 }),
       evidenceChips: buildPlanAIEvidenceChips(metrics),
       metrics,
       priorityLabel: planAIPriorityLabel(score),
@@ -1964,6 +2068,7 @@
         delta: 0,
         reason: item.reason,
         impact: item.impact,
+        sensitivePlacesText: item.sensitivePlacesText,
         evidenceChips: item.evidenceChips,
         metrics: item.metrics,
         score: item.score,
@@ -2272,6 +2377,7 @@
         row.confidenceLabel ? ("Confianza " + row.confidenceLabel) : ""
       ].filter(Boolean).join(" · ");
       const evidenceChips = Array.isArray(row.evidenceChips) ? row.evidenceChips : [];
+      const sensitivePlacesText = String(row.sensitivePlacesText || "").trim();
       return ""
         + "<tr data-plan-id=\"" + escapeHtml(row.planId) + "\">"
         +   "<td>"
@@ -2284,6 +2390,7 @@
         +   "<td>"
         +     "<div class=\"inv-plan-ai-cell-title\">" + escapeHtml(row.impact || "Impacto balanceado") + "</div>"
         +     "<div class=\"inv-plan-ai-cell-sub\">" + escapeHtml(row.reason || "Ajuste balanceado") + "</div>"
+        +     (sensitivePlacesText ? ("<div class=\"inv-plan-ai-cell-sub\">Lugares sensibles: " + escapeHtml(sensitivePlacesText) + "</div>") : "")
         +   "</td>"
         +   "<td>"
         +     (evidenceChips.length
@@ -2449,7 +2556,8 @@
           traceMeters: Number(metrics.traceMeters || 0),
           confidence: metrics.confidenceLabel || "Base",
           priority: evaluation && evaluation.priorityLabel ? evaluation.priorityLabel : "Balanceada",
-          reason: evaluation && evaluation.reason ? evaluation.reason : ""
+          reason: evaluation && evaluation.reason ? evaluation.reason : "",
+          sensitivePlaces: evaluation ? buildPlanAISensitivePlacesSummary(metrics, { withType: true, withDistance: true, max: 3 }) : ""
         };
       }),
       reportSignals,
@@ -2468,6 +2576,7 @@
             delta: row.delta,
             reason: row.reason,
             impact: row.impact,
+            sensitivePlaces: row.sensitivePlacesText,
             evidence: row.evidenceChips,
             metrics: {
               assetCount: Number(row.metrics && row.metrics.assetCount || 0),
