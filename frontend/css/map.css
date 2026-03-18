@@ -1710,11 +1710,18 @@ body.dash-shell .modal{
     justify-content:space-between;
     gap:10px;
     margin-bottom:8px;
+    flex-wrap:wrap;
 }
 .inspeccion-chart-title{
     font-weight:900;
     font-size:13px;
     color:var(--text);
+}
+.inspeccion-chart-badges{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
 }
 .inspeccion-chart-badge{
     font-size:11px;
@@ -1724,6 +1731,18 @@ body.dash-shell .modal{
     border:1px solid var(--border);
     background:var(--panel);
     color:var(--text);
+    appearance:none;
+    cursor:pointer;
+    transition:transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+.inspeccion-chart-badge:hover{
+    transform:translateY(-1px);
+}
+.inspeccion-chart-badge.is-active{
+    box-shadow:0 0 0 2px rgba(29,112,184,0.18);
+}
+.inspeccion-chart-badge.is-ghost{
+    opacity:0.58;
 }
 .inspeccion-chart-badge--amarillo{
     background:rgba(245,158,11,0.15);

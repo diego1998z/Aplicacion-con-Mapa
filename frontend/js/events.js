@@ -273,6 +273,7 @@ let metradoDetalleInspeccionId = "";
 let metradoInspeccionesReadonly = false;
 let inspeccionListadoTab = "historial";
 let inspeccionListadoReturnTo = "close";
+const inspeccionChartColorState = new Map();
 let metradoDetallePickId = "";
 let metradoDetallePickStartRatio = null;
 let metradoDetallePickHoverRatio = null;
@@ -1371,6 +1372,11 @@ function etiquetaColorInspeccion(ins){
   return etiquetaColorMetrado(ins && (ins.color_tipo || ins.tipo_color || ins.color));
 }
 
+function normalizarTipoColorInspeccion(valor, fallback){
+  const raw = String(valor || fallback || "").toLowerCase();
+  return raw === "blanco" ? "blanco" : "amarillo";
+}
+
 function etiquetaColorRegistroMetrado(registro){
   return etiquetaColorMetrado(registro && (registro.color_tipo || registro.color));
 }
@@ -1778,6 +1784,36 @@ function construirSeriesRetro(inspecciones){
   return series;
 }
 
+function inspeccionesPorColor(inspecciones, colorTipo, fallbackColor){
+  const target = normalizarTipoColorInspeccion(colorTipo, fallbackColor);
+  return (Array.isArray(inspecciones) ? inspecciones : []).filter((ins)=>{
+    const current = normalizarTipoColorInspeccion(
+      ins && (ins.color_tipo || ins.tipo_color || ins.color),
+      fallbackColor
+    );
+    return current === target;
+  });
+}
+
+function coloresDisponiblesGraficasInspeccion(inspecciones, fallbackColor){
+  const found = new Set();
+  (Array.isArray(inspecciones) ? inspecciones : []).forEach((ins)=>{
+    found.add(normalizarTipoColorInspeccion(
+      ins && (ins.color_tipo || ins.tipo_color || ins.color),
+      fallbackColor
+    ));
+  });
+  if(!found.size){
+    found.add(normalizarTipoColorInspeccion(fallbackColor, "amarillo"));
+  }
+  return ["amarillo", "blanco"].filter((color)=> found.has(color));
+}
+
+function keyGrupoGraficasInspeccion(grupo){
+  const id = String(grupo && (grupo.chartKey || grupo.id || grupo.nombre) || "").trim();
+  return id || "grupo-inspeccion";
+}
+
 function gruposParaGraficasInspeccion(){
   if(metradoInspeccionesReadonly){
     const regs = Array.isArray(metradoRegistros) ? metradoRegistros : [];
@@ -1786,6 +1822,8 @@ function gruposParaGraficasInspeccion(){
         const inspecciones = Array.isArray(r && r.inspecciones) ? r.inspecciones : [];
         const colorIns = inspecciones.find((ins)=> ins && ins.color_tipo);
         return {
+          id: String(r && r.id || ""),
+          chartKey: "registro:" + String(r && r.id || nombreRegistroMetrado(r) || ""),
           nombre: nombreRegistroMetrado(r),
           color_tipo: String(
             colorIns && colorIns.color_tipo
@@ -1808,7 +1846,13 @@ function gruposParaGraficasInspeccion(){
       || (detalle && detalle.color_tipo)
       || (tipoColorMetradoActual().tipo)
   );
-  return [{ nombre, color_tipo: colorTipo, inspecciones: actual }];
+  return [{
+    id: String(metradoDetalleInspeccionId || "actual"),
+    chartKey: "detalle:" + String(metradoDetalleInspeccionId || "actual"),
+    nombre,
+    color_tipo: colorTipo,
+    inspecciones: actual
+  }];
 }
 
 function renderInspeccionCharts(){
@@ -1819,11 +1863,19 @@ function renderInspeccionCharts(){
     return;
   }
   inspeccionChartsList.innerHTML = grupos.map((g)=>{
-    const tipo = String(g.color_tipo || "amarillo").toLowerCase() === "blanco" ? "blanco" : "amarillo";
-    const badgeClass = tipo === "blanco" ? "inspeccion-chart-badge--blanco" : "inspeccion-chart-badge--amarillo";
-    const badgeText = tipo === "blanco" ? "Pintura blanca" : "Pintura amarilla";
-    const paleta = paletaRetroPorColor(tipo);
-    const series = construirSeriesRetro(g.inspecciones);
+    const defaultColor = normalizarTipoColorInspeccion(g && g.color_tipo, "amarillo");
+    const chartKey = keyGrupoGraficasInspeccion(g);
+    const availableColors = coloresDisponiblesGraficasInspeccion(g.inspecciones, defaultColor);
+    const selectedColor = normalizarTipoColorInspeccion(
+      inspeccionChartColorState.get(chartKey),
+      availableColors[0] || defaultColor
+    );
+    if(inspeccionChartColorState.get(chartKey) !== selectedColor){
+      inspeccionChartColorState.set(chartKey, selectedColor);
+    }
+    const paleta = paletaRetroPorColor(selectedColor);
+    const filteredInspecciones = inspeccionesPorColor(g.inspecciones, selectedColor, defaultColor);
+    const series = construirSeriesRetro(filteredInspecciones);
     const keys = ["li", "ld", "ec1", "ec2"];
     const chartsHtml = keys.map((k)=>{
       const data = series[k];
@@ -1834,14 +1886,34 @@ function renderInspeccionCharts(){
         +   svgLineaRetro(data.points, paleta[k] || "#1d4ed8")
         + "</div>";
     }).join("");
+    const badgesHtml = ["amarillo", "blanco"].map((color)=>{
+      const active = selectedColor === color;
+      const present = availableColors.includes(color);
+      const badgeClass = color === "blanco" ? "inspeccion-chart-badge--blanco" : "inspeccion-chart-badge--amarillo";
+      const badgeText = color === "blanco" ? "Blanco" : "Amarillo";
+      return ""
+        + "<button type=\"button\""
+        +   " class=\"inspeccion-chart-badge " + badgeClass
+        +   (active ? " is-active" : "")
+        +   (present ? "" : " is-ghost")
+        + "\""
+        +   " data-chart-group=\"" + escapeAttr(chartKey) + "\""
+        +   " data-chart-color=\"" + escapeAttr(color) + "\""
+        +   " aria-pressed=\"" + (active ? "true" : "false") + "\""
+        + ">"
+        +   badgeText
+        + "</button>";
+    }).join("");
     const body = chartsHtml
       ? ("<div class=\"inspeccion-chart-grid\">" + chartsHtml + "</div>")
-      : "<div class=\"inspeccion-chart-empty\">Este trazo no tiene mediciones de retroreflectividad con fecha valida.</div>";
+      : "<div class=\"inspeccion-chart-empty\">Este trazo no tiene mediciones de retroreflectividad para pintura "
+        + escapeHtml(selectedColor === "blanco" ? "blanca" : "amarilla")
+        + " con fecha valida.</div>";
     return ""
       + "<div class=\"inspeccion-chart-card\">"
       +   "<div class=\"inspeccion-chart-head\">"
       +     "<div class=\"inspeccion-chart-title\">" + escapeHtml(String(g.nombre || "Trazo")) + "</div>"
-      +     "<span class=\"inspeccion-chart-badge " + badgeClass + "\">" + badgeText + "</span>"
+      +     "<div class=\"inspeccion-chart-badges\">" + badgesHtml + "</div>"
       +   "</div>"
       +   body
       + "</div>";
@@ -8445,6 +8517,17 @@ if(btnInspeccionTabHistorial){
 }
 if(btnInspeccionTabGraficas){
   btnInspeccionTabGraficas.addEventListener("click", ()=> setInspeccionListadoTab("graficas"));
+}
+if(inspeccionChartsList){
+  inspeccionChartsList.addEventListener("click", (e)=>{
+    const btn = e.target && e.target.closest ? e.target.closest("[data-chart-group][data-chart-color]") : null;
+    if(!btn) return;
+    const groupKey = String(btn.getAttribute("data-chart-group") || "").trim();
+    const color = normalizarTipoColorInspeccion(btn.getAttribute("data-chart-color") || "amarillo", "amarillo");
+    if(!groupKey) return;
+    inspeccionChartColorState.set(groupKey, color);
+    renderInspeccionCharts();
+  });
 }
 if(btnMetradoVerRegistros){
   btnMetradoVerRegistros.addEventListener("click", abrirModalMetradoRegistros);
