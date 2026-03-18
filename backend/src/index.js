@@ -156,10 +156,36 @@ function pickTopEntries(dict, limit = 3) {
     .slice(0, limit);
 }
 
-function construirRespuestaLocalGratis({ prompt, contextJson }) {
+function normalizeChatText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+function normalizeChatHistory(history) {
+  const items = Array.isArray(history) ? history : [];
+  return items
+    .slice(-8)
+    .map((item) => ({
+      role: item && item.role === "user" ? "user" : "assistant",
+      text: String(item && item.text || "").trim()
+    }))
+    .filter((item) => item.text);
+}
+
+function construirRespuestaLocalGratis({ prompt, contextJson, history, mode }) {
   const ctx = parseJsonSafe(contextJson);
   const resumen = ctx && ctx.resumen && typeof ctx.resumen === "object" ? ctx.resumen : {};
   const inversion = ctx && ctx.inversion && typeof ctx.inversion === "object" ? ctx.inversion : {};
+  const chat = ctx && ctx.chat && typeof ctx.chat === "object" ? ctx.chat : {};
+  const planCtx = chat && chat.frontendPlanContext && typeof chat.frontendPlanContext === "object"
+    ? chat.frontendPlanContext
+    : null;
+  const inventoryCtx = chat && chat.frontendInventoryContext && typeof chat.frontendInventoryContext === "object"
+    ? chat.frontendInventoryContext
+    : null;
   const reportesPorTipo = resumen && resumen.reportesPorTipo && typeof resumen.reportesPorTipo === "object"
     ? resumen.reportesPorTipo
     : {};
@@ -194,58 +220,120 @@ function construirRespuestaLocalGratis({ prompt, contextJson }) {
   }
 
   const consulta = String(prompt || "").trim();
+  const consultaNorm = normalizeChatText(consulta);
+  const historyItems = normalizeChatHistory(history);
+
+  if ((mode === "inversion-plan" || planCtx) && planCtx) {
+    const reportSignals = planCtx && planCtx.reportSignals && typeof planCtx.reportSignals === "object"
+      ? planCtx.reportSignals
+      : { total: 0, hotspots: [] };
+    const hotspots = Array.isArray(reportSignals.hotspots) ? reportSignals.hotspots.slice(0, 2) : [];
+    const scenario = planCtx && planCtx.scenario && typeof planCtx.scenario === "object"
+      ? planCtx.scenario
+      : null;
+    const topChanges = scenario && Array.isArray(scenario.topChanges) ? scenario.topChanges : [];
+    const topBoost = topChanges.find((item) => Number(item.delta || 0) > 0);
+    const topCut = topChanges.find((item) => Number(item.delta || 0) < 0);
+    if (!scenario) {
+      return [
+        "Estoy operando en modo local, pero igual puedo ayudarte con Presupuesto.",
+        "Todavia no hay un comparativo IA generado en esta vista.",
+        "Primero ejecuta /sugerir y luego te explico que mejora, que recorta y que saldo deja."
+      ].join("\n\n");
+    }
+    const lines = [
+      "Estoy operando en modo local, pero igual puedo leerte el comparativo con el contexto actual.",
+      "La mejora principal es que la propuesta redistribuye presupuesto hacia los planes con mas presion operativa y territorial."
+    ];
+    if (topBoost) {
+      lines.push("El mayor refuerzo va a " + topBoost.plan + " con " + formatMoneyPEN(topBoost.delta) + " porque " + String(topBoost.reason || "presenta mayor prioridad") + ".");
+    }
+    if (topCut) {
+      lines.push("El principal ajuste sale de " + topCut.plan + " con -" + formatMoneyPEN(Math.abs(topCut.delta)) + " para liberar recursos.");
+    }
+    lines.push("Con este escenario quedarian asignados " + formatMoneyPEN(scenario.assignedAfter || 0) + " y un saldo de " + formatMoneyPEN(scenario.remainingAfter || 0) + ".");
+    if (hotspots.length) {
+      lines.push("La recomendacion esta alineada con reportes en " + hotspots.map((item) => item.zone + " (" + item.count + ")").join(" y ") + ".");
+    } else if (Number(reportSignals.total || 0) > 0) {
+      lines.push("La recomendacion toma como base " + Number(reportSignals.total || 0) + " reportes locales.");
+    }
+    if (consultaNorm.includes("mejor") || consultaNorm.includes("cambio") || consultaNorm.includes("compar")) {
+      lines.push("Si quieres, puedo detallarte plan por plan que gana, que pierde y por que.");
+    }
+    return lines.join("\n\n");
+  }
+
+  if ((mode === "inversion" || inventoryCtx) && inventoryCtx) {
+    const topCritical = Array.isArray(inventoryCtx.topCritical) ? inventoryCtx.topCritical.slice(0, 3) : [];
+    const lines = [
+      "Estoy operando en modo local, pero igual puedo darte una lectura util del inventario.",
+      "Hoy tienes " + Number(inventoryCtx.criticalAssets || 0) + " activos criticos sobre " + Number(inventoryCtx.totalAssets || 0) + " evaluados."
+    ];
+    if (topCritical.length) {
+      lines.push("Los frentes mas sensibles son " + topCritical.map((item) => item.name + " (" + item.estado + ")").join(", ") + ".");
+    }
+    lines.push("La bolsa estimada es " + formatMoneyPEN(inventoryCtx.replacementTotal || 0) + " en reposicion y " + formatMoneyPEN(inventoryCtx.maintenanceTotal || 0) + " en mantenimiento.");
+    lines.push("Si quieres, puedo priorizarlo por seguridad, cercania o costo.");
+    return lines.join("\n\n");
+  }
+
   const diagnostico = [
     `Se analizaron ${Number(resumen.totalActivos || 0)} activos y ${Number(resumen.totalReportes || 0)} reportes.`,
     `Planes: ${planes.length} registrados, avance aproximado ${Math.max(0, Math.min(100, avance))}% (${formatMoneyPEN(ejecutado)} de ${formatMoneyPEN(planificado)}).`,
     `Tipos de reporte mas frecuentes: ${tiposTexto}.`
   ].join(" ");
-
-  return [
-    "Modo IA local gratuito activo (sin GEMINI_API_KEY).",
-    "1) Diagnostico breve",
-    diagnostico,
-    "",
-    "2) Zonas prioritarias (max 3, con motivo)",
-    zonasTexto,
-    "",
-    "3) Recomendaciones concretas",
-    recs.slice(0, 4).join("\n"),
-    "",
-    "4) Riesgos/supuestos",
-    "- Analisis basado en datos cargados actualmente; si faltan reportes de campo, la prioridad puede variar.",
-    "- La precision mejora al registrar eventos georreferenciados y actualizar estado real de activos.",
-    "",
-    "Consulta recibida:",
-    consulta || "(sin consulta)"
-  ].join("\n");
+  const lines = [];
+  if (historyItems.length > 1 && consulta.length <= 24) {
+    const prevUser = historyItems.slice().reverse().find((item) => item.role === "user" && item.text !== consulta);
+    if (prevUser) {
+      lines.push("Tomo esta consulta como seguimiento de: \"" + prevUser.text + "\".");
+    }
+  }
+  lines.push("Estoy operando en modo local gratuito, asi que respondo con el contexto cargado en este momento.");
+  lines.push(diagnostico);
+  lines.push("Zonas con mayor concentracion actual: " + (topDistritos.length
+    ? topDistritos.map((z) => `${z.district || "Sin distrito"} (${Number(z.count || 0)})`).join(", ")
+    : "sin concentracion clara de reportes"));
+  lines.push("Recomendacion base: " + recs.slice(0, 3).map((item) => item.replace(/^- /, "")).join(" "));
+  lines.push("Si quieres mas precision, me sirve que mantengas reportes georreferenciados y estados actualizados.");
+  return lines.join("\n\n");
 }
 
-async function consultarGeminiPresupuesto({ prompt, contextJson }) {
+async function consultarGeminiPresupuesto({ prompt, contextJson, history, mode }) {
   const apiKey = process.env.GEMINI_API_KEY;
   const model = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
   if (!apiKey) {
     return {
       model: "local-free-fallback",
-      answer: construirRespuestaLocalGratis({ prompt, contextJson })
+      answer: construirRespuestaLocalGratis({ prompt, contextJson, history, mode })
     };
   }
 
+  const normalizedHistory = normalizeChatHistory(history);
+  const historyText = normalizedHistory.length
+    ? normalizedHistory.map((item) => `${item.role === "user" ? "Usuario" : "Asistente"}: ${item.text}`).join("\n")
+    : "(sin historial reciente)";
+
   const systemInstruction = [
-    "Eres un analista tecnico de inversion vial para municipalidades del Peru.",
+    "Eres un analista tecnico de inversion vial para municipalidades del Peru y conversas como un copiloto util, claro y natural.",
     "Responde solo en espanol.",
-    "Usa exclusivamente el contexto JSON proporcionado y la consulta del usuario.",
+    "Usa exclusivamente el contexto JSON proporcionado, el historial reciente y la consulta actual del usuario.",
+    "Adapta el formato a la pregunta. Puedes responder con parrafos breves o listas cortas; no fuerces secciones numeradas ni una plantilla fija en cada turno.",
+    "Si el contexto incluye comparativos o escenarios, explica explicitamente que mejora, que se refuerza, que se reduce y cual es el impacto presupuestal.",
+    "Si la consulta es una repregunta corta, apoyate en el historial reciente para mantener continuidad.",
     "Si faltan datos, dilo explicitamente y propone como obtenerlos.",
-    "Entrega una respuesta accionable con este formato:",
-    "1) Diagnostico breve",
-    "2) Zonas prioritarias (max 3, con motivo)",
-    "3) Recomendaciones concretas (marcas viales, senalizacion horizontal y vertical)",
-    "4) Riesgos/supuestos",
     "No inventes cifras ni cites fuentes no entregadas."
   ].join(" ");
 
   const userPrompt = [
-    "Consulta del usuario:",
+    "Historial reciente:",
+    historyText,
+    "",
+    "Consulta actual del usuario:",
     prompt,
+    "",
+    "Modo de trabajo:",
+    mode || "general",
     "",
     "Contexto local (JSON):",
     contextJson
@@ -264,9 +352,9 @@ async function consultarGeminiPresupuesto({ prompt, contextJson }) {
         systemInstruction: { parts: [{ text: systemInstruction }] },
         contents: [{ role: "user", parts: [{ text: userPrompt }] }],
         generationConfig: {
-          temperature: 0.2,
-          topP: 0.9,
-          maxOutputTokens: 900
+          temperature: 0.55,
+          topP: 0.95,
+          maxOutputTokens: 1000
         }
       })
     });
@@ -1140,6 +1228,14 @@ app.post("/ai/presupuesto-chat", authRequired, async (req, res, next) => {
     const inversionOverride = req.body && req.body.override && typeof req.body.override === "object"
       ? req.body.override
       : null;
+    const inventoryContext = req.body && req.body.inventoryContext && typeof req.body.inventoryContext === "object"
+      ? req.body.inventoryContext
+      : null;
+    const planContext = req.body && req.body.planContext && typeof req.body.planContext === "object"
+      ? req.body.planContext
+      : null;
+    const mode = req.body && req.body.mode ? String(req.body.mode) : "";
+    const history = normalizeChatHistory(req.body && req.body.history);
     const preference = req.body && req.body.preference ? String(req.body.preference) : "";
 
     const context = {
@@ -1184,13 +1280,20 @@ app.post("/ai/presupuesto-chat", authRequired, async (req, res, next) => {
           reposicion: Number(inversionOverride.reposicion || 0),
           preferencia: inversionOverride.pref ? String(inversionOverride.pref) : ""
         } : null
+      },
+      chat: {
+        mode,
+        frontendInventoryContext: inventoryContext,
+        frontendPlanContext: planContext
       }
     };
 
     const contextJson = JSON.stringify(context, null, 2);
     const ai = await consultarGeminiPresupuesto({
       prompt: query,
-      contextJson
+      contextJson,
+      history,
+      mode
     });
 
     res.json({

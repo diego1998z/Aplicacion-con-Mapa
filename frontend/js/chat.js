@@ -9,6 +9,7 @@
   const input = document.getElementById("aiChatInput");
   const status = document.getElementById("aiChatStatus");
   const supportPhone = "+51 993931475";
+  const MAX_HISTORY_ITEMS = 12;
 
   if(!toggle || !panel || !body || !quick || !form || !input || !status){
     return;
@@ -19,6 +20,10 @@
     active: false,
     preference: "balance",
     pending: false
+  };
+  const historyByMode = {
+    inversion: [],
+    "inversion-plan": []
   };
   const introShown = new Set();
 
@@ -95,7 +100,42 @@
     return null;
   }
 
-  function addMessage(text, role){
+  function rememberMessage(text, role, modeOverride){
+    const modeKey = modeOverride || state.mode;
+    if(modeKey !== "inversion" && modeKey !== "inversion-plan"){
+      return;
+    }
+    const clean = String(text || "").trim();
+    if(!clean){
+      return;
+    }
+    const bucket = historyByMode[modeKey];
+    if(!Array.isArray(bucket)){
+      return;
+    }
+    bucket.push({
+      role: role === "user" ? "user" : "assistant",
+      text: clean
+    });
+    if(bucket.length > MAX_HISTORY_ITEMS){
+      bucket.splice(0, bucket.length - MAX_HISTORY_ITEMS);
+    }
+  }
+
+  function getRecentHistory(modeOverride){
+    const modeKey = modeOverride || state.mode;
+    const bucket = historyByMode[modeKey];
+    if(!Array.isArray(bucket) || !bucket.length){
+      return [];
+    }
+    return bucket.slice(-8).map((item)=> ({
+      role: item.role,
+      text: item.text
+    }));
+  }
+
+  function addMessage(text, role, options){
+    const opts = options && typeof options === "object" ? options : {};
     const wrap = document.createElement("div");
     wrap.className = "ai-msg" + (role === "user" ? " ai-msg--user" : "");
     const bubble = document.createElement("div");
@@ -104,6 +144,9 @@
     wrap.appendChild(bubble);
     body.appendChild(wrap);
     body.scrollTop = body.scrollHeight;
+    if(opts.persist !== false){
+      rememberMessage(text, role, opts.mode);
+    }
   }
 
   function formatMoney(value){
@@ -534,7 +577,9 @@
     }
     const payload = {
       query: String(query || "").trim(),
-      preference: state.preference
+      preference: state.preference,
+      mode: state.mode,
+      history: getRecentHistory()
     };
 
     if(state.mode === "inversion"){
@@ -725,7 +770,7 @@
       ? reportSignals.hotspots.map((h)=> h.zone + " (" + h.count + ")").join(", ")
       : "Sin hotspots detectados";
     addMessage(
-      "Resumen presupuesto:\nPeriodo " + (ctx.year || "-")
+      "Panorama actual del presupuesto:\nPeriodo " + (ctx.year || "-")
         + "\nPresupuesto anual " + formatMoney(ctx.budgetTotal || 0)
         + "\nAsignado en planes " + formatMoney(ctx.assigned || 0)
         + "\nSaldo " + formatMoney(ctx.remaining || 0)
@@ -761,7 +806,11 @@
       suggestPlanFromChat();
       return;
     }
-    addMessage("El comparativo IA ya esta visible en Presupuesto. Puedes aplicar o revertir desde aqui.", "ai");
+    const ctx = typeof planAI.getContext === "function" ? planAI.getContext() : null;
+    const summary = ctx && ctx.scenario && ctx.scenario.summaryNote
+      ? String(ctx.scenario.summaryNote)
+      : "El comparativo IA ya esta visible en Presupuesto. Puedes aplicar o revertir desde aqui.";
+    addMessage("Ya tengo el comparativo listo.\n" + summary, "ai");
     setStatus();
   }
 
@@ -878,6 +927,7 @@
     if(!raw){
       return;
     }
+    rememberMessage(raw, "user");
     const localCommand = resolveLocalCommand(raw);
     if(localCommand){
       handleAction(localCommand);
@@ -885,35 +935,15 @@
     }
     if(isGreeting(raw)){
       const msg = state.mode === "inversion-plan"
-        ? "Hola. Puedes preguntarme libremente sobre presupuesto, o usar /sugerir, /comparar, /aplicar y /revertir."
-        : "Hola. Puedes preguntarme libremente sobre inventario, o usar /ranking, /cercania, /mensual y /seguridad.";
+        ? "Hola. Puedo revisar contigo el presupuesto, explicar por que la IA movio montos y comparar escenarios. Si quieres ir directo, usa /sugerir, /comparar, /aplicar o /revertir."
+        : "Hola. Puedo ayudarte a priorizar inventario, revisar cercania y armar un plan mensual. Si prefieres atajos, usa /ranking, /cercania, /mensual o /seguridad.";
       addMessage(msg, "ai");
       return;
     }
 
     setPending(true);
     try{
-      let query = raw;
-      if(state.mode === "inversion-plan"){
-        const ctx = getPlanContextForPrompt();
-        if(ctx){
-          const compact = {
-            year: ctx.year,
-            budgetTotal: ctx.budgetTotal,
-            assigned: ctx.assigned,
-            remaining: ctx.remaining,
-            reportSignals: ctx.reportSignals,
-            scenario: ctx.scenario
-          };
-          query += "\n\nContexto local presupuesto: " + JSON.stringify(compact);
-        }
-      } else if(state.mode === "inversion"){
-        const invCtx = getInventoryContextForPrompt();
-        if(invCtx){
-          query += "\n\nContexto local inventario: " + JSON.stringify(invCtx);
-        }
-      }
-      const result = await consultarIAReal(query);
+      const result = await consultarIAReal(raw);
       const answer = result && result.answer ? String(result.answer) : "";
       if(answer){
         addMessage(answer, "ai");
@@ -978,8 +1008,8 @@
       title.textContent = state.mode === "inversion-plan" ? "Asistente de presupuesto" : "Asistente de inversion";
     }
     input.placeholder = state.mode === "inversion-plan"
-      ? "Consulta escenarios y prioridades..."
-      : "Escribe tu consulta...";
+      ? "Pregunta por mejoras, escenarios o prioridades..."
+      : "Pregunta por prioridades o escenarios...";
 
     if(changed){
       if(state.mode === "inversion-plan"){
@@ -993,8 +1023,8 @@
 
     if(!introShown.has(state.mode)){
       const msg = state.mode === "inversion-plan"
-        ? "Asistente de Presupuesto activo. Puedes escribir consultas libres; tambien puedes usar comandos cortos como /sugerir, /comparar, /aplicar y /revertir."
-        : "Asistente de Inventario activo. Puedes escribir consultas libres; tambien puedes usar /ranking, /cercania, /mensual o /seguridad.";
+        ? "Asistente de Presupuesto activo. Puedes escribirme normal y te explico que mejora cada escenario; si quieres ir rapido, usa /sugerir, /comparar, /aplicar o /revertir."
+        : "Asistente de Inventario activo. Puedes escribirme normal para priorizar activos o pedir un plan; tambien puedes usar /ranking, /cercania, /mensual o /seguridad.";
       addMessage(msg, "ai");
       introShown.add(state.mode);
     }
@@ -1022,7 +1052,7 @@
     if(!value){
       return;
     }
-    addMessage(value, "user");
+    addMessage(value, "user", { persist: false });
     input.value = "";
     await handleText(value);
   });

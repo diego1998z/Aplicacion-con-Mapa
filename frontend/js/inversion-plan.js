@@ -1484,15 +1484,8 @@
     const assignedAfter = planScenarioRound(rows.reduce((sum, row)=> sum + row.suggested, 0));
     const remainingAfter = Math.max(0, planScenarioRound(budgetTotal - assignedAfter));
     const baseSignature = getPlanAmountSignature(plans);
-    const hotspotsText = reportSignals.hotspots.map((h)=> h.zone + " (" + h.count + ")").join(", ");
-    const note = [
-      "IA sugirio una redistribucion usando avance de planes, intervenciones y reportes locales.",
-      reportSignals.total ? ("Reportes analizados: " + reportSignals.total + ".") : "No hay reportes cargados en este distrito.",
-      hotspotsText ? ("Zonas con mas eventos: " + hotspotsText + ".") : "",
-      budgetTotal > 0 ? ("Saldo sugerido sin asignar: " + formatMoney(remainingAfter) + ".") : "No hay presupuesto anual definido."
-    ].filter(Boolean).join(" ");
 
-    return {
+    const scenario = {
       id: "plan-ai-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,5),
       year,
       createdAt: new Date().toISOString(),
@@ -1503,9 +1496,56 @@
       remainingAfter,
       reportSignals,
       rows,
-      note,
+      note: "",
       baseSignature
     };
+    scenario.note = buildPlanAIScenarioNote(scenario);
+    return scenario;
+  }
+
+  function getPlanAIImprovementLines(scenario){
+    if(!scenario || !Array.isArray(scenario.rows) || !scenario.rows.length){
+      return [];
+    }
+    const increases = scenario.rows
+      .filter((row)=> Number(row.delta || 0) > 0)
+      .sort((a,b)=> b.delta - a.delta);
+    const decreases = scenario.rows
+      .filter((row)=> Number(row.delta || 0) < 0)
+      .sort((a,b)=> a.delta - b.delta);
+    const reportSignals = scenario.reportSignals || {};
+    const focusBoosts = increases.filter((row)=> /salud|emergencia|escolar|eventos/i.test(String(row.reason || "")));
+    const lines = [];
+
+    if(focusBoosts.length){
+      const named = focusBoosts.slice(0, 2).map((row)=> row.planName).join(" y ");
+      lines.push("Refuerza planes con mayor presion territorial, empezando por " + named + ".");
+    } else if(increases.length){
+      lines.push("Refuerza " + increases.length + " planes con mayor necesidad relativa y margen de impacto.");
+    }
+
+    if(decreases.length){
+      const released = Math.abs(planScenarioRound(decreases.reduce((sum, row)=> sum + Number(row.delta || 0), 0)));
+      lines.push("Recorta planes menos urgentes para reubicar " + formatMoney(released) + " hacia frentes mas criticos.");
+    }
+
+    if(Number(scenario.assignedAfter || 0) > Number(scenario.assignedBefore || 0)){
+      const activated = planScenarioRound(Number(scenario.assignedAfter || 0) - Number(scenario.assignedBefore || 0));
+      lines.push("Activa " + formatMoney(activated) + " del saldo disponible sin exceder el presupuesto anual.");
+    }
+
+    if(reportSignals.total){
+      const hotspotLead = Array.isArray(reportSignals.hotspots) ? reportSignals.hotspots.slice(0, 2) : [];
+      if(hotspotLead.length){
+        lines.push("Se alinea con reportes concentrados en " + hotspotLead.map((item)=> item.zone + " (" + item.count + ")").join(" y ") + ".");
+      } else {
+        lines.push("Toma como base " + reportSignals.total + " reportes locales para redistribuir prioridad.");
+      }
+    } else {
+      lines.push("Trabaja solo con avance e intervenciones porque no hay reportes locales cargados.");
+    }
+
+    return lines.slice(0, 4);
   }
 
   function getPlanAISummaryLine(scenario){
@@ -1527,10 +1567,28 @@
       parts.push("Mayor refuerzo: " + up.planName + " (" + formatMoney(up.delta) + ").");
     }
     if(down){
-      parts.push("Mayor ajuste: " + down.planName + " (" + formatMoney(down.delta) + ").");
+      parts.push("Mayor ajuste: " + down.planName + " (-" + formatMoney(Math.abs(down.delta)) + ").");
     }
     parts.push("Total sugerido: " + formatMoney(scenario.assignedAfter) + ".");
     return parts.join(" ");
+  }
+
+  function buildPlanAIScenarioNote(scenario){
+    if(!scenario || !Array.isArray(scenario.rows) || !scenario.rows.length){
+      return "No hay comparativo IA disponible.";
+    }
+    const lines = [getPlanAISummaryLine(scenario)];
+    const improvementLines = getPlanAIImprovementLines(scenario);
+    if(improvementLines.length){
+      lines.push("Que mejora esta propuesta:");
+      improvementLines.forEach((line)=> lines.push("- " + line));
+    }
+    if(Number(scenario.budgetTotal || 0) > 0){
+      lines.push("Saldo sugerido tras el ajuste: " + formatMoney(scenario.remainingAfter) + ".");
+    } else {
+      lines.push("Todavia no hay presupuesto anual definido para medir mejor el margen disponible.");
+    }
+    return lines.join("\n");
   }
 
   function renderPlanAIScenario(plans, presupuesto){
@@ -1738,6 +1796,8 @@
       scenario: aiPlanScenario ? {
         assignedAfter: aiPlanScenario.assignedAfter,
         remainingAfter: aiPlanScenario.remainingAfter,
+        summaryNote: buildPlanAIScenarioNote(aiPlanScenario),
+        improvements: getPlanAIImprovementLines(aiPlanScenario),
         topChanges: aiPlanScenario.rows
           .slice()
           .sort((a,b)=> Math.abs(b.delta) - Math.abs(a.delta))

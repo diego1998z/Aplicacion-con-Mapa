@@ -901,6 +901,7 @@
   background:#f6f8fb;
   font-size:12px;
   color:#0b2230;
+  white-space:pre-line;
 }
 .inv-plan-ai-actions{
   margin-top:12px;
