@@ -80,6 +80,7 @@
   const btnPlanProjectSave = document.getElementById("btnPlanProjectSave");
   const aiPlanCompareCard = document.getElementById("aiPlanCompareCard");
   const aiPlanCompareMeta = document.getElementById("aiPlanCompareMeta");
+  const aiPlanCompareHighlights = document.getElementById("aiPlanCompareHighlights");
   const aiPlanCompareBody = document.getElementById("aiPlanCompareBody");
   const aiPlanCompareNote = document.getElementById("aiPlanCompareNote");
   const btnPlanAISuggest = document.getElementById("btnPlanAISuggest");
@@ -137,6 +138,11 @@
     escuela: ["colegio", "escuela", "nido", "instituto", "universidad", "escolar", "estudiante"],
     evento: ["accidente", "choque", "atropello", "evento", "siniestro", "incidente", "riesgo", "peligro"]
   };
+  const PLAN_AI_PROX_RADII = Object.freeze({
+    evento: 600,
+    hospital: 900,
+    escuela: 900
+  });
 
   function toPositiveNumber(value){
     const n = Number(value);
@@ -262,6 +268,134 @@
       if(Array.isArray(avisos)) return avisos.slice();
     }catch(e){}
     return [];
+  }
+
+  function normalizeStateKey(value){
+    return normalizeText(value).replace(/\s+/g, "_");
+  }
+
+  function toPoint(lat, lng){
+    const nLat = Number(lat);
+    const nLng = Number(lng);
+    if(!Number.isFinite(nLat) || !Number.isFinite(nLng)) return null;
+    return { lat: nLat, lng: nLng };
+  }
+
+  function distanceMeters(a, b){
+    if(!a || !b) return Infinity;
+    const toRad = (deg)=> deg * (Math.PI / 180);
+    const R = 6371000;
+    const dLat = toRad(Number(b.lat) - Number(a.lat));
+    const dLng = toRad(Number(b.lng) - Number(a.lng));
+    const lat1 = toRad(Number(a.lat));
+    const lat2 = toRad(Number(b.lat));
+    const sinLat = Math.sin(dLat / 2);
+    const sinLng = Math.sin(dLng / 2);
+    const h = sinLat * sinLat + Math.cos(lat1) * Math.cos(lat2) * sinLng * sinLng;
+    const c = 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+    return R * c;
+  }
+
+  function nearestDistanceMeters(point, list){
+    if(!point || !Array.isArray(list) || !list.length) return Infinity;
+    let best = Infinity;
+    list.forEach((target)=>{
+      const next = distanceMeters(point, target);
+      if(next < best) best = next;
+    });
+    return best;
+  }
+
+  function distanceScore(distance, maxDistance){
+    if(!Number.isFinite(distance) || distance > maxDistance) return 0;
+    const ratio = 1 - (distance / maxDistance);
+    return Math.max(0, Math.min(1, ratio));
+  }
+
+  function getPlanAIAssetPoint(kind, item){
+    if(!item) return null;
+    if(kind === "metrado"){
+      const puntos = Array.isArray(item.puntos) ? item.puntos : [];
+      if(!puntos.length) return null;
+      let sumLat = 0;
+      let sumLng = 0;
+      let count = 0;
+      puntos.forEach((pt)=>{
+        const point = Array.isArray(pt) ? toPoint(pt[0], pt[1]) : null;
+        if(!point) return;
+        sumLat += point.lat;
+        sumLng += point.lng;
+        count += 1;
+      });
+      if(!count) return null;
+      return { lat: sumLat / count, lng: sumLng / count };
+    }
+    return toPoint(item.lat, item.lng);
+  }
+
+  function getPlanAIAssetCost(kind, item){
+    try{
+      if(kind === "metrado" && typeof precioInversionMetrado === "function"){
+        return toPositiveNumber(precioInversionMetrado(item));
+      }
+      if(kind !== "metrado" && typeof precioInversionSenal === "function"){
+        return toPositiveNumber(precioInversionSenal(kind, item));
+      }
+    }catch(e){}
+    return 0;
+  }
+
+  function getPlanAIAssetState(kind, item){
+    if(kind === "metrado"){
+      const pending = typeof registroPendienteInspeccion === "function" ? !!registroPendienteInspeccion(item) : false;
+      return pending ? "pendiente" : "registrada";
+    }
+    return normalizeStateKey(item && item.estado || "nueva") || "nueva";
+  }
+
+  function getPlanAIAssetTypeLabel(kind, count){
+    const plural = Number(count || 0) !== 1;
+    if(kind === "horizontal") return plural ? "marcas" : "marca";
+    if(kind === "vertical") return plural ? "senales" : "senal";
+    if(kind === "mobiliario") return plural ? "mobiliarios" : "mobiliario";
+    if(kind === "metrado") return plural ? "trazos" : "trazo";
+    return plural ? "activos" : "activo";
+  }
+
+  function buildPlanAIAssetBreakdown(typeCounts, limit){
+    const entries = Object.entries(typeCounts || {})
+      .filter(([, count])=> Number(count || 0) > 0)
+      .sort((a,b)=> Number(b[1] || 0) - Number(a[1] || 0))
+      .slice(0, limit || 2);
+    return entries.map(([kind, count])=> count + " " + getPlanAIAssetTypeLabel(kind, count)).join(", ");
+  }
+
+  function formatCompactMeters(value){
+    const n = Math.round(Number(value || 0));
+    if(!Number.isFinite(n) || n <= 0) return "0 m";
+    if(n >= 1000){
+      const km = Math.round((n / 1000) * 10) / 10;
+      return km.toLocaleString("es-PE", {
+        minimumFractionDigits: km % 1 ? 1 : 0,
+        maximumFractionDigits: 1
+      }) + " km";
+    }
+    return n.toLocaleString("es-PE") + " m";
+  }
+
+  function planAIConfidenceLabel(value){
+    const n = Number(value || 0);
+    if(n >= 0.75) return "Alta";
+    if(n >= 0.45) return "Media";
+    return "Base";
+  }
+
+  function planAIPriorityLabel(score){
+    const n = Number(score || 0);
+    if(n >= 8) return "Muy alta";
+    if(n >= 6) return "Alta";
+    if(n >= 4.2) return "Media";
+    return "Balanceada";
   }
 
   function planScenarioRound(value){
@@ -1298,13 +1432,228 @@
     }).join("");
   }
 
+  function buildPlanAIActionKey(action){
+    if(!action) return "";
+    const id = String(action.id || "").trim();
+    if(id) return id;
+    return normalizarProyectoKey(getAccionProyectoAsociado(action) + "-" + (action.nombre || ""));
+  }
+
+  function getPlanAIProjectKeys(plan){
+    const keys = new Set();
+    const add = (value)=>{
+      const key = normalizarProyectoKey(value);
+      if(key) keys.add(key);
+    };
+    (plan && plan.proyectos || []).forEach((project)=>{
+      add(project && project.id);
+      add(project && project.nombre);
+    });
+    getIntervencionesPlan(plan && plan.id).forEach((intervencion)=>{
+      add(intervencion && intervencion.proyectoId);
+      add(intervencion && intervencion.proyectoNombre);
+      const accion = getAccionById(intervencion && intervencion.accionId);
+      add(getAccionProyectoAsociado(accion));
+    });
+    return keys;
+  }
+
+  function getPlanAIActionsForPlan(plan){
+    const actions = obtenerAccionesDisponibles();
+    const linkedProjects = getPlanAIProjectKeys(plan);
+    const byId = new Map();
+    const add = (action)=>{
+      if(!action) return;
+      const key = buildPlanAIActionKey(action);
+      if(!key || byId.has(key)) return;
+      byId.set(key, action);
+    };
+
+    getIntervencionesPlan(plan && plan.id).forEach((intervencion)=>{
+      add(getAccionById(intervencion && intervencion.accionId));
+    });
+
+    actions.forEach((action)=>{
+      const projectKey = normalizarProyectoKey(getAccionProyectoAsociado(action));
+      if(projectKey && linkedProjects.has(projectKey)){
+        add(action);
+      }
+    });
+
+    return Array.from(byId.values());
+  }
+
+  function getPlanAIProjectCoverage(plan, actions){
+    const actionProjects = new Set((actions || []).map((action)=> normalizarProyectoKey(getAccionProyectoAsociado(action))).filter(Boolean));
+    const projects = Array.isArray(plan && plan.proyectos) ? plan.proyectos : [];
+    if(!projects.length){
+      return {
+        projectCount: actionProjects.size,
+        coveredProjectCount: actionProjects.size
+      };
+    }
+    const coveredProjectCount = projects.filter((project)=>{
+      const key = normalizarProyectoKey((project && project.nombre) || (project && project.id) || "");
+      return key && actionProjects.has(key);
+    }).length;
+    return {
+      projectCount: projects.length,
+      coveredProjectCount
+    };
+  }
+
+  function collectPlanAIInventoryStats(plan, reportSignals){
+    const actions = getPlanAIActionsForPlan(plan);
+    const interventions = getIntervencionesPlan(plan && plan.id);
+    const seen = new Set();
+    const assets = [];
+    const typeCounts = { horizontal: 0, vertical: 0, mobiliario: 0, metrado: 0 };
+    const points = reportSignals && reportSignals.points ? reportSignals.points : { hospital: [], escuela: [], evento: [] };
+    let geocodedAssets = 0;
+    let totalCost = 0;
+    let criticalCost = 0;
+    let criticalCount = 0;
+    let replacementCount = 0;
+    let maintenanceCount = 0;
+    let pendingInspectionCount = 0;
+    let nearHospitalCount = 0;
+    let nearEscuelaCount = 0;
+    let nearEventCount = 0;
+    let traceCount = 0;
+    let traceMeters = 0;
+    let closestHospital = Infinity;
+    let closestEscuela = Infinity;
+    let closestEvent = Infinity;
+
+    const registerAsset = (kind, list, action)=>{
+      const source = Array.isArray(list) ? list : [];
+      source.forEach((item, idx)=>{
+        const baseId = String(item && item.id || "");
+        const uniqueKey = baseId
+          ? (kind + ":" + baseId)
+          : (kind + ":" + buildPlanAIActionKey(action) + ":" + idx);
+        if(seen.has(uniqueKey)) return;
+        seen.add(uniqueKey);
+
+        const point = getPlanAIAssetPoint(kind, item);
+        const state = getPlanAIAssetState(kind, item);
+        const cost = getPlanAIAssetCost(kind, item);
+        const nearEvent = nearestDistanceMeters(point, points.evento);
+        const nearHospital = nearestDistanceMeters(point, points.hospital);
+        const nearEscuela = nearestDistanceMeters(point, points.escuela);
+        const isCritical = state === "sin_senal" || state === "antigua" || state === "pendiente";
+        const severity = state === "sin_senal" ? 2.4 : (state === "antigua" ? 1.8 : (state === "pendiente" ? 1.2 : 0.7));
+        const typeWeight = kind === "vertical" ? 1.15 : (kind === "horizontal" ? 1.05 : (kind === "metrado" ? 0.95 : 0.9));
+        const priority = severity
+          + typeWeight
+          + Math.min(1.4, cost / 3500)
+          + (distanceScore(nearEvent, PLAN_AI_PROX_RADII.evento) * 1.5)
+          + (distanceScore(nearHospital, PLAN_AI_PROX_RADII.hospital) * 1.1)
+          + (distanceScore(nearEscuela, PLAN_AI_PROX_RADII.escuela) * 1.1);
+
+        typeCounts[kind] = (typeCounts[kind] || 0) + 1;
+        totalCost += cost;
+
+        if(point){
+          geocodedAssets += 1;
+        }
+        if(isCritical){
+          criticalCount += 1;
+          criticalCost += cost;
+        }
+        if(state === "sin_senal") replacementCount += 1;
+        if(state === "antigua") maintenanceCount += 1;
+        if(state === "pendiente") pendingInspectionCount += 1;
+        if(Number.isFinite(nearEvent) && nearEvent <= PLAN_AI_PROX_RADII.evento) nearEventCount += 1;
+        if(Number.isFinite(nearHospital) && nearHospital <= PLAN_AI_PROX_RADII.hospital) nearHospitalCount += 1;
+        if(Number.isFinite(nearEscuela) && nearEscuela <= PLAN_AI_PROX_RADII.escuela) nearEscuelaCount += 1;
+        if(Number.isFinite(nearEvent) && nearEvent < closestEvent) closestEvent = nearEvent;
+        if(Number.isFinite(nearHospital) && nearHospital < closestHospital) closestHospital = nearHospital;
+        if(Number.isFinite(nearEscuela) && nearEscuela < closestEscuela) closestEscuela = nearEscuela;
+        if(kind === "metrado"){
+          traceCount += 1;
+          traceMeters += toPositiveNumber(item && (item.distancia_m ?? item.distanciaM ?? item.total_ml));
+        }
+
+        assets.push({
+          id: baseId || uniqueKey,
+          kind,
+          state,
+          point,
+          cost,
+          priority,
+          label: String(item && (item.nombre || item.tipo || item.codigo) || getPlanAIAssetTypeLabel(kind, 1)),
+          nearEvent,
+          nearHospital,
+          nearEscuela
+        });
+      });
+    };
+
+    actions.forEach((action)=>{
+      registerAsset("horizontal", action && action.senalesHorizontal, action);
+      registerAsset("vertical", action && action.senalesVertical, action);
+      registerAsset("mobiliario", action && action.senalesMobiliario, action);
+      registerAsset("metrado", action && action.metradoRegistros, action);
+    });
+
+    const coverage = getPlanAIProjectCoverage(plan, actions);
+    const confidence = Math.min(1, Math.max(0.2,
+      (actions.length ? 0.24 : 0)
+      + (assets.length ? 0.24 : 0)
+      + (assets.length ? ((geocodedAssets / assets.length) * 0.36) : 0)
+      + ((reportSignals && reportSignals.geocoded) ? 0.16 : 0)
+    ));
+
+    return {
+      actionsCount: actions.length,
+      interventionsCount: interventions.length,
+      projectCount: coverage.projectCount,
+      coveredProjectCount: coverage.coveredProjectCount,
+      assetCount: assets.length,
+      geocodedAssets,
+      totalCost: planScenarioRound(totalCost),
+      criticalCost: planScenarioRound(criticalCost),
+      criticalCount,
+      replacementCount,
+      maintenanceCount,
+      pendingInspectionCount,
+      nearHospitalCount,
+      nearEscuelaCount,
+      nearEventCount,
+      sensitiveCount: nearHospitalCount + nearEscuelaCount + nearEventCount,
+      traceCount,
+      traceMeters: planScenarioRound(traceMeters),
+      typeCounts,
+      closest: {
+        hospital: Number.isFinite(closestHospital) ? Math.round(closestHospital) : null,
+        escuela: Number.isFinite(closestEscuela) ? Math.round(closestEscuela) : null,
+        evento: Number.isFinite(closestEvent) ? Math.round(closestEvent) : null
+      },
+      confidence,
+      confidenceLabel: planAIConfidenceLabel(confidence),
+      topAssets: assets
+        .slice()
+        .sort((a,b)=> Number(b.priority || 0) - Number(a.priority || 0))
+        .slice(0, 3)
+        .map((asset)=> ({
+          label: asset.label,
+          kind: asset.kind,
+          state: asset.state,
+          cost: planScenarioRound(asset.cost)
+        }))
+    };
+  }
+
   function collectPlanAIReportSignals(){
     const list = safeAvisosList();
     const zoneCounts = new Map();
+    const points = { hospital: [], escuela: [], evento: [] };
     let hospital = 0;
     let escuela = 0;
     let evento = 0;
     let pendiente = 0;
+    let geocoded = 0;
 
     list.forEach((item)=>{
       const rawText = [
@@ -1314,13 +1663,27 @@
         item && (item.zona || "")
       ].join(" ");
       const text = normalizeText(rawText);
-      if(containsAnyKeyword(text, PLAN_AI_KEYWORDS.hospital)) hospital += 1;
-      if(containsAnyKeyword(text, PLAN_AI_KEYWORDS.escuela)) escuela += 1;
-      if(containsAnyKeyword(text, PLAN_AI_KEYWORDS.evento)) evento += 1;
+      const hasHospital = containsAnyKeyword(text, PLAN_AI_KEYWORDS.hospital);
+      const hasEscuela = containsAnyKeyword(text, PLAN_AI_KEYWORDS.escuela);
+      const hasEvento = containsAnyKeyword(text, PLAN_AI_KEYWORDS.evento);
+      if(hasHospital) hospital += 1;
+      if(hasEscuela) escuela += 1;
+      if(hasEvento) evento += 1;
 
       const estado = normalizeText(item && (item.estado || item.status || ""));
       if(estado.includes("pendiente") || estado.includes("nuevo") || estado.includes("abierto")){
         pendiente += 1;
+      }
+
+      const point = toPoint(
+        item && (item.lat ?? item.latitude),
+        item && (item.lng ?? item.lon ?? item.longitude)
+      );
+      if(point){
+        geocoded += 1;
+        if(hasHospital) points.hospital.push(point);
+        if(hasEscuela) points.escuela.push(point);
+        points.evento.push(point);
       }
 
       const zona = String(item && (item.distrito || item.district || item.zona) || "Sin zona");
@@ -1332,7 +1695,7 @@
       .sort((a,b)=> b.count - a.count)
       .slice(0, 3);
 
-    return { total: list.length, hospital, escuela, evento, pendiente, hotspots };
+    return { total: list.length, hospital, escuela, evento, pendiente, hotspots, points, geocoded };
   }
 
   function buildPlanAIText(plan){
@@ -1346,6 +1709,103 @@
     return normalizeText(chunks.join(" "));
   }
 
+  function buildPlanAIReasonSummary(metrics, context){
+    const reasons = [];
+    if(Number(metrics && metrics.replacementCount || 0) > 0){
+      reasons.push({ weight: 3.3 + (metrics.replacementCount * 0.3), text: metrics.replacementCount + " activos por reponer" });
+    }
+    if(Number(metrics && metrics.maintenanceCount || 0) > 0){
+      reasons.push({ weight: 2.6 + (metrics.maintenanceCount * 0.18), text: metrics.maintenanceCount + " activos deteriorados" });
+    }
+    if(Number(metrics && metrics.pendingInspectionCount || 0) > 0){
+      reasons.push({ weight: 1.9 + (metrics.pendingInspectionCount * 0.15), text: metrics.pendingInspectionCount + " trazos con inspeccion pendiente" });
+    }
+    if(Number(metrics && metrics.nearHospitalCount || 0) > 0){
+      reasons.push({ weight: 2.2 + (metrics.nearHospitalCount * 0.12), text: metrics.nearHospitalCount + " activos cerca de salud" });
+    }
+    if(Number(metrics && metrics.nearEscuelaCount || 0) > 0){
+      reasons.push({ weight: 2.1 + (metrics.nearEscuelaCount * 0.12), text: metrics.nearEscuelaCount + " activos cerca de escuelas" });
+    }
+    if(Number(metrics && metrics.nearEventCount || 0) > 0){
+      reasons.push({ weight: 2.4 + (metrics.nearEventCount * 0.12), text: metrics.nearEventCount + " activos en zonas con eventos" });
+    }
+    if(Number(metrics && metrics.traceMeters || 0) > 0){
+      reasons.push({ weight: 1.7 + Math.min(1, Number(metrics.traceMeters || 0) / 1500), text: formatCompactMeters(metrics.traceMeters) + " de trazos asociados" });
+    }
+    if(context && context.hasHospital){
+      reasons.push({ weight: 1.9 + Math.min(0.8, Number(context.reportSignals && context.reportSignals.hospital || 0) / 6), text: "entorno de salud y emergencia" });
+    }
+    if(context && context.hasEscuela){
+      reasons.push({ weight: 1.7 + Math.min(0.7, Number(context.reportSignals && context.reportSignals.escuela || 0) / 6), text: "seguridad escolar" });
+    }
+    if(context && context.hasEvento){
+      reasons.push({ weight: 1.6 + Math.min(0.7, Number(context.reportSignals && context.reportSignals.evento || 0) / 7), text: "respuesta a eventos recurrentes" });
+    }
+    if(context && Number(context.executionRatio || 0) < 0.45){
+      reasons.push({ weight: 1.6, text: "avance bajo frente al monto actual" });
+    }
+    if(context && Number(context.planningRatio || 0) > 0.4){
+      reasons.push({ weight: 1.8, text: "saldo en planificacion sin activar" });
+    }
+    if(context && !Number(context.interventionsCount || 0) && Number(metrics && metrics.assetCount || 0) > 0){
+      reasons.push({ weight: 1.3, text: "sin intervenciones activas" });
+    }
+    if(!reasons.length){
+      return "redistribucion balanceada segun cobertura y avance";
+    }
+    const seen = new Set();
+    return reasons
+      .sort((a,b)=> b.weight - a.weight)
+      .filter((item)=>{
+        if(seen.has(item.text)) return false;
+        seen.add(item.text);
+        return true;
+      })
+      .slice(0, 2)
+      .map((item)=> item.text)
+      .join("; ");
+  }
+
+  function buildPlanAIImpactSummary(metrics, executionRatio, planningRatio){
+    const parts = [];
+    if(Number(metrics && metrics.criticalCount || 0) > 0){
+      parts.push("prioriza " + metrics.criticalCount + " activos criticos");
+    }
+    if(Number(metrics && metrics.sensitiveCount || 0) > 0){
+      parts.push(metrics.sensitiveCount + " frentes sensibles por cercania");
+    }
+    if(Number(metrics && metrics.traceMeters || 0) > 0){
+      parts.push("cubre " + formatCompactMeters(metrics.traceMeters) + " de trazos");
+    }
+    if(Number(planningRatio || 0) > 0.4){
+      parts.push("mueve saldo hoy inmovilizado");
+    }
+    if(Number(executionRatio || 0) < 0.45){
+      parts.push("empuja planes con baja ejecucion");
+    }
+    return parts.slice(0, 2).join(" · ") || "sostiene una distribucion balanceada";
+  }
+
+  function buildPlanAIEvidenceChips(metrics){
+    const chips = [];
+    if(Number(metrics && metrics.assetCount || 0) > 0){
+      chips.push((metrics.assetCount || 0) + " activos");
+      const breakdown = buildPlanAIAssetBreakdown(metrics.typeCounts, 2);
+      if(breakdown) chips.push(breakdown);
+    }
+    if(Number(metrics && metrics.criticalCount || 0) > 0){
+      chips.push((metrics.criticalCount || 0) + " criticos");
+    }
+    if(Number(metrics && metrics.coveredProjectCount || 0) > 0 && Number(metrics && metrics.projectCount || 0) > 0){
+      chips.push(metrics.coveredProjectCount + "/" + metrics.projectCount + " proyectos enlazados");
+    }
+    if(Number(metrics && metrics.traceMeters || 0) > 0){
+      chips.push(formatCompactMeters(metrics.traceMeters) + " trazados");
+    }
+    chips.push("Confianza " + (metrics && metrics.confidenceLabel || "Base"));
+    return chips.slice(0, 5);
+  }
+
   function evaluatePlanForAI(plan, reportSignals){
     const text = buildPlanAIText(plan);
     const totals = calcPlanPhaseTotals(plan.id);
@@ -1353,59 +1813,82 @@
     const executionRatio = monto > 0 ? Math.min(1, totals.asignado / monto) : 0;
     const planningRatio = monto > 0 ? Math.min(1, totals.planificacion / monto) : 0;
     const interventions = getIntervencionesPlan(plan.id);
+    const metrics = collectPlanAIInventoryStats(plan, reportSignals);
 
     const hasHospital = containsAnyKeyword(text, PLAN_AI_KEYWORDS.hospital);
     const hasEscuela = containsAnyKeyword(text, PLAN_AI_KEYWORDS.escuela);
     const hasEvento = containsAnyKeyword(text, PLAN_AI_KEYWORDS.evento);
 
     let score = 1;
-    const reasonParts = [];
+
+    score += Math.min(1.8, (metrics.assetCount * 0.08) + (metrics.actionsCount * 0.16));
+    score += Math.min(2.8,
+      (metrics.replacementCount * 0.42)
+      + (metrics.maintenanceCount * 0.24)
+      + (metrics.pendingInspectionCount * 0.16)
+    );
+    score += Math.min(2.2,
+      (metrics.nearEventCount * 0.16)
+      + (metrics.nearHospitalCount * 0.14)
+      + (metrics.nearEscuelaCount * 0.14)
+    );
+    if(metrics.traceMeters > 0){
+      score += Math.min(1.05, metrics.traceMeters / 1500);
+    }
+    if(metrics.projectCount > 0 && metrics.coveredProjectCount > 0){
+      score += Math.min(0.9, (metrics.coveredProjectCount / metrics.projectCount) * 0.9);
+    }
 
     if(hasHospital){
-      score += 2 + Math.min(1.6, reportSignals.hospital / 4);
-      reasonParts.push("prioriza entorno de salud y accesos de emergencia");
+      score += 1.15 + Math.min(0.95, Number(reportSignals && reportSignals.hospital || 0) / 5);
     }
     if(hasEscuela){
-      score += 1.7 + Math.min(1.4, reportSignals.escuela / 5);
-      reasonParts.push("refuerza seguridad en zonas escolares");
+      score += 1 + Math.min(0.85, Number(reportSignals && reportSignals.escuela || 0) / 6);
     }
     if(hasEvento){
-      score += 1.2 + Math.min(1.1, reportSignals.evento / 6);
-      reasonParts.push("atiende tramos con mayor recurrencia de eventos");
+      score += 0.9 + Math.min(0.8, Number(reportSignals && reportSignals.evento || 0) / 7);
     }
 
     if(executionRatio < 0.45){
-      score += 1;
-      reasonParts.push("avance bajo frente al monto planificado");
+      score += 0.95;
     } else if(executionRatio > 0.8){
-      score -= 0.2;
+      score -= 0.25;
     }
 
     if(planningRatio > 0.4){
-      score += Math.min(1.1, planningRatio * 1.4);
-      reasonParts.push("alto saldo en planificacion sin ejecutar");
+      score += Math.min(1.05, planningRatio * 1.2);
     }
 
-    if(!interventions.length){
-      score += 0.45;
-      reasonParts.push("requiere activar intervenciones asociadas");
+    if(!interventions.length && metrics.assetCount > 0){
+      score += 0.55;
     }
 
-    if(reportSignals.pendiente > 0){
-      score += Math.min(1, reportSignals.pendiente / 12);
+    if(Number(reportSignals && reportSignals.pendiente || 0) > 0){
+      score += Math.min(0.8, Number(reportSignals.pendiente || 0) / 15);
     }
 
     if(score < 0.35) score = 0.35;
-    if(!reasonParts.length){
-      reasonParts.push("redistribucion balanceada para sostener ejecucion");
-    }
+
+    const reason = buildPlanAIReasonSummary(metrics, {
+      hasHospital,
+      hasEscuela,
+      hasEvento,
+      executionRatio,
+      planningRatio,
+      interventionsCount: interventions.length,
+      reportSignals
+    });
 
     return {
       planId: String(plan.id || ""),
       planName: plan.nombre || "Plan",
       actual: planScenarioRound(plan.monto),
       score,
-      reason: reasonParts.slice(0, 2).join("; "),
+      reason,
+      impact: buildPlanAIImpactSummary(metrics, executionRatio, planningRatio),
+      evidenceChips: buildPlanAIEvidenceChips(metrics),
+      metrics,
+      priorityLabel: planAIPriorityLabel(score),
       executionRatio,
       planningRatio
     };
@@ -1437,6 +1920,11 @@
     const avgCurrent = evaluations.length ? (assignedBefore > 0 ? (assignedBefore / evaluations.length) : (pool / evaluations.length)) : 0;
     const minFloor = Math.max(0, planScenarioRound(Math.min(avgCurrent * 0.35, pool * 0.2)));
 
+    const ranking = evaluations
+      .slice()
+      .sort((a,b)=> Number(b.score || 0) - Number(a.score || 0));
+    const rankByPlanId = new Map(ranking.map((item, idx)=> [String(item.planId || ""), idx + 1]));
+
     const rows = evaluations.map((item)=> {
       const weightedTarget = scoreTotal > 0 ? (pool * item.score / scoreTotal) : (pool / Math.max(1, evaluations.length));
       const blended = item.actual > 0 ? (item.actual * 0.55 + weightedTarget * 0.45) : weightedTarget;
@@ -1448,7 +1936,13 @@
         suggested,
         delta: 0,
         reason: item.reason,
-        score: item.score
+        impact: item.impact,
+        evidenceChips: item.evidenceChips,
+        metrics: item.metrics,
+        score: item.score,
+        priorityLabel: item.priorityLabel,
+        priorityRank: rankByPlanId.get(String(item.planId || "")) || 0,
+        confidenceLabel: item.metrics && item.metrics.confidenceLabel ? item.metrics.confidenceLabel : "Base"
       };
     });
 
@@ -1496,11 +1990,66 @@
       remainingAfter,
       reportSignals,
       rows,
+      summary: summarizePlanAIScenarioRows(rows),
       note: "",
       baseSignature
     };
     scenario.note = buildPlanAIScenarioNote(scenario);
     return scenario;
+  }
+
+  function summarizePlanAIScenarioRows(rows){
+    return (rows || []).reduce((acc, row)=>{
+      const metrics = row && row.metrics ? row.metrics : {};
+      acc.assetCount += Number(metrics.assetCount || 0);
+      acc.criticalCount += Number(metrics.criticalCount || 0);
+      acc.sensitiveCount += Number(metrics.sensitiveCount || 0);
+      acc.traceMeters += Number(metrics.traceMeters || 0);
+      acc.geocodedAssets += Number(metrics.geocodedAssets || 0);
+      acc.actionsCount += Number(metrics.actionsCount || 0);
+      return acc;
+    }, {
+      assetCount: 0,
+      criticalCount: 0,
+      sensitiveCount: 0,
+      traceMeters: 0,
+      geocodedAssets: 0,
+      actionsCount: 0
+    });
+  }
+
+  function buildPlanAIScenarioHighlights(scenario){
+    if(!scenario || !Array.isArray(scenario.rows) || !scenario.rows.length){
+      return [];
+    }
+    const summary = scenario.summary || summarizePlanAIScenarioRows(scenario.rows);
+    const increases = scenario.rows
+      .filter((row)=> Number(row.delta || 0) > 0)
+      .sort((a,b)=> Number(b.delta || 0) - Number(a.delta || 0));
+    const top = increases[0] || scenario.rows.slice().sort((a,b)=> Number(b.score || 0) - Number(a.score || 0))[0];
+    const chips = [];
+    if(top){
+      chips.push({ label: "Mayor refuerzo", value: top.planName });
+    }
+    if(summary.criticalCount > 0){
+      chips.push({ label: "Activos criticos", value: String(summary.criticalCount) });
+    }
+    if(summary.sensitiveCount > 0){
+      chips.push({ label: "Frentes sensibles", value: String(summary.sensitiveCount) });
+    }
+    if(summary.traceMeters > 0){
+      chips.push({ label: "Trazos", value: formatCompactMeters(summary.traceMeters) });
+    } else if(summary.assetCount > 0){
+      chips.push({ label: "Activos enlazados", value: String(summary.assetCount) });
+    }
+    if(Number(scenario.reportSignals && scenario.reportSignals.total || 0) > 0){
+      const geo = Number(scenario.reportSignals && scenario.reportSignals.geocoded || 0);
+      chips.push({
+        label: "Reportes",
+        value: (scenario.reportSignals.total || 0) + (geo ? (" · " + geo + " geo") : "")
+      });
+    }
+    return chips.slice(0, 4);
   }
 
   function getPlanAIImprovementLines(scenario){
@@ -1514,14 +2063,19 @@
       .filter((row)=> Number(row.delta || 0) < 0)
       .sort((a,b)=> a.delta - b.delta);
     const reportSignals = scenario.reportSignals || {};
-    const focusBoosts = increases.filter((row)=> /salud|emergencia|escolar|eventos/i.test(String(row.reason || "")));
+    const summary = scenario.summary || summarizePlanAIScenarioRows(scenario.rows);
     const lines = [];
 
-    if(focusBoosts.length){
-      const named = focusBoosts.slice(0, 2).map((row)=> row.planName).join(" y ");
-      lines.push("Refuerza planes con mayor presion territorial, empezando por " + named + ".");
-    } else if(increases.length){
-      lines.push("Refuerza " + increases.length + " planes con mayor necesidad relativa y margen de impacto.");
+    if(increases.length){
+      const focusBoosts = increases.slice(0, 2);
+      const named = focusBoosts.map((row)=> row.planName).join(" y ");
+      const criticalFocus = focusBoosts.reduce((sum, row)=> sum + Number(row.metrics && row.metrics.criticalCount || 0), 0);
+      const sensitiveFocus = focusBoosts.reduce((sum, row)=> sum + Number(row.metrics && row.metrics.sensitiveCount || 0), 0);
+      if(criticalFocus || sensitiveFocus){
+        lines.push("Refuerza " + named + " porque concentran " + criticalFocus + " activos criticos y " + sensitiveFocus + " frentes sensibles vinculados.");
+      } else {
+        lines.push("Refuerza " + named + " por su mayor necesidad relativa y margen de impacto.");
+      }
     }
 
     if(decreases.length){
@@ -1534,6 +2088,15 @@
       lines.push("Activa " + formatMoney(activated) + " del saldo disponible sin exceder el presupuesto anual.");
     }
 
+    if(summary.traceMeters > 0){
+      const prefix = summary.geocodedAssets > 0
+        ? ("Cruza " + summary.geocodedAssets + " activos georreferenciados e incorpora ")
+        : "Incorpora ";
+      lines.push(prefix + formatCompactMeters(summary.traceMeters) + " de trazos para decidir por cercania real.");
+    } else if(summary.geocodedAssets > 0){
+      lines.push("Cruza " + summary.geocodedAssets + " activos georreferenciados con reportes, salud y escuelas para decidir el refuerzo.");
+    }
+
     if(reportSignals.total){
       const hotspotLead = Array.isArray(reportSignals.hotspots) ? reportSignals.hotspots.slice(0, 2) : [];
       if(hotspotLead.length){
@@ -1542,7 +2105,7 @@
         lines.push("Toma como base " + reportSignals.total + " reportes locales para redistribuir prioridad.");
       }
     } else {
-      lines.push("Trabaja solo con avance e intervenciones porque no hay reportes locales cargados.");
+      lines.push("Se apoya en activos, trazos e intervenciones porque no hay reportes locales cargados.");
     }
 
     return lines.slice(0, 4);
@@ -1560,8 +2123,11 @@
       .sort((a,b)=> a.delta - b.delta);
     const up = increases[0];
     const down = decreases[0];
+    const summary = scenario.summary || summarizePlanAIScenarioRows(scenario.rows);
     const parts = [
-      "Comparativo IA generado para " + scenario.rows.length + " planes."
+      "Comparativo IA generado para " + scenario.rows.length + " planes"
+        + (summary.assetCount ? (" con " + summary.assetCount + " activos vinculados") : "")
+        + "."
     ];
     if(up){
       parts.push("Mayor refuerzo: " + up.planName + " (" + formatMoney(up.delta) + ").");
@@ -1577,7 +2143,17 @@
     if(!scenario || !Array.isArray(scenario.rows) || !scenario.rows.length){
       return "No hay comparativo IA disponible.";
     }
+    const summary = scenario.summary || summarizePlanAIScenarioRows(scenario.rows);
     const lines = [getPlanAISummaryLine(scenario)];
+    if(summary.assetCount > 0){
+      lines.push(
+        "Base analizada: "
+        + summary.assetCount + " activos, "
+        + summary.criticalCount + " criticos, "
+        + summary.sensitiveCount + " frentes sensibles"
+        + (summary.traceMeters > 0 ? (", " + formatCompactMeters(summary.traceMeters) + " de trazos.") : ".")
+      );
+    }
     const improvementLines = getPlanAIImprovementLines(scenario);
     if(improvementLines.length){
       lines.push("Que mejora esta propuesta:");
@@ -1594,6 +2170,7 @@
   function renderPlanAIScenario(plans, presupuesto){
     if(!aiPlanCompareCard || !aiPlanCompareBody) return;
     aiPlanCompareCard.classList.remove("hidden");
+    const emptyColspan = 6;
 
     const year = Number(presupuesto && presupuesto.year || new Date().getFullYear());
     const currentSignature = getPlanAmountSignature(plans || []);
@@ -1604,7 +2181,8 @@
 
     if(!Array.isArray(plans) || !plans.length){
       aiPlanCompareMeta.textContent = "No hay planes registrados para el periodo.";
-      aiPlanCompareBody.innerHTML = "<tr><td colspan=\"5\" class=\"empty\">Registra al menos un plan para solicitar sugerencias IA.</td></tr>";
+      aiPlanCompareBody.innerHTML = "<tr><td colspan=\"" + emptyColspan + "\" class=\"empty\">Registra al menos un plan para solicitar sugerencias IA.</td></tr>";
+      if(aiPlanCompareHighlights) aiPlanCompareHighlights.innerHTML = "";
       if(aiPlanCompareNote) aiPlanCompareNote.textContent = "Define planes y luego usa \"Sugerir con IA\" para obtener un comparativo.";
       if(btnPlanAIApply) btnPlanAIApply.disabled = true;
       if(btnPlanAIRevert) btnPlanAIRevert.disabled = !aiPlanSnapshotBeforeApply;
@@ -1614,9 +2192,10 @@
 
     if(!aiPlanScenario || !Array.isArray(aiPlanScenario.rows) || !aiPlanScenario.rows.length){
       aiPlanCompareMeta.textContent = "Periodo " + year + " · Sin escenario IA aplicado.";
-      aiPlanCompareBody.innerHTML = "<tr><td colspan=\"5\" class=\"empty\">Solicita una sugerencia para ver comparativo.</td></tr>";
+      aiPlanCompareBody.innerHTML = "<tr><td colspan=\"" + emptyColspan + "\" class=\"empty\">Solicita una sugerencia para ver comparativo.</td></tr>";
+      if(aiPlanCompareHighlights) aiPlanCompareHighlights.innerHTML = "";
       if(aiPlanCompareNote){
-        const baseNote = "La IA puede proponer una redistribucion segun hospitales, colegios y zonas con mas eventos.";
+        const baseNote = "La IA cruza senales, trazos, mobiliario, avance e incidencias para proponer una redistribucion.";
         aiPlanCompareNote.textContent = aiPlanSnapshotBeforeApply
           ? "Hay un cambio IA aplicado pendiente de revertir. " + baseNote
           : baseNote;
@@ -1633,17 +2212,44 @@
       + " · Generado " + (generatedAt || "recientemente")
       + (stale ? " · Desactualizado por cambios manuales" : "");
 
+    if(aiPlanCompareHighlights){
+      const highlights = buildPlanAIScenarioHighlights(aiPlanScenario);
+      aiPlanCompareHighlights.innerHTML = highlights.map((item)=>(
+        "<div class=\"inv-plan-ai-highlight\">"
+        +   "<span class=\"inv-plan-ai-highlight-label\">" + escapeHtml(item.label || "Dato") + "</span>"
+        +   "<span class=\"inv-plan-ai-highlight-value\">" + escapeHtml(item.value || "-") + "</span>"
+        + "</div>"
+      )).join("");
+    }
+
     aiPlanCompareBody.innerHTML = aiPlanScenario.rows.map((row)=>{
       const delta = Number(row.delta || 0);
       const deltaClass = delta > 0 ? "inv-plan-ai-delta-up" : (delta < 0 ? "inv-plan-ai-delta-down" : "");
       const sign = delta > 0 ? "+" : "";
+      const planMeta = [
+        row.priorityRank ? ("Prioridad #" + row.priorityRank) : "",
+        row.priorityLabel || "",
+        row.confidenceLabel ? ("Confianza " + row.confidenceLabel) : ""
+      ].filter(Boolean).join(" · ");
+      const evidenceChips = Array.isArray(row.evidenceChips) ? row.evidenceChips : [];
       return ""
         + "<tr data-plan-id=\"" + escapeHtml(row.planId) + "\">"
-        +   "<td>" + escapeHtml(row.planName || "Plan") + "</td>"
+        +   "<td>"
+        +     "<div class=\"inv-plan-ai-plan-name\">" + escapeHtml(row.planName || "Plan") + "</div>"
+        +     "<div class=\"inv-plan-ai-plan-meta\">" + escapeHtml(planMeta || "Cobertura base") + "</div>"
+        +   "</td>"
         +   "<td>" + escapeHtml(formatMoney(row.actual)) + "</td>"
         +   "<td>" + escapeHtml(formatMoney(row.suggested)) + "</td>"
         +   "<td class=\"" + deltaClass + "\">" + escapeHtml(sign + formatMoney(delta)) + "</td>"
-        +   "<td>" + escapeHtml(row.reason || "Ajuste balanceado") + "</td>"
+        +   "<td>"
+        +     "<div class=\"inv-plan-ai-cell-title\">" + escapeHtml(row.impact || "Impacto balanceado") + "</div>"
+        +     "<div class=\"inv-plan-ai-cell-sub\">" + escapeHtml(row.reason || "Ajuste balanceado") + "</div>"
+        +   "</td>"
+        +   "<td>"
+        +     (evidenceChips.length
+          ? ("<div class=\"inv-plan-ai-evidence\">" + evidenceChips.map((chip)=> "<span class=\"inv-plan-ai-pill\">" + escapeHtml(chip) + "</span>").join("") + "</div>")
+          : "<span class=\"inv-plan-ai-muted\">Sin evidencia adicional</span>")
+        +   "</td>"
         + "</tr>";
     }).join("");
 
@@ -1782,17 +2388,32 @@
     const plans = getPlanesDelAnio(year);
     const assigned = plans.reduce((sum, plan)=> sum + toPositiveNumber(plan.monto), 0);
     const reportSignals = collectPlanAIReportSignals();
+    const evaluations = plans.map((plan)=> evaluatePlanForAI(plan, reportSignals));
+    const byPlanId = new Map(evaluations.map((item)=> [String(item.planId || ""), item]));
+    const liveSummary = summarizePlanAIScenarioRows(evaluations.map((item)=> ({ metrics: item.metrics })));
     return {
       year,
       budgetTotal: planScenarioRound(presupuesto && presupuesto.total || 0),
       assigned: planScenarioRound(assigned),
       remaining: Math.max(0, planScenarioRound((presupuesto && presupuesto.total || 0) - assigned)),
-      plans: plans.map((plan)=> ({
-        id: String(plan.id || ""),
-        name: plan.nombre || "Plan",
-        amount: planScenarioRound(plan.monto)
-      })),
+      plans: plans.map((plan)=> {
+        const evaluation = byPlanId.get(String(plan.id || ""));
+        const metrics = evaluation && evaluation.metrics ? evaluation.metrics : {};
+        return {
+          id: String(plan.id || ""),
+          name: plan.nombre || "Plan",
+          amount: planScenarioRound(plan.monto),
+          assetCount: Number(metrics.assetCount || 0),
+          criticalCount: Number(metrics.criticalCount || 0),
+          sensitiveCount: Number(metrics.sensitiveCount || 0),
+          traceMeters: Number(metrics.traceMeters || 0),
+          confidence: metrics.confidenceLabel || "Base",
+          priority: evaluation && evaluation.priorityLabel ? evaluation.priorityLabel : "Balanceada",
+          reason: evaluation && evaluation.reason ? evaluation.reason : ""
+        };
+      }),
       reportSignals,
+      summary: aiPlanScenario && aiPlanScenario.summary ? aiPlanScenario.summary : liveSummary,
       scenario: aiPlanScenario ? {
         assignedAfter: aiPlanScenario.assignedAfter,
         remainingAfter: aiPlanScenario.remainingAfter,
@@ -1805,7 +2426,16 @@
           .map((row)=> ({
             plan: row.planName,
             delta: row.delta,
-            reason: row.reason
+            reason: row.reason,
+            impact: row.impact,
+            evidence: row.evidenceChips,
+            metrics: {
+              assetCount: Number(row.metrics && row.metrics.assetCount || 0),
+              criticalCount: Number(row.metrics && row.metrics.criticalCount || 0),
+              sensitiveCount: Number(row.metrics && row.metrics.sensitiveCount || 0),
+              traceMeters: Number(row.metrics && row.metrics.traceMeters || 0),
+              confidence: row.confidenceLabel || "Base"
+            }
           }))
       } : null,
       hasApplied: !!aiPlanSnapshotBeforeApply

@@ -766,6 +766,7 @@
     }
     const ctx = planAI.getContext();
     const reportSignals = ctx && ctx.reportSignals ? ctx.reportSignals : { total: 0, hotspots: [] };
+    const summary = ctx && ctx.summary ? ctx.summary : null;
     const hotspots = Array.isArray(reportSignals.hotspots) && reportSignals.hotspots.length
       ? reportSignals.hotspots.map((h)=> h.zone + " (" + h.count + ")").join(", ")
       : "Sin hotspots detectados";
@@ -775,6 +776,10 @@
         + "\nAsignado en planes " + formatMoney(ctx.assigned || 0)
         + "\nSaldo " + formatMoney(ctx.remaining || 0)
         + "\nReportes analizados " + (reportSignals.total || 0)
+        + (summary && Number(summary.assetCount || 0) > 0 ? ("\nActivos vinculados " + Number(summary.assetCount || 0)) : "")
+        + (summary && Number(summary.criticalCount || 0) > 0 ? ("\nActivos criticos " + Number(summary.criticalCount || 0)) : "")
+        + (summary && Number(summary.sensitiveCount || 0) > 0 ? ("\nFrentes sensibles " + Number(summary.sensitiveCount || 0)) : "")
+        + (summary && Number(summary.traceMeters || 0) > 0 ? ("\nTrazos asociados " + Math.round(Number(summary.traceMeters || 0)) + " m") : "")
         + "\nZonas clave: " + hotspots,
       "ai"
     );
