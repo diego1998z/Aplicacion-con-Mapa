@@ -144,6 +144,95 @@
       .replace(/'/g, "&#39;");
   }
 
+  function stripChatMarkdownInline(value){
+    return String(value || "")
+      .replace(/^\s{0,3}#{1,6}\s*/u, "")
+      .replace(/\*\*(.*?)\*\*/g, "$1")
+      .replace(/__(.*?)__/g, "$1")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/\*\*/g, "")
+      .replace(/__/g, "")
+      .trim();
+  }
+
+  function isChatBulletOnlyLine(value){
+    return /^(?:[-*•]+)$/.test(String(value || "").trim());
+  }
+
+  function isChatRankLine(value){
+    return /^\d+\.\s+/.test(String(value || "").trim());
+  }
+
+  function isChatProjectLine(value){
+    return /^(?:🏗️\s*)?PROYECTO:/u.test(String(value || "").trim());
+  }
+
+  function isChatHeadingLine(value){
+    const clean = String(value || "").trim();
+    return /^(?:📊\s*)?Reporte\b/i.test(clean)
+      || /^(?:🎯\s*)?Criterio\b/i.test(clean)
+      || /^(?:🚀\s*)?Top\s+\d+\b/i.test(clean);
+  }
+
+  function isChatJoinableLine(value){
+    const clean = String(value || "").trim();
+    if(!clean) return false;
+    return !isChatBulletOnlyLine(clean)
+      && !isChatRankLine(clean)
+      && !isChatProjectLine(clean)
+      && !isChatHeadingLine(clean);
+  }
+
+  function preprocessAssistantText(text){
+    const cleanedLines = String(text || "")
+      .replace(/\r/g, "")
+      .split("\n")
+      .map((line)=> stripChatMarkdownInline(line));
+    const merged = [];
+
+    for(let i = 0; i < cleanedLines.length; i += 1){
+      const line = cleanedLines[i];
+      if(!line){
+        if(merged.length && merged[merged.length - 1] !== ""){
+          merged.push("");
+        }
+        continue;
+      }
+      if(isChatBulletOnlyLine(line)){
+        const next = cleanedLines[i + 1] || "";
+        const next2 = cleanedLines[i + 2] || "";
+        if(next && /:$/.test(next) && next2 && isChatJoinableLine(next2) && !/:$/.test(next2)){
+          merged.push("- " + next + " " + next2);
+          i += 2;
+          continue;
+        }
+        if(next){
+          merged.push("- " + next);
+          i += 1;
+          continue;
+        }
+        continue;
+      }
+      if(/:$/.test(line)){
+        const next = cleanedLines[i + 1] || "";
+        if(isChatJoinableLine(next) && !/:$/.test(next)){
+          merged.push(line + " " + next);
+          i += 1;
+          continue;
+        }
+      }
+      merged.push(line);
+    }
+
+    while(merged.length && merged[0] === ""){
+      merged.shift();
+    }
+    while(merged.length && merged[merged.length - 1] === ""){
+      merged.pop();
+    }
+    return merged.join("\n");
+  }
+
   function splitChatLabel(line){
     const clean = String(line || "").trim();
     const idx = clean.indexOf(":");
@@ -166,7 +255,7 @@
   }
 
   function renderChatDetailLine(line, isBullet){
-    const clean = String(line || "").trim().replace(/^[-*]\s+/, "");
+    const clean = String(line || "").trim().replace(/^(?:[-*•])\s+/, "");
     const detail = splitChatLabel(clean);
     const icon = isBullet ? "<span class=\"ai-rich-detail-mark\">•</span>" : "";
     if(detail){
@@ -187,10 +276,10 @@
   function renderChatGenericLine(line){
     const clean = String(line || "").trim();
     if(!clean) return "";
-    if(/^(?:🏗️\s*)?PROYECTO:/u.test(clean)){
+    if(isChatProjectLine(clean)){
       return renderChatProjectLine(clean);
     }
-    if(/^(?:📊\s*)?Reporte\b/i.test(clean)){
+    if(/^(?:📊\s*)?Reporte\b/i.test(clean) || /^(?:🚀\s*)?Top\s+\d+\b/i.test(clean)){
       return "<div class=\"ai-rich-heading\">" + escapeHtml(clean) + "</div>";
     }
     if(/^(?:🎯\s*)?Criterio\b/i.test(clean)){
@@ -206,24 +295,44 @@
   }
 
   function buildAssistantMessageHtml(text){
-    const blocks = String(text || "")
-      .split(/\n\s*\n/g)
-      .map((block)=> block.split(/\n+/).map((line)=> line.trim()).filter(Boolean))
-      .filter((lines)=> lines.length);
+    const blocks = [];
+    const lines = preprocessAssistantText(text)
+      .split("\n")
+      .map((line)=> line.trim());
+    let current = [];
+
+    lines.forEach((line)=>{
+      if(!line){
+        if(current.length){
+          blocks.push(current);
+          current = [];
+        }
+        return;
+      }
+      if(isChatRankLine(line) && current.length){
+        blocks.push(current);
+        current = [line];
+        return;
+      }
+      current.push(line);
+    });
+    if(current.length){
+      blocks.push(current);
+    }
     if(!blocks.length){
       return "<div class=\"ai-rich-line\"></div>";
     }
     return blocks.map((lines)=>{
       const first = lines[0] || "";
-      if(/^\d+\.\s+/.test(first)){
+      if(isChatRankLine(first)){
         return ""
           + "<section class=\"ai-rich-card\">"
           +   "<div class=\"ai-rich-rank\">" + escapeHtml(first) + "</div>"
           +   lines.slice(1).map((line)=>{
-                if(/^(?:🏗️\s*)?PROYECTO:/u.test(line)){
+                if(isChatProjectLine(line)){
                   return renderChatProjectLine(line);
                 }
-                if(/^[-*]\s+/.test(line)){
+                if(/^(?:[-*•])\s+/.test(line)){
                   return renderChatDetailLine(line, true);
                 }
                 return renderChatGenericLine(line);

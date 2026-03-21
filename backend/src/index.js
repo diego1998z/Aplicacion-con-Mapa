@@ -485,6 +485,8 @@ async function consultarGeminiPresupuesto({ prompt, contextJson, history, mode }
     "Usa exclusivamente el contexto JSON proporcionado, el historial reciente y la consulta actual del usuario.",
     "Adapta el formato a la pregunta. Puedes responder con parrafos breves o listas cortas; no fuerces secciones numeradas ni una plantilla fija en cada turno.",
     "Prioriza respuestas muy legibles: usa saltos de linea, bloques cortos, encabezados breves y emojis funcionales cuando mejoren la lectura.",
+    "No uses markdown literal en la respuesta: evita ###, **, __, backticks o listas con asteriscos sueltos.",
+    "Entrega texto plano bien estructurado para que el frontend lo muestre como tarjetas y bloques legibles.",
     "Si el contexto incluye comparativos o escenarios, explica explicitamente que mejora, que se refuerza, que se reduce y cual es el impacto presupuestal.",
     "En modo inversion-plan, si el usuario pide optimizar, priorizar, ranking o un Top 3 de proyectos, usa topPriorityProjects o plans del contexto para devolver un reporte Top 3.",
     "Ese reporte debe incluir prioridad, proyecto, analisis tecnico inferido, impacto en seguridad y costo/plazo, usando solo activos criticos, lugares sensibles, trazos, costo, plazo, avance y evidencia disponible.",
