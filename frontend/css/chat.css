@@ -102,9 +102,108 @@
     box-shadow:0 6px 16px rgba(0,0,0,0.08);
     white-space:pre-line;
 }
+.ai-msg-bubble--rich{
+    max-width:92%;
+    padding:10px 11px 12px;
+    background:linear-gradient(180deg,#f7fbff 0%,#eef5fb 100%);
+    border:1px solid rgba(12,66,106,0.10);
+    white-space:normal;
+}
 .ai-msg--user .ai-msg-bubble{
     background:#1d70b8;
     color:#fff;
+}
+.ai-rich-block{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+}
+.ai-rich-block + .ai-rich-block{
+    margin-top:8px;
+}
+.ai-rich-heading{
+    font-size:14px;
+    font-weight:800;
+    line-height:1.35;
+    color:#0c426a;
+}
+.ai-rich-summary{
+    padding:8px 10px;
+    border-radius:12px;
+    background:rgba(29,112,184,0.08);
+    color:#215577;
+    font-size:12px;
+    line-height:1.45;
+}
+.ai-rich-card{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    padding:10px;
+    border-radius:14px;
+    background:#ffffff;
+    border:1px solid rgba(12,66,106,0.12);
+    box-shadow:0 8px 18px rgba(12,66,106,0.08);
+}
+.ai-rich-rank{
+    font-size:12px;
+    font-weight:800;
+    line-height:1.4;
+    color:#0c426a;
+    letter-spacing:0.15px;
+}
+.ai-rich-project{
+    padding:8px 10px;
+    border-radius:12px;
+    background:linear-gradient(135deg,rgba(29,112,184,0.10),rgba(47,168,79,0.08));
+}
+.ai-rich-project-label{
+    font-size:10px;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+    color:#1d70b8;
+    margin-bottom:3px;
+}
+.ai-rich-project-name{
+    font-size:13px;
+    font-weight:700;
+    line-height:1.4;
+    color:#15364c;
+}
+.ai-rich-detail,
+.ai-rich-line{
+    font-size:12.5px;
+    line-height:1.5;
+    color:#304a5d;
+}
+.ai-rich-detail{
+    display:flex;
+    align-items:flex-start;
+    gap:6px;
+}
+.ai-rich-detail--bullet{
+    padding-left:2px;
+}
+.ai-rich-detail-mark{
+    flex:0 0 auto;
+    color:#1d70b8;
+    font-weight:800;
+}
+.ai-rich-detail-label{
+    font-weight:800;
+    color:#15364c;
+}
+.ai-rich-detail-text{
+    color:#304a5d;
+}
+.ai-rich-line{
+    display:block;
+}
+.ai-rich-line--bullet{
+    display:flex;
+    align-items:flex-start;
+    gap:6px;
 }
 .ai-chat-quick{
     padding:0 12px 10px;

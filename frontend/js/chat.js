@@ -135,13 +135,117 @@
     }));
   }
 
+  function escapeHtml(value){
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function splitChatLabel(line){
+    const clean = String(line || "").trim();
+    const idx = clean.indexOf(":");
+    if(idx <= 0 || idx > 42) return null;
+    return {
+      label: clean.slice(0, idx + 1).trim(),
+      text: clean.slice(idx + 1).trim()
+    };
+  }
+
+  function renderChatProjectLine(line){
+    const name = String(line || "")
+      .replace(/^(?:🏗️\s*)?PROYECTO:\s*/u, "")
+      .trim();
+    return ""
+      + "<div class=\"ai-rich-project\">"
+      +   "<div class=\"ai-rich-project-label\">🏗️ Proyecto</div>"
+      +   "<div class=\"ai-rich-project-name\">" + escapeHtml(name || line) + "</div>"
+      + "</div>";
+  }
+
+  function renderChatDetailLine(line, isBullet){
+    const clean = String(line || "").trim().replace(/^[-*]\s+/, "");
+    const detail = splitChatLabel(clean);
+    const icon = isBullet ? "<span class=\"ai-rich-detail-mark\">•</span>" : "";
+    if(detail){
+      return ""
+        + "<div class=\"ai-rich-detail" + (isBullet ? " ai-rich-detail--bullet" : "") + "\">"
+        +   icon
+        +   "<span class=\"ai-rich-detail-label\">" + escapeHtml(detail.label) + "</span>"
+        +   "<span class=\"ai-rich-detail-text\">" + escapeHtml(detail.text) + "</span>"
+        + "</div>";
+    }
+    return ""
+      + "<div class=\"ai-rich-line" + (isBullet ? " ai-rich-line--bullet" : "") + "\">"
+      +   icon
+      +   "<span>" + escapeHtml(clean) + "</span>"
+      + "</div>";
+  }
+
+  function renderChatGenericLine(line){
+    const clean = String(line || "").trim();
+    if(!clean) return "";
+    if(/^(?:🏗️\s*)?PROYECTO:/u.test(clean)){
+      return renderChatProjectLine(clean);
+    }
+    if(/^(?:📊\s*)?Reporte\b/i.test(clean)){
+      return "<div class=\"ai-rich-heading\">" + escapeHtml(clean) + "</div>";
+    }
+    if(/^(?:🎯\s*)?Criterio\b/i.test(clean)){
+      return "<div class=\"ai-rich-summary\">" + escapeHtml(clean) + "</div>";
+    }
+    if(/^[-*]\s+/.test(clean)){
+      return renderChatDetailLine(clean, true);
+    }
+    if(clean.length <= 80 && splitChatLabel(clean)){
+      return renderChatDetailLine(clean, false);
+    }
+    return "<div class=\"ai-rich-line\">" + escapeHtml(clean) + "</div>";
+  }
+
+  function buildAssistantMessageHtml(text){
+    const blocks = String(text || "")
+      .split(/\n\s*\n/g)
+      .map((block)=> block.split(/\n+/).map((line)=> line.trim()).filter(Boolean))
+      .filter((lines)=> lines.length);
+    if(!blocks.length){
+      return "<div class=\"ai-rich-line\"></div>";
+    }
+    return blocks.map((lines)=>{
+      const first = lines[0] || "";
+      if(/^\d+\.\s+/.test(first)){
+        return ""
+          + "<section class=\"ai-rich-card\">"
+          +   "<div class=\"ai-rich-rank\">" + escapeHtml(first) + "</div>"
+          +   lines.slice(1).map((line)=>{
+                if(/^(?:🏗️\s*)?PROYECTO:/u.test(line)){
+                  return renderChatProjectLine(line);
+                }
+                if(/^[-*]\s+/.test(line)){
+                  return renderChatDetailLine(line, true);
+                }
+                return renderChatGenericLine(line);
+              }).join("")
+          + "</section>";
+      }
+      return "<div class=\"ai-rich-block\">" + lines.map(renderChatGenericLine).join("") + "</div>";
+    }).join("");
+  }
+
   function addMessage(text, role, options){
     const opts = options && typeof options === "object" ? options : {};
     const wrap = document.createElement("div");
     wrap.className = "ai-msg" + (role === "user" ? " ai-msg--user" : "");
     const bubble = document.createElement("div");
     bubble.className = "ai-msg-bubble";
-    bubble.textContent = text;
+    if(role === "user"){
+      bubble.textContent = text;
+    } else {
+      bubble.classList.add("ai-msg-bubble--rich");
+      bubble.innerHTML = buildAssistantMessageHtml(text);
+    }
     wrap.appendChild(bubble);
     body.appendChild(wrap);
     body.scrollTop = body.scrollHeight;

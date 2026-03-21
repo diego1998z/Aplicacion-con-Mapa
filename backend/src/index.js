@@ -263,9 +263,9 @@ function getTopPriorityProjects(planCtx, limit = 3) {
 
 function getPlanPriorityTierLabel(index, item) {
   const priority = normalizeChatText(item && item.priority || "");
-  if (index === 0 || priority.includes("muy alta")) return "PRIORIDAD MAXIMA (Atencion inmediata)";
-  if (index === 1 || priority.includes("alta")) return "PRIORIDAD MEDIA (Cobertura prioritaria)";
-  return "PRIORIDAD ESTRATEGICA (Seguimiento territorial)";
+  if (index === 0 || priority.includes("muy alta")) return "🔴 PRIORIDAD MAXIMA (Atencion inmediata)";
+  if (index === 1 || priority.includes("alta")) return "🟡 PRIORIDAD MEDIA (Cobertura prioritaria)";
+  return "🔵 PRIORIDAD ESTRATEGICA (Seguimiento territorial)";
 }
 
 function buildPlanPriorityCostLine(item) {
@@ -323,16 +323,16 @@ function buildPlanPriorityReport(planCtx) {
 
     return [
       (index + 1) + ". " + getPlanPriorityTierLabel(index, item),
-      "PROYECTO: " + item.name,
-      "- ANALISIS TECNICO INFERIDO: " + ensureSentence(technicalParts.join("; ")),
-      "- IMPACTO EN SEGURIDAD: " + ensureSentence(securityParts.join("; ")),
-      "- COSTO Y PLAZO: " + buildPlanPriorityCostLine(item)
+      "🏗️ PROYECTO: " + item.name,
+      "- 🔍 ANALISIS TECNICO INFERIDO: " + ensureSentence(technicalParts.join("; ")),
+      "- 🛡️ IMPACTO EN SEGURIDAD: " + ensureSentence(securityParts.join("; ")),
+      "- 💰 COSTO Y PLAZO: " + buildPlanPriorityCostLine(item)
     ].join("\n");
   });
 
   return [
-    "Reporte de Priorizacion de Proyectos de Inversion (Cartera " + year + ")",
-    criteria.join(" "),
+    "📊 Reporte de Priorizacion de Proyectos de Inversion (Cartera " + year + ")",
+    "🎯 " + criteria.join(" "),
     sections.join("\n\n")
   ].join("\n\n");
 }
@@ -484,6 +484,7 @@ async function consultarGeminiPresupuesto({ prompt, contextJson, history, mode }
     "Responde solo en espanol.",
     "Usa exclusivamente el contexto JSON proporcionado, el historial reciente y la consulta actual del usuario.",
     "Adapta el formato a la pregunta. Puedes responder con parrafos breves o listas cortas; no fuerces secciones numeradas ni una plantilla fija en cada turno.",
+    "Prioriza respuestas muy legibles: usa saltos de linea, bloques cortos, encabezados breves y emojis funcionales cuando mejoren la lectura.",
     "Si el contexto incluye comparativos o escenarios, explica explicitamente que mejora, que se refuerza, que se reduce y cual es el impacto presupuestal.",
     "En modo inversion-plan, si el usuario pide optimizar, priorizar, ranking o un Top 3 de proyectos, usa topPriorityProjects o plans del contexto para devolver un reporte Top 3.",
     "Ese reporte debe incluir prioridad, proyecto, analisis tecnico inferido, impacto en seguridad y costo/plazo, usando solo activos criticos, lugares sensibles, trazos, costo, plazo, avance y evidencia disponible.",
