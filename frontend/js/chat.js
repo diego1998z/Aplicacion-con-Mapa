@@ -48,6 +48,7 @@
 
   const planMainActions = [
     { id: "plan_suggest", label: "Sugerir plan IA" },
+    { id: "plan_optimize_top3", label: "Optimizar proyectos" },
     { id: "plan_compare", label: "Ver comparativo" },
     { id: "plan_apply", label: "Aplicar opcion IA" },
     { id: "plan_revert", label: "Revertir cambio IA" },
@@ -238,6 +239,7 @@
 
     if(state.mode === "inversion-plan"){
       if(commandEquals(probe, ["sugerir", "sugerencia", "plan ia", "ia plan"])) return "plan_suggest";
+      if(commandEquals(probe, ["optimizar", "optimizar proyectos", "priorizar", "priorizar proyectos", "top 3", "top3"])) return "plan_optimize_top3";
       if(commandEquals(probe, ["comparar", "comparativo", "tabla"])) return "plan_compare";
       if(commandEquals(probe, ["aplicar", "aplicar ia", "usar ia"])) return "plan_apply";
       if(commandEquals(probe, ["revertir", "deshacer", "volver"])) return "plan_revert";
@@ -849,6 +851,15 @@
     addMessage("Contacto de soporte: " + supportPhone, "ai");
   }
 
+  async function submitAssistantQuery(query, visibleText){
+    const cleanQuery = String(query || "").trim();
+    if(!cleanQuery){
+      return;
+    }
+    addMessage(String(visibleText || cleanQuery), "user", { persist: false });
+    await handleText(cleanQuery);
+  }
+
   function handleInventoryAction(actionId){
     switch(actionId){
       case "optimize":
@@ -903,6 +914,12 @@
       case "plan_suggest":
         suggestPlanFromChat();
         return;
+      case "plan_optimize_top3":
+        void submitAssistantQuery(
+          "Optimizar proyectos de inversion y mostrar un Top 3 priorizado con analisis tecnico inferido, impacto en seguridad, costo y plazo.",
+          "Optimizar proyectos"
+        );
+        return;
       case "plan_compare":
         comparePlanFromChat();
         return;
@@ -944,7 +961,7 @@
     }
     if(isGreeting(raw)){
       const msg = state.mode === "inversion-plan"
-        ? "Hola. Puedo revisar contigo el presupuesto, explicar por que la IA movio montos y comparar escenarios. Si quieres ir directo, usa /sugerir, /comparar, /aplicar o /revertir."
+        ? "Hola. Puedo revisar contigo el presupuesto, explicar por que la IA movio montos, comparar escenarios y priorizar un Top 3. Si quieres ir directo, usa /sugerir, /optimizar, /comparar, /aplicar o /revertir."
         : "Hola. Puedo ayudarte a priorizar inventario, revisar cercania y armar un plan mensual. Si prefieres atajos, usa /ranking, /cercania, /mensual o /seguridad.";
       addMessage(msg, "ai");
       return;
@@ -1032,7 +1049,7 @@
 
     if(!introShown.has(state.mode)){
       const msg = state.mode === "inversion-plan"
-        ? "Asistente de Presupuesto activo. Puedes escribirme normal y te explico que mejora cada escenario; si quieres ir rapido, usa /sugerir, /comparar, /aplicar o /revertir."
+        ? "Asistente de Presupuesto activo. Puedes escribirme normal y te explico que mejora cada escenario; si quieres ir rapido, usa /sugerir, /optimizar, /comparar, /aplicar o /revertir."
         : "Asistente de Inventario activo. Puedes escribirme normal para priorizar activos o pedir un plan; tambien puedes usar /ranking, /cercania, /mensual o /seguridad.";
       addMessage(msg, "ai");
       introShown.add(state.mode);

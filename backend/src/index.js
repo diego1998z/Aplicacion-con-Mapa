@@ -195,6 +195,148 @@ function normalizeChatHistory(history) {
     .filter((item) => item.text);
 }
 
+function ensureSentence(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  return /[.!?]$/.test(text) ? text : text + ".";
+}
+
+function isPlanPriorityQuery(value) {
+  const text = normalizeChatText(value);
+  if (!text) return false;
+  const asksPriority = text.includes("optimizar")
+    || text.includes("priorizar")
+    || text.includes("prioridad")
+    || text.includes("ranking")
+    || text.includes("top 3")
+    || text.includes("top3");
+  if (!asksPriority) return false;
+  return text.includes("plan")
+    || text.includes("proyecto")
+    || text.includes("presupuesto")
+    || text.includes("inversion")
+    || text.includes("cartera")
+    || text.includes("top 3")
+    || text.includes("top3");
+}
+
+function getTopPriorityProjects(planCtx, limit = 3) {
+  const source = Array.isArray(planCtx && planCtx.topPriorityProjects) && planCtx.topPriorityProjects.length
+    ? planCtx.topPriorityProjects
+    : (Array.isArray(planCtx && planCtx.plans) ? planCtx.plans : []);
+  return source
+    .map((item, index) => ({
+      rank: Number(item && item.priorityRank || 0) || (index + 1),
+      id: String(item && item.id || ""),
+      name: String(item && item.name || "Proyecto"),
+      priority: String(item && item.priority || "Balanceada"),
+      priorityScore: Number(item && item.priorityScore || 0),
+      implementationCost: Number(item && (item.implementationCost ?? item.amount ?? item.assetCost) || 0),
+      amount: Number(item && item.amount || 0),
+      assetCost: Number(item && item.assetCost || 0),
+      assetCount: Number(item && item.assetCount || 0),
+      criticalCount: Number(item && item.criticalCount || 0),
+      sensitiveCount: Number(item && item.sensitiveCount || 0),
+      traceMeters: Number(item && item.traceMeters || 0),
+      linkedActions: Number(item && item.linkedActions || 0),
+      linkedInterventions: Number(item && item.linkedInterventions || 0),
+      technicalAnalysis: String(item && item.technicalAnalysis || "").trim(),
+      securityImpact: String(item && item.securityImpact || "").trim(),
+      impact: String(item && item.impact || "").trim(),
+      reason: String(item && item.reason || "").trim(),
+      sensitivePlaces: String(item && item.sensitivePlaces || "").trim(),
+      confidence: String(item && item.confidence || "Base"),
+      executionPct: Math.max(0, Math.min(100, Math.round(Number(item && item.executionPct || 0)))),
+      planningPct: Math.max(0, Math.min(100, Math.round(Number(item && item.planningPct || 0)))),
+      scheduleLabel: String(item && item.scheduleLabel || "").trim() || "sin plazo definido"
+    }))
+    .sort((a, b) => {
+      if (b.priorityScore !== a.priorityScore) return b.priorityScore - a.priorityScore;
+      if (b.criticalCount !== a.criticalCount) return b.criticalCount - a.criticalCount;
+      if (b.sensitiveCount !== a.sensitiveCount) return b.sensitiveCount - a.sensitiveCount;
+      if (b.traceMeters !== a.traceMeters) return b.traceMeters - a.traceMeters;
+      if (b.implementationCost !== a.implementationCost) return b.implementationCost - a.implementationCost;
+      return a.rank - b.rank;
+    })
+    .slice(0, limit);
+}
+
+function getPlanPriorityTierLabel(index, item) {
+  const priority = normalizeChatText(item && item.priority || "");
+  if (index === 0 || priority.includes("muy alta")) return "PRIORIDAD MAXIMA (Atencion inmediata)";
+  if (index === 1 || priority.includes("alta")) return "PRIORIDAD MEDIA (Cobertura prioritaria)";
+  return "PRIORIDAD ESTRATEGICA (Seguimiento territorial)";
+}
+
+function buildPlanPriorityCostLine(item) {
+  const parts = [];
+  const cost = Number(item && item.implementationCost || 0);
+  if (cost > 0) {
+    parts.push("Inversion estimada " + formatMoneyPEN(cost));
+  } else if (Number(item && item.assetCost || 0) > 0) {
+    parts.push("Costo base de activos " + formatMoneyPEN(item.assetCost));
+  } else {
+    parts.push("Costo aun no consolidado");
+  }
+  parts.push("Plazo " + (item && item.scheduleLabel ? item.scheduleLabel : "sin plazo definido"));
+  if (Number(item && item.executionPct || 0) > 0) {
+    parts.push("avance actual " + Number(item.executionPct || 0) + "%");
+  }
+  if (Number(item && item.planningPct || 0) > 0) {
+    parts.push("planificacion activa " + Number(item.planningPct || 0) + "%");
+  }
+  return ensureSentence(parts.join(", "));
+}
+
+function buildPlanPriorityReport(planCtx) {
+  const topProjects = getTopPriorityProjects(planCtx, 3);
+  if (!topProjects.length) {
+    return [
+      "No encuentro planes suficientes para priorizar un Top 3.",
+      "Necesito al menos un plan con contexto de costo, activos o intervenciones vinculadas para armar el reporte."
+    ].join("\n\n");
+  }
+
+  const year = String(planCtx && planCtx.year || new Date().getFullYear());
+  const criteria = [
+    "Criterio de evaluacion: proximidad a colegios, hospitales y eventos, activos criticos, trazos asociados, costo y plazo."
+  ];
+  if (Number(planCtx && planCtx.assigned || 0) > 0 || Number(planCtx && planCtx.remaining || 0) >= 0) {
+    criteria.push("Presupuesto asignado " + formatMoneyPEN(planCtx && planCtx.assigned || 0) + " con saldo " + formatMoneyPEN(planCtx && planCtx.remaining || 0) + ".");
+  }
+
+  const sections = topProjects.map((item, index) => {
+    const technicalParts = [];
+    const securityParts = [];
+
+    if (item.technicalAnalysis) technicalParts.push(item.technicalAnalysis);
+    if (item.linkedInterventions > 0) technicalParts.push(item.linkedInterventions + " intervenciones ligadas");
+    if (item.linkedActions > 0) technicalParts.push(item.linkedActions + " acciones operativas vinculadas");
+    if (!technicalParts.length && item.reason) technicalParts.push("Priorizacion guiada por " + item.reason);
+    if (!technicalParts.length) technicalParts.push("Sin huella tecnica suficiente para un detalle mayor");
+
+    if (item.securityImpact) securityParts.push(item.securityImpact);
+    if (!item.securityImpact && item.impact) securityParts.push(item.impact);
+    if (item.sensitivePlaces) securityParts.push("Lugares sensibles cercanos: " + item.sensitivePlaces);
+    if (!securityParts.length && item.reason) securityParts.push("Impacto esperado por " + item.reason);
+    if (!securityParts.length) securityParts.push("Impacto balanceado segun cobertura y criticidad detectada");
+
+    return [
+      (index + 1) + ". " + getPlanPriorityTierLabel(index, item),
+      "PROYECTO: " + item.name,
+      "- ANALISIS TECNICO INFERIDO: " + ensureSentence(technicalParts.join("; ")),
+      "- IMPACTO EN SEGURIDAD: " + ensureSentence(securityParts.join("; ")),
+      "- COSTO Y PLAZO: " + buildPlanPriorityCostLine(item)
+    ].join("\n");
+  });
+
+  return [
+    "Reporte de Priorizacion de Proyectos de Inversion (Cartera " + year + ")",
+    criteria.join(" "),
+    sections.join("\n\n")
+  ].join("\n\n");
+}
+
 function construirRespuestaLocalGratis({ prompt, contextJson, history, mode }) {
   const ctx = parseJsonSafe(contextJson);
   const resumen = ctx && ctx.resumen && typeof ctx.resumen === "object" ? ctx.resumen : {};
@@ -247,6 +389,9 @@ function construirRespuestaLocalGratis({ prompt, contextJson, history, mode }) {
     const reportSignals = planCtx && planCtx.reportSignals && typeof planCtx.reportSignals === "object"
       ? planCtx.reportSignals
       : { total: 0, hotspots: [] };
+    if (isPlanPriorityQuery(consultaNorm)) {
+      return buildPlanPriorityReport(planCtx);
+    }
     const hotspots = Array.isArray(reportSignals.hotspots) ? reportSignals.hotspots.slice(0, 2) : [];
     const scenario = planCtx && planCtx.scenario && typeof planCtx.scenario === "object"
       ? planCtx.scenario
@@ -340,6 +485,9 @@ async function consultarGeminiPresupuesto({ prompt, contextJson, history, mode }
     "Usa exclusivamente el contexto JSON proporcionado, el historial reciente y la consulta actual del usuario.",
     "Adapta el formato a la pregunta. Puedes responder con parrafos breves o listas cortas; no fuerces secciones numeradas ni una plantilla fija en cada turno.",
     "Si el contexto incluye comparativos o escenarios, explica explicitamente que mejora, que se refuerza, que se reduce y cual es el impacto presupuestal.",
+    "En modo inversion-plan, si el usuario pide optimizar, priorizar, ranking o un Top 3 de proyectos, usa topPriorityProjects o plans del contexto para devolver un reporte Top 3.",
+    "Ese reporte debe incluir prioridad, proyecto, analisis tecnico inferido, impacto en seguridad y costo/plazo, usando solo activos criticos, lugares sensibles, trazos, costo, plazo, avance y evidencia disponible.",
+    "No inventes tipo de via, materiales, flujo vehicular ni historial de accidentes si esos datos no aparecen en el contexto.",
     "Si la consulta es una repregunta corta, apoyate en el historial reciente para mantener continuidad.",
     "Si faltan datos, dilo explicitamente y propone como obtenerlos.",
     "No inventes cifras ni cites fuentes no entregadas."

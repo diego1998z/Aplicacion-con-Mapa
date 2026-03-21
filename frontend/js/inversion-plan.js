@@ -466,6 +466,93 @@
     }
   }
 
+  function parsePlanAIDate(value){
+    try{
+      if(!value) return null;
+      const date = new Date(value);
+      if(!Number.isFinite(date.getTime())) return null;
+      return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    }catch(e){
+      return null;
+    }
+  }
+
+  function formatPlanAIDate(value){
+    const date = value instanceof Date ? value : parsePlanAIDate(value);
+    if(!date) return "";
+    try{
+      return date.toLocaleDateString("es-PE", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      });
+    }catch(e){
+      return "";
+    }
+  }
+
+  function buildPlanAIScheduleInfo(plan, actions, interventions){
+    const starts = [];
+    const ends = [];
+    const registerRange = (startValue, endValue)=>{
+      const start = parsePlanAIDate(startValue);
+      const end = parsePlanAIDate(endValue);
+      if(start) starts.push(start);
+      if(end) ends.push(end);
+    };
+
+    (Array.isArray(interventions) ? interventions : []).forEach((item)=>{
+      registerRange(
+        item && (item.fechaInicio || item.fecha_inicio || item.startDate),
+        item && (item.fechaFin || item.fecha_fin || item.endDate)
+      );
+    });
+
+    (Array.isArray(actions) ? actions : []).forEach((item)=>{
+      registerRange(
+        item && (item.fecha_inicio || item.startDate || item.inicio),
+        item && (item.fecha_fin || item.endDate || item.fin)
+      );
+    });
+
+    let start = null;
+    let end = null;
+    starts.forEach((item)=>{
+      if(!start || item.getTime() < start.getTime()) start = item;
+    });
+    ends.forEach((item)=>{
+      if(!end || item.getTime() > end.getTime()) end = item;
+    });
+
+    if(!start && !end){
+      return {
+        startDate: "",
+        endDate: "",
+        durationDays: 0,
+        label: "sin plazo definido"
+      };
+    }
+
+    const startRef = start || end;
+    const endRef = end || start;
+    const diffMs = Math.max(0, endRef.getTime() - startRef.getTime());
+    const durationDays = Math.max(1, Math.round(diffMs / 86400000) + 1);
+    let label = formatPlanAIDate(startRef);
+    if(startRef.getTime() !== endRef.getTime()){
+      label = "del " + formatPlanAIDate(startRef) + " al " + formatPlanAIDate(endRef);
+    }
+    if(durationDays > 1){
+      label += " (" + durationDays + " dias)";
+    }
+
+    return {
+      startDate: startRef.toISOString().slice(0, 10),
+      endDate: endRef.toISOString().slice(0, 10),
+      durationDays,
+      label
+    };
+  }
+
   function normalizarProyectoKey(nombre){
     return String(nombre || "")
       .toLowerCase()
@@ -1566,6 +1653,85 @@
     };
   }
 
+  function buildPlanAIChatEntry(plan, evaluation, rank){
+    const metrics = evaluation && evaluation.metrics ? evaluation.metrics : {};
+    const actions = getPlanAIActionsForPlan(plan);
+    const interventions = getIntervencionesPlan(plan && plan.id);
+    const schedule = buildPlanAIScheduleInfo(plan, actions, interventions);
+    const executionPct = Math.max(0, Math.min(100, Math.round(Number(evaluation && evaluation.executionRatio || 0) * 100)));
+    const planningPct = Math.max(0, Math.min(100, Math.round(Number(evaluation && evaluation.planningRatio || 0) * 100)));
+    const technicalParts = [];
+    const securityParts = [];
+    const projectAmount = planScenarioRound(plan && plan.monto || 0);
+    const assetCost = planScenarioRound(metrics.totalCost || 0);
+    const implementationCost = projectAmount > 0 ? projectAmount : assetCost;
+
+    if(Number(metrics.assetCount || 0) > 0){
+      technicalParts.push(metrics.assetCount + " activos vinculados");
+    }
+    if(Number(metrics.criticalCount || 0) > 0){
+      technicalParts.push(metrics.criticalCount + " activos criticos");
+      securityParts.push(metrics.criticalCount + " activos criticos priorizados");
+    }
+    if(Number(metrics.traceMeters || 0) > 0){
+      technicalParts.push(formatCompactMeters(metrics.traceMeters) + " de trazos asociados");
+    }
+    if(evaluation && evaluation.sensitivePlacesText){
+      technicalParts.push("proximidad a " + evaluation.sensitivePlacesText);
+    }
+    if(Number(metrics.nearHospitalCount || 0) > 0){
+      securityParts.push(metrics.nearHospitalCount + " activos cerca de salud");
+    }
+    if(Number(metrics.nearEscuelaCount || 0) > 0){
+      securityParts.push(metrics.nearEscuelaCount + " activos cerca de escuelas");
+    }
+    if(Number(metrics.nearEventCount || 0) > 0){
+      securityParts.push(metrics.nearEventCount + " activos en zonas con eventos");
+    }
+    if(evaluation && evaluation.impact){
+      securityParts.push(evaluation.impact);
+    }
+    if(!technicalParts.length){
+      technicalParts.push("sin huella espacial suficiente para un analisis fino");
+    }
+    if(!securityParts.length && evaluation && evaluation.reason){
+      securityParts.push("prioridad guiada por " + evaluation.reason);
+    }
+
+    return {
+      rank: Number(rank || 0),
+      id: String(plan && plan.id || ""),
+      name: plan && plan.nombre ? plan.nombre : "Plan",
+      amount: projectAmount,
+      implementationCost,
+      assetCost,
+      criticalCost: planScenarioRound(metrics.criticalCost || 0),
+      assetCount: Number(metrics.assetCount || 0),
+      criticalCount: Number(metrics.criticalCount || 0),
+      sensitiveCount: Number(metrics.sensitiveCount || 0),
+      traceMeters: Number(metrics.traceMeters || 0),
+      linkedActions: actions.length,
+      linkedInterventions: interventions.length,
+      confidence: metrics.confidenceLabel || "Base",
+      priority: evaluation && evaluation.priorityLabel ? evaluation.priorityLabel : "Balanceada",
+      priorityScore: Number(evaluation && evaluation.score || 0),
+      priorityRank: Number(rank || 0),
+      reason: evaluation && evaluation.reason ? evaluation.reason : "",
+      impact: evaluation && evaluation.impact ? evaluation.impact : "",
+      technicalAnalysis: technicalParts.join("; "),
+      securityImpact: securityParts.join("; "),
+      sensitivePlaces: evaluation && evaluation.sensitivePlacesText ? evaluation.sensitivePlacesText : "",
+      evidence: Array.isArray(evaluation && evaluation.evidenceChips) ? evaluation.evidenceChips : [],
+      topAssets: Array.isArray(metrics.topAssets) ? metrics.topAssets : [],
+      executionPct,
+      planningPct,
+      schedule,
+      scheduleLabel: schedule.label,
+      scheduleStart: schedule.startDate,
+      scheduleEnd: schedule.endDate
+    };
+  }
+
   function collectPlanAIInventoryStats(plan, reportSignals){
     const actions = getPlanAIActionsForPlan(plan);
     const interventions = getIntervencionesPlan(plan && plan.id);
@@ -2559,7 +2725,16 @@
     const assigned = plans.reduce((sum, plan)=> sum + toPositiveNumber(plan.monto), 0);
     const reportSignals = collectPlanAIReportSignals();
     const evaluations = plans.map((plan)=> evaluatePlanForAI(plan, reportSignals));
-    const byPlanId = new Map(evaluations.map((item)=> [String(item.planId || ""), item]));
+    const sortedEvaluations = evaluations
+      .slice()
+      .sort((a,b)=> Number(b.score || 0) - Number(a.score || 0));
+    const planById = new Map(plans.map((plan)=> [String(plan.id || ""), plan]));
+    const chatEntriesByPlanId = new Map();
+    sortedEvaluations.forEach((item, idx)=>{
+      const plan = planById.get(String(item.planId || ""));
+      if(!plan) return;
+      chatEntriesByPlanId.set(String(item.planId || ""), buildPlanAIChatEntry(plan, item, idx + 1));
+    });
     const liveSummary = summarizePlanAIScenarioRows(evaluations.map((item)=> ({ metrics: item.metrics })));
     return {
       year,
@@ -2567,22 +2742,49 @@
       assigned: planScenarioRound(assigned),
       remaining: Math.max(0, planScenarioRound((presupuesto && presupuesto.total || 0) - assigned)),
       plans: plans.map((plan)=> {
-        const evaluation = byPlanId.get(String(plan.id || ""));
-        const metrics = evaluation && evaluation.metrics ? evaluation.metrics : {};
+        const entry = chatEntriesByPlanId.get(String(plan.id || ""));
+        if(entry) return entry;
         return {
           id: String(plan.id || ""),
           name: plan.nombre || "Plan",
           amount: planScenarioRound(plan.monto),
-          assetCount: Number(metrics.assetCount || 0),
-          criticalCount: Number(metrics.criticalCount || 0),
-          sensitiveCount: Number(metrics.sensitiveCount || 0),
-          traceMeters: Number(metrics.traceMeters || 0),
-          confidence: metrics.confidenceLabel || "Base",
-          priority: evaluation && evaluation.priorityLabel ? evaluation.priorityLabel : "Balanceada",
-          reason: evaluation && evaluation.reason ? evaluation.reason : "",
-          sensitivePlaces: evaluation ? buildPlanAISensitivePlacesSummary(metrics, { withType: true, withDistance: true, max: 3 }) : ""
+          implementationCost: planScenarioRound(plan.monto),
+          assetCost: 0,
+          criticalCost: 0,
+          assetCount: 0,
+          criticalCount: 0,
+          sensitiveCount: 0,
+          traceMeters: 0,
+          linkedActions: 0,
+          linkedInterventions: 0,
+          confidence: "Base",
+          priority: "Balanceada",
+          priorityScore: 0,
+          priorityRank: 0,
+          reason: "",
+          impact: "",
+          technicalAnalysis: "",
+          securityImpact: "",
+          sensitivePlaces: "",
+          evidence: [],
+          topAssets: [],
+          executionPct: 0,
+          planningPct: 0,
+          schedule: {
+            startDate: "",
+            endDate: "",
+            durationDays: 0,
+            label: "sin plazo definido"
+          },
+          scheduleLabel: "sin plazo definido",
+          scheduleStart: "",
+          scheduleEnd: ""
         };
       }),
+      topPriorityProjects: sortedEvaluations
+        .slice(0, 3)
+        .map((item)=> chatEntriesByPlanId.get(String(item.planId || "")))
+        .filter(Boolean),
       reportSignals,
       summary: aiPlanScenario && aiPlanScenario.summary ? aiPlanScenario.summary : liveSummary,
       scenario: aiPlanScenario ? {
