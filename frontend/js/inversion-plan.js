@@ -1246,18 +1246,41 @@
       planProjectActions.innerHTML = "<div class=\"inv-plan-empty\">No hay intervenciones registradas para este proyecto.</div>";
       return;
     }
+    const selectedPhase = planProjectPhase ? (planProjectPhase.value || "planificacion") : "planificacion";
+    const showProgress = selectedPhase === "ejecucion" || selectedPhase === "ejecutado";
     const existing = new Set(
       intervencionesCache
         .filter(i => String(i.planId || "") === String(plan.id || ""))
         .filter(i => getIntervencionProyectoNombre(i).toLowerCase() === projectName.toLowerCase())
         .map(i => String(i.accionId || ""))
     );
+    const staged = new Set(
+      Array.from(planProjectActions.querySelectorAll("input[type=\"checkbox\"]:checked"))
+        .map((chk)=> String(chk.value || ""))
+    );
+    const selected = new Set(existing);
+    staged.forEach((id)=> selected.add(id));
     planProjectActions.innerHTML = acciones.map((a)=>{
-      const checked = existing.has(String(a.id || ""));
+      const accionId = String(a.id || "");
+      const checked = selected.has(accionId);
+      let pct = 0;
+      if(showProgress){
+        const intervencion = intervencionesCache.find((i)=>
+          String(i.planId || "") === String(plan.id || "")
+          && String(i.accionId || "") === accionId
+        );
+        const montoBase = intervencion ? toPositiveNumber(intervencion.monto) : calcularCostoAccion(a);
+        const faseBase = intervencion ? String(intervencion.fase || selectedPhase) : selectedPhase;
+        const avanceMonto = (faseBase === "ejecutado" || faseBase === "ejecucion") ? calcularCostoAccion(a) : 0;
+        pct = montoBase > 0 ? Math.max(0, Math.min(100, Math.round((avanceMonto / montoBase) * 100))) : 0;
+      }
       return ""
         + "<label class=\"plan-project-actions-item\">"
-        +   "<input type=\"checkbox\" value=\"" + escapeHtml(a.id || "") + "\"" + (checked ? " checked" : "") + ">"
-        +   "<span>" + escapeHtml(a.nombre || "Intervencion") + "</span>"
+        +   "<input type=\"checkbox\" value=\"" + escapeHtml(accionId) + "\"" + (checked ? " checked" : "") + ">"
+        +   "<span class=\"plan-project-action-copy\">"
+        +     "<span class=\"plan-project-action-name\">" + escapeHtml(a.nombre || "Intervencion") + "</span>"
+        +     (showProgress ? ("<span class=\"plan-project-action-progress\">Avance: " + pct + "%</span>") : "")
+        +   "</span>"
         + "</label>";
     }).join("");
   }
@@ -3214,6 +3237,14 @@
       }
       const available = getAvailableProjectBudget(plan, selectedName);
       if(planProjectAmountHint) planProjectAmountHint.textContent = "Disponible: " + formatMoney(available);
+      renderPlanProjectActionsList(selectedName, plan);
+    });
+  }
+  if(planProjectPhase){
+    planProjectPhase.addEventListener("change", ()=>{
+      const plan = getPlanById(planSeleccionadoId);
+      if(!plan) return;
+      const selectedName = planProjectSelect ? (planProjectSelect.value || "") : "";
       renderPlanProjectActionsList(selectedName, plan);
     });
   }
