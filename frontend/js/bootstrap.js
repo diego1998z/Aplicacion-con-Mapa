@@ -25,6 +25,9 @@
     return Number.isFinite(n) ? n : null;
   }
 
+  let syncPromise = null;
+  let lastSyncAt = 0;
+
   function assetToLocal(a) {
     const legacyId = toNumber(a.legacyId);
     return {
@@ -74,59 +77,69 @@
 
   async function syncRemoteData(options = {}) {
     if (!hasToken()) return;
-    try {
-      const types = Array.isArray(options.types) && options.types.length
-        ? options.types
-        : ["horizontal", "vertical", "mobiliario"];
-      const assetsPromises = types.map((type) => window.UrbbisApi.getAssets({ type }));
-      const reportsPromise = (options.includeReports === false)
-        ? Promise.resolve([])
-        : window.UrbbisApi.getReports();
-
-      const results = await Promise.all([...assetsPromises, reportsPromise]);
-      const reports = results[results.length - 1];
-      const assetsByType = results.slice(0, -1);
-
-      const mappedByType = {
-        horizontal: [],
-        vertical: [],
-        mobiliario: []
-      };
-
-      types.forEach((type, idx) => {
-        const list = assetsByType[idx];
-        if (!Array.isArray(list)) return;
-        const target = mappedByType[type] || [];
-        list.forEach((a) => {
-          if (!a) return;
-          target.push(assetToLocal(a));
-        });
-        mappedByType[type] = target;
-      });
-
-      if (typeof senalesHorizontal !== "undefined" && Array.isArray(senalesHorizontal)) {
-        senalesHorizontal.splice(0, senalesHorizontal.length, ...(mappedByType.horizontal || []));
-      }
-      if (typeof senalesVertical !== "undefined" && Array.isArray(senalesVertical)) {
-        senalesVertical.splice(0, senalesVertical.length, ...(mappedByType.vertical || []));
-      }
-      if (typeof senalesMobiliario !== "undefined" && Array.isArray(senalesMobiliario)) {
-        senalesMobiliario.splice(0, senalesMobiliario.length, ...(mappedByType.mobiliario || []));
-      }
-
-      if (Array.isArray(reports) && typeof avisos !== "undefined" && Array.isArray(avisos)) {
-        const mapped = reports.map(reportToLocal);
-        avisos.splice(0, avisos.length, ...mapped);
-      }
-
-      if (typeof renderizarTodo === "function") renderizarTodo();
-      if (typeof updateReportes === "function") updateReportes();
-      if (typeof updateDashboard === "function") updateDashboard();
-      if (typeof updateInversion === "function") updateInversion();
-      if (typeof updateInversionPlanes === "function") updateInversionPlanes();
-    } catch (err) {
-      console.warn("No se pudo sincronizar con el backend.", err);
+    if (syncPromise) return syncPromise;
+    if (!options.force && lastSyncAt && (Date.now() - lastSyncAt) < 4000) {
+      return;
     }
+    syncPromise = (async () => {
+      try {
+        const types = Array.isArray(options.types) && options.types.length
+          ? options.types
+          : ["horizontal", "vertical", "mobiliario"];
+        const assetsPromises = types.map((type) => window.UrbbisApi.getAssets({ type }));
+        const reportsPromise = (options.includeReports === false)
+          ? Promise.resolve([])
+          : window.UrbbisApi.getReports();
+
+        const results = await Promise.all([...assetsPromises, reportsPromise]);
+        const reports = results[results.length - 1];
+        const assetsByType = results.slice(0, -1);
+
+        const mappedByType = {
+          horizontal: [],
+          vertical: [],
+          mobiliario: []
+        };
+
+        types.forEach((type, idx) => {
+          const list = assetsByType[idx];
+          if (!Array.isArray(list)) return;
+          const target = mappedByType[type] || [];
+          list.forEach((a) => {
+            if (!a) return;
+            target.push(assetToLocal(a));
+          });
+          mappedByType[type] = target;
+        });
+
+        if (typeof senalesHorizontal !== "undefined" && Array.isArray(senalesHorizontal)) {
+          senalesHorizontal.splice(0, senalesHorizontal.length, ...(mappedByType.horizontal || []));
+        }
+        if (typeof senalesVertical !== "undefined" && Array.isArray(senalesVertical)) {
+          senalesVertical.splice(0, senalesVertical.length, ...(mappedByType.vertical || []));
+        }
+        if (typeof senalesMobiliario !== "undefined" && Array.isArray(senalesMobiliario)) {
+          senalesMobiliario.splice(0, senalesMobiliario.length, ...(mappedByType.mobiliario || []));
+        }
+
+        if (Array.isArray(reports) && typeof avisos !== "undefined" && Array.isArray(avisos)) {
+          const mapped = reports.map(reportToLocal);
+          avisos.splice(0, avisos.length, ...mapped);
+        }
+
+        lastSyncAt = Date.now();
+        if (typeof renderizarTodo === "function") renderizarTodo();
+        if (typeof updateReportes === "function") updateReportes();
+        if (typeof updateDashboard === "function") updateDashboard();
+        if (typeof updateInversion === "function") updateInversion();
+        if (typeof updateInversionPlanes === "function") updateInversionPlanes();
+      } catch (err) {
+        console.warn("No se pudo sincronizar con el backend.", err);
+      } finally {
+        syncPromise = null;
+      }
+    })();
+    return syncPromise;
   }
 
   window.UrbbisSyncRemoteData = syncRemoteData;

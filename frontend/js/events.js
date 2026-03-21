@@ -367,8 +367,9 @@ function proyectoToApiPayload(proj){
   };
 }
 
-function proyectoFromApi(p){
+function proyectoFromApi(p, options){
   if(!p) return null;
+  const summaryOnly = !!(options && options.summaryOnly);
   const data = p.data && typeof p.data === "object" ? p.data : {};
   const proj = {
     id: p.legacyId || p.id,
@@ -378,21 +379,22 @@ function proyectoFromApi(p){
     fecha_inicio: data.fecha_inicio || (p.startDate ? String(p.startDate).slice(0,10) : ""),
     fecha_fin: data.fecha_fin || (p.endDate ? String(p.endDate).slice(0,10) : ""),
     distrito: p.district || data.distrito || "",
-    registroTipo: data.registroTipo || "",
+    registroTipo: p.recordType || data.registroTipo || "",
     eventosTipos: Array.isArray(data.eventosTipos) ? data.eventosTipos : [],
     eventosSeleccionados: Array.isArray(data.eventosSeleccionados) ? data.eventosSeleccionados : [],
     proyectoAsociado: data.proyectoAsociado || "",
     senalesHorizontal: Array.isArray(data.senalesHorizontal) ? data.senalesHorizontal : [],
     senalesVertical: Array.isArray(data.senalesVertical) ? data.senalesVertical : [],
     senalesMobiliario: Array.isArray(data.senalesMobiliario) ? data.senalesMobiliario : [],
-    metradoRegistros: Array.isArray(data.metradoRegistros) ? data.metradoRegistros : []
+    metradoRegistros: Array.isArray(data.metradoRegistros) ? data.metradoRegistros : [],
+    __summaryOnly: summaryOnly
   };
   if(!Array.isArray(proj.metradoRegistros)) proj.metradoRegistros = [];
   return proj;
 }
 
 function syncProyectoBackend(proj){
-  if(!proj || !window.UrbbisApi) return;
+  if(!proj || proj.__summaryOnly || !window.UrbbisApi) return;
   const payload = proyectoToApiPayload(proj);
   if(!payload || !payload.legacyId) return;
   if(proj.dbId){
@@ -411,6 +413,72 @@ function syncProyectoBackend(proj){
       })
       .catch((err)=> console.warn("No se pudo crear el proyecto en backend.", err));
   }
+}
+
+function renderProjectSelectLoadingState(texto){
+  if(!selectProyecto) return;
+  const label = texto || "Cargando registros...";
+  selectProyecto.innerHTML = '<option value="">' + label + '</option>';
+  selectProyecto.value = "";
+}
+
+const projectDetailRequests = new Map();
+let projectHydrationPromise = null;
+
+async function ensureProjectDetailLoaded(proj){
+  if(!proj) return null;
+  if(!proj.__summaryOnly) return proj;
+  const requestId = String(proj.dbId || "");
+  if(!requestId || !window.UrbbisApi || typeof window.UrbbisApi.getProject !== "function"){
+    proj.__summaryOnly = false;
+    return proj;
+  }
+  if(projectDetailRequests.has(requestId)){
+    return projectDetailRequests.get(requestId);
+  }
+  const pending = window.UrbbisApi.getProject(requestId)
+    .then((item)=>{
+      const full = proyectoFromApi(item);
+      if(!full) return proj;
+      const idx = proyectosCache.findIndex((p)=>
+        String(p && p.id || "") === String(proj.id || "")
+        || String(p && p.dbId || "") === requestId
+      );
+      if(idx >= 0){
+        proyectosCache[idx] = Object.assign({}, proyectosCache[idx], full, { __summaryOnly: false });
+        return proyectosCache[idx];
+      }
+      return Object.assign({}, proj, full, { __summaryOnly: false });
+    })
+    .catch((err)=>{
+      console.warn("No se pudo cargar detalle del proyecto.", err);
+      return proj;
+    })
+    .finally(()=>{
+      projectDetailRequests.delete(requestId);
+    });
+  projectDetailRequests.set(requestId, pending);
+  return pending;
+}
+
+function hydratePendingProjectDetails(){
+  if(projectHydrationPromise) return projectHydrationPromise;
+  const pending = (Array.isArray(proyectosCache) ? proyectosCache : []).filter((p)=>
+    p && p.__summaryOnly && String(p.id || "") !== String(proyectoActivoId || "")
+  );
+  if(!pending.length) return Promise.resolve([]);
+  projectHydrationPromise = (async ()=>{
+    for(const proj of pending){
+      await ensureProjectDetailLoaded(proj);
+    }
+    try{ if(typeof updateDashboard === "function") updateDashboard(); }catch(e){}
+    try{ if(typeof updateInversion === "function") updateInversion(); }catch(e){}
+    try{ if(typeof updateInversionPlanes === "function") updateInversionPlanes(); }catch(e){}
+    return pending;
+  })().finally(()=>{
+    projectHydrationPromise = null;
+  });
+  return projectHydrationPromise;
 }
 
 function cerrarRegistroPanel(){
@@ -3710,6 +3778,7 @@ function nombreDesdeCorreo(correo){
 
 let proyectosCache = [];
 let proyectoActivoId = "";
+let proyectosLoading = false;
 let projectSelectionActive = false;
 let projectSelection = {
   vertical: new Set(),
@@ -4292,18 +4361,22 @@ function asegurarProyectoDemo(){
 
 function guardarProyectos(){
   if(!window.UrbbisApi || typeof syncProyectoBackend !== "function") return;
-  proyectosCache.forEach((p)=> syncProyectoBackend(p));
+  proyectosCache.forEach((p)=>{
+    if(p && !p.__summaryOnly) syncProyectoBackend(p);
+  });
 }
 
 async function cargarProyectos(){
   proyectosCache = [];
   proyectoActivoId = "";
+  projectDetailRequests.clear();
+  projectHydrationPromise = null;
   const canApi = window.UrbbisApi && typeof window.UrbbisApi.getProjects === "function";
   if(canApi){
     try{
       const items = await window.UrbbisApi.getProjects({ summary: 1 });
       if(Array.isArray(items) && items.length){
-        proyectosCache = items.map(proyectoFromApi).filter(Boolean);
+        proyectosCache = items.map((item)=> proyectoFromApi(item, { summaryOnly: true })).filter(Boolean);
         proyectoActivoId = proyectosCache[0] ? proyectosCache[0].id : "";
         try{ window.__projectsBackendLoaded = true; }catch(e){}
         return;
@@ -4377,8 +4450,18 @@ function actualizarSelectProyecto(){
 
 function setProyectoActivoPorId(id){
   const proj = proyectosCache.find(p => p.id === id) || proyectosCache[0];
-  if(!proj) return;
-  aplicarProyecto(proj);
+  if(!proj) return Promise.resolve(null);
+  return ensureProjectDetailLoaded(proj)
+    .then((fullProj)=>{
+      const target = fullProj || proj;
+      aplicarProyecto(target);
+      return target;
+    })
+    .catch((err)=>{
+      console.warn("No se pudo activar el proyecto.", err);
+      aplicarProyecto(proj);
+      return proj;
+    });
 }
 
 function syncRegistroModeProjects(){
@@ -4496,6 +4579,7 @@ function sincronizarProyectosBase(){
       }
     }
     p.baseSeeded = true;
+    p.__summaryOnly = false;
     changed = true;
   });
   return changed;
@@ -4503,6 +4587,7 @@ function sincronizarProyectosBase(){
 
 async function initProyectos(){
   if(rolActual !== "municipal"){
+    proyectosLoading = false;
     proyectosCache = [];
     proyectoActivoId = "";
     if(selectProyecto) selectProyecto.innerHTML = "";
@@ -4512,62 +4597,73 @@ async function initProyectos(){
     updateProjectUI();
     return;
   }
-  await cargarProyectos();
-
-  const scopeD = (typeof scopeDistrito !== "undefined") ? scopeDistrito : "";
-  const scopeLower = String(scopeD || "").toLowerCase();
-  let changed = false;
-
-  // Quitar demo si existe (en cualquier distrito)
-  const idxDemo = proyectosCache.findIndex(p =>
-    (p.id === "proj-demo-lince")
-    || (p.demoSeeded && p.demoSource === "urbbis-20260122")
-  );
-  if(idxDemo >= 0){
-    proyectosCache.splice(idxDemo, 1);
-    if(proyectoActivoId === "proj-demo-lince"){
-      proyectoActivoId = "";
-    }
-    changed = true;
-  }
-
-  // Asegurar proyectos base
-  const nombresBase = ["Registro senalizacion 2026", "Registro senalizacion 2025"];
-  const existing = new Set((proyectosCache || []).map(p => String(p.nombre || "").toLowerCase()));
-  const nuevos = [];
-  nombresBase.forEach((nombre)=>{
-    if(existing.has(nombre.toLowerCase())) return;
-    const proj = crearProyectoBase(nombre);
-    if(scopeD) proj.distrito = scopeD;
-    nuevos.push(proj);
-  });
-  if(nuevos.length){
-    proyectosCache.unshift(...nuevos);
-    if(!proyectoActivoId){
-      proyectoActivoId = nuevos[0].id;
-    }
-    changed = true;
-  }
-  if(sincronizarProyectosBase()) changed = true;
-  if(changed) guardarProyectos();
-
-  actualizarSelectProyecto();
-  if(!proyectoActivoId || !proyectosCache.some(p => p.id === proyectoActivoId)){
-    proyectoActivoId = proyectosCache[0] ? proyectosCache[0].id : "";
-  }
-  if(proyectoActivoId){
-    setProyectoActivoPorId(proyectoActivoId);
-  }
+  proyectosLoading = true;
+  renderProjectSelectLoadingState("Cargando registros...");
   updateProjectUI();
-  syncRegistroModeProjects();
+  try{
+    await cargarProyectos();
+
+    const scopeD = (typeof scopeDistrito !== "undefined") ? scopeDistrito : "";
+    const scopeLower = String(scopeD || "").toLowerCase();
+    let changed = false;
+
+    // Quitar demo si existe (en cualquier distrito)
+    const idxDemo = proyectosCache.findIndex(p =>
+      (p.id === "proj-demo-lince")
+      || (p.demoSeeded && p.demoSource === "urbbis-20260122")
+    );
+    if(idxDemo >= 0){
+      proyectosCache.splice(idxDemo, 1);
+      if(proyectoActivoId === "proj-demo-lince"){
+        proyectoActivoId = "";
+      }
+      changed = true;
+    }
+
+    // Asegurar proyectos base
+    const nombresBase = ["Registro senalizacion 2026", "Registro senalizacion 2025"];
+    const existing = new Set((proyectosCache || []).map(p => String(p.nombre || "").toLowerCase()));
+    const nuevos = [];
+    nombresBase.forEach((nombre)=>{
+      if(existing.has(nombre.toLowerCase())) return;
+      const proj = crearProyectoBase(nombre);
+      if(scopeD) proj.distrito = scopeD;
+      nuevos.push(proj);
+    });
+    if(nuevos.length){
+      proyectosCache.unshift(...nuevos);
+      if(!proyectoActivoId){
+        proyectoActivoId = nuevos[0].id;
+      }
+      changed = true;
+    }
+    if(sincronizarProyectosBase()) changed = true;
+    if(changed) guardarProyectos();
+
+    actualizarSelectProyecto();
+    if(!proyectoActivoId || !proyectosCache.some(p => p.id === proyectoActivoId)){
+      proyectoActivoId = proyectosCache[0] ? proyectosCache[0].id : "";
+    }
+    updateProjectUI();
+    if(proyectoActivoId){
+      await setProyectoActivoPorId(proyectoActivoId);
+    }
+    syncRegistroModeProjects();
+    hydratePendingProjectDetails().catch(()=>{});
+  } finally {
+    proyectosLoading = false;
+    updateProjectUI();
+  }
 }
 
 function updateProjectUI(){
   if(!projectSwitcher) return;
-  const visible = rolActual === "municipal" && proyectosCache.length > 0;
+  const visible = rolActual === "municipal" && (proyectosLoading || proyectosCache.length > 0);
+  const canSwitch = visible && !proyectosLoading && filtrarProyectosPorRegistro(registroMode).length > 0;
   projectSwitcher.classList.toggle("hidden", !visible);
-  if(btnCambiarProyecto) btnCambiarProyecto.disabled = !visible;
-  if(btnAgregarProyecto) btnAgregarProyecto.disabled = !visible;
+  if(btnCambiarProyecto) btnCambiarProyecto.disabled = !canSwitch || !(selectProyecto && selectProyecto.value);
+  if(btnAgregarProyecto) btnAgregarProyecto.disabled = rolActual !== "municipal";
+  if(btnEditarProyecto) btnEditarProyecto.disabled = !canSwitch || !proyectoActivoId;
 }
 
 function guardarProyectoActivo(){
@@ -4896,9 +4992,10 @@ function abrirModalProyecto(){
   try{ if(typeof renderizarTodo === "function"){ renderizarTodo(); } }catch(e){}
 }
 
-function abrirModalProyectoEditar(){
+async function abrirModalProyectoEditar(){
   if(!modalProyecto) return;
-  const proj = proyectosCache.find(p => p.id === proyectoActivoId) || proyectosCache[0];
+  const current = proyectosCache.find(p => p.id === proyectoActivoId) || proyectosCache[0];
+  const proj = await ensureProjectDetailLoaded(current);
   if(!proj){
     const labels = getRegistroLabels();
     alert("No hay " + labels.labelLower + " activo para modificar.");

@@ -90,6 +90,16 @@
     };
   }
 
+  function withQuery(path, params = {}) {
+    const qs = new URLSearchParams();
+    Object.entries(params || {}).forEach(([key, value]) => {
+      if (value === undefined || value === null || value === "") return;
+      qs.set(key, String(value));
+    });
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return `${path}${suffix}`;
+  }
+
   const api = {
     getBaseUrl,
     setBaseUrl,
@@ -99,7 +109,8 @@
     login: (data) => request("/auth/login", { method: "POST", ...jsonBody(data) }),
     register: (data) => request("/auth/register", { method: "POST", ...jsonBody(data) }),
     me: () => request("/auth/me"),
-    getProjects: () => request("/projects"),
+    getProjects: (params = {}) => request(withQuery("/projects", params)),
+    getProject: (id) => request(`/projects/${id}`),
     createProject: (data) => request("/projects", { method: "POST", ...jsonBody(data) }),
     updateProject: (id, data) => request(`/projects/${id}`, { method: "PUT", ...jsonBody(data) }),
     deleteProject: (id) => request(`/projects/${id}`, { method: "DELETE" }),

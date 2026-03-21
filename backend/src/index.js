@@ -102,6 +102,26 @@ function matchesDistrict(record, district) {
   return false;
 }
 
+function isTruthyQueryFlag(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes";
+}
+
+function projectSummarySelect() {
+  return {
+    id: true,
+    legacyId: true,
+    recordType: true,
+    name: true,
+    year: true,
+    startDate: true,
+    endDate: true,
+    district: true,
+    createdAt: true,
+    updatedAt: true
+  };
+}
+
 function countBy(list, keyGetter) {
   const out = {};
   const arr = Array.isArray(list) ? list : [];
@@ -490,9 +510,10 @@ app.get("/auth/me", authRequired, async (req, res, next) => {
 // Projects
 app.get("/projects", authRequired, async (req, res, next) => {
   try {
-    const { legacyId, recordType, registroTipo } = req.query || {};
+    const { legacyId, recordType, registroTipo, summary } = req.query || {};
     const scope = getScopeFromUser(req.user || {});
     const andFilters = [];
+    const summaryRequested = isTruthyQueryFlag(summary);
     if (legacyId) andFilters.push({ legacyId: String(legacyId) });
     const typeFilter = recordType || registroTipo;
     if (typeFilter) {
@@ -519,8 +540,27 @@ app.get("/projects", authRequired, async (req, res, next) => {
       });
     }
     const where = andFilters.length ? { AND: andFilters } : {};
-    const items = await prisma.project.findMany({ where, orderBy: { createdAt: "desc" } });
+    const items = await prisma.project.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      select: summaryRequested ? projectSummarySelect() : undefined
+    });
     res.json(items);
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.get("/projects/:id", authRequired, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const scope = getScopeFromUser(req.user || {});
+    const current = await prisma.project.findUnique({ where: { id } });
+    if (!current) return res.status(404).json({ error: "Project not found" });
+    if (scope.role !== "admin" && scope.district && !matchesDistrict(current, scope.district)) {
+      return res.status(403).json({ error: "No autorizado" });
+    }
+    res.json(current);
   } catch (err) {
     next(err);
   }
