@@ -6589,6 +6589,7 @@ function cargarSesionRol(){
           if(loginOverlay) loginOverlay.classList.add("hidden");
           try{ document.body.classList.add("dash-shell"); }catch(e){}
           abrirDashboard();
+          try{ if(typeof window.UrbbisReloadPlanData === "function"){ window.UrbbisReloadPlanData({ force: true }); } }catch(e){}
           try{ if(typeof window.UrbbisSyncRemoteData === "function"){ window.UrbbisSyncRemoteData({ reason: "session" }); } }catch(e){}
         })
         .catch(()=> {
@@ -6635,6 +6636,7 @@ if(formLogin){
         updateMobileBanner();
         try{ document.body.classList.add("dash-shell"); }catch(e){}
         abrirDashboard();
+        try{ if(typeof window.UrbbisReloadPlanData === "function"){ window.UrbbisReloadPlanData({ force: true }); } }catch(e){}
         try{ if(typeof window.UrbbisSyncRemoteData === "function"){ window.UrbbisSyncRemoteData({ reason: "login" }); } }catch(e){}
       })
       .catch(()=>{

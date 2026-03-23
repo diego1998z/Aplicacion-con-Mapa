@@ -129,6 +129,7 @@
   let planDraftProjects = [];
   const groupFilters = new Map();
   const planCollapseState = new Map();
+  let remotePlanDataPromise = null;
   let aiPlanScenario = null;
   let aiPlanSnapshotBeforeApply = null;
   let aiPlanAppliedScenarioId = "";
@@ -668,10 +669,19 @@
     };
   }
 
-  async function cargarIntervencionesApi(){
-    if(!window.UrbbisApi || typeof window.UrbbisApi.getInterventions !== "function") return false;
+  function hasApiToken(){
+    if(!window.UrbbisApi || typeof window.UrbbisApi.getToken !== "function") return false;
     try{
-      const remote = await window.UrbbisApi.getInterventions({ ownerKey: getEmailKey() });
+      return !!window.UrbbisApi.getToken();
+    }catch(e){
+      return false;
+    }
+  }
+
+  async function cargarIntervencionesApi(ownerKey){
+    if(!window.UrbbisApi || typeof window.UrbbisApi.getInterventions !== "function" || !hasApiToken()) return false;
+    try{
+      const remote = await window.UrbbisApi.getInterventions({ ownerKey: ownerKey || getEmailKey() });
       if(Array.isArray(remote)){
         intervencionesCache = remote.map(interventionFromApiPayload);
         guardarIntervenciones();
@@ -834,31 +844,61 @@
     applyAvailableHint(normalized.available);
   }
 
-  async function cargarPlanesApi(){
-    if(!window.UrbbisApi || typeof window.UrbbisApi.getPlans !== "function") return;
+  async function cargarPlanesApi(ownerKey){
+    if(!window.UrbbisApi || typeof window.UrbbisApi.getPlans !== "function" || !hasApiToken()) return false;
     try{
-      const remote = await window.UrbbisApi.getPlans({ ownerKey: getEmailKey() });
+      const remote = await window.UrbbisApi.getPlans({ ownerKey: ownerKey || getEmailKey() });
       if(Array.isArray(remote)){
         planesCache = remote.map(planFromApiPayload);
         guardarPlanes();
+        return true;
       }
     }catch(e){
       console.warn("No se pudo cargar planes desde backend.", e);
     }
+    return false;
   }
 
-  async function cargarPresupuestoApi(){
-    if(!window.UrbbisApi || typeof window.UrbbisApi.getBudgets !== "function") return;
+  async function cargarPresupuestoApi(ownerKey){
+    if(!window.UrbbisApi || typeof window.UrbbisApi.getBudgets !== "function" || !hasApiToken()) return false;
     try{
-      const remote = await window.UrbbisApi.getBudgets({ ownerKey: getEmailKey() });
-      if(Array.isArray(remote) && remote.length){
-        const current = remote[0];
-        presupuestoCache = { year: current.year, total: Number(current.total || 0) };
+      const remote = await window.UrbbisApi.getBudgets({ ownerKey: ownerKey || getEmailKey() });
+      if(Array.isArray(remote)){
+        if(remote.length){
+          const current = remote[0];
+          presupuestoCache = { year: current.year, total: Number(current.total || 0) };
+        } else {
+          presupuestoCache = { year: new Date().getFullYear(), total: 0 };
+        }
         guardarPresupuesto(presupuestoCache);
+        return true;
       }
     }catch(e){
       console.warn("No se pudo cargar presupuesto desde backend.", e);
     }
+    return false;
+  }
+
+  async function cargarDatosRemotosInversion(options){
+    if(!window.UrbbisApi || !hasApiToken()) return false;
+    if(remotePlanDataPromise && !(options && options.force)){
+      return remotePlanDataPromise;
+    }
+    const ownerKey = getEmailKey();
+    remotePlanDataPromise = Promise.allSettled([
+      cargarPresupuestoApi(ownerKey),
+      cargarPlanesApi(ownerKey),
+      cargarIntervencionesApi(ownerKey)
+    ]).then((results)=>{
+      const loaded = results.some((result)=> result.status === "fulfilled" && result.value);
+      if(!options || options.skipRender !== true){
+        updateInversionPlanes();
+      }
+      return loaded;
+    }).finally(()=>{
+      remotePlanDataPromise = null;
+    });
+    return remotePlanDataPromise;
   }
 
   function syncPlanToBackend(plan){
@@ -3515,11 +3555,10 @@
     getStatus: getPlanAIStatus
   };
 
+  window.UrbbisReloadPlanData = cargarDatosRemotosInversion;
   window.updateInversionPlanes = updateInversionPlanes;
   updateInversionPlanes();
-  if(window.UrbbisApi){
-    cargarPresupuestoApi().then(()=> updateInversionPlanes());
-    cargarPlanesApi().then(()=> updateInversionPlanes());
-    cargarIntervencionesApi().then(()=> updateInversionPlanes());
+  if(window.UrbbisApi && hasApiToken()){
+    cargarDatosRemotosInversion();
   }
 })();
