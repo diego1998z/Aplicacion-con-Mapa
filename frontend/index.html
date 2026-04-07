@@ -39,28 +39,39 @@
         <aside class="dash-sidebar">
             <div class="dash-brand">
                 <div class="dash-logo">URBBIS</div>
+                <button
+                    type="button"
+                    id="btnDashSidebarToggle"
+                    class="dash-mobile-toggle"
+                    aria-label="Ocultar menu del dashboard"
+                    aria-controls="dashSidebarContent"
+                    aria-expanded="true">
+                    <span class="dash-mobile-toggle-icon" aria-hidden="true">⌃</span>
+                </button>
             </div>
 
-            <div class="dash-user">
-                <div class="dash-avatar" aria-hidden="true"><span id="dashAvatarInitials">UR</span></div>
-                <div class="dash-user-meta">
-                    <div class="dash-welcome">Bienvenido,</div>
-                    <div class="dash-name" id="dashUserName">Usuario</div>
-                    <div class="dash-email" id="dashUserEmail"></div>
+            <div id="dashSidebarContent" class="dash-sidebar-content">
+                <div class="dash-user">
+                    <div class="dash-avatar" aria-hidden="true"><span id="dashAvatarInitials">UR</span></div>
+                    <div class="dash-user-meta">
+                        <div class="dash-welcome">Bienvenido,</div>
+                        <div class="dash-name" id="dashUserName">Usuario</div>
+                        <div class="dash-email" id="dashUserEmail"></div>
+                    </div>
                 </div>
+
+                <nav class="dash-nav" aria-label="Navegacion principal">
+                    <button type="button" class="dash-link active" data-dash="dashboard">Dashboard</button>
+                    <button type="button" class="dash-link" data-dash="mapa">Mapa</button>
+                    <button type="button" class="dash-link" data-dash="inversion-plan">Presupuesto</button>
+                    <button type="button" class="dash-link" data-dash="inversion">Inventario</button>
+                    <button type="button" class="dash-link" data-dash="reportes">Reportes</button>
+                    <button type="button" class="dash-link" data-dash="tareas">Eventos</button>
+                    <button type="button" class="dash-link" data-dash="config">Configuracion</button>
+                </nav>
+
+                <button type="button" id="btnDashLogout" class="dash-logout">Cerrar sesion</button>
             </div>
-
-            <nav class="dash-nav" aria-label="Navegacion principal">
-                <button type="button" class="dash-link active" data-dash="dashboard">Dashboard</button>
-                <button type="button" class="dash-link" data-dash="mapa">Mapa</button>
-                <button type="button" class="dash-link" data-dash="inversion-plan">Presupuesto</button>
-                <button type="button" class="dash-link" data-dash="inversion">Inventario</button>
-                <button type="button" class="dash-link" data-dash="reportes">Reportes</button>
-                <button type="button" class="dash-link" data-dash="tareas">Eventos</button>
-                <button type="button" class="dash-link" data-dash="config">Configuracion</button>
-            </nav>
-
-            <button type="button" id="btnDashLogout" class="dash-logout">Cerrar sesion</button>
         </aside>
 
         <main class="dash-main">
@@ -691,6 +702,9 @@
                 <div id="sugerencias" class="sugerencias"></div>
             </div>
             <div class="map-floating-mode" aria-label="Tipo de registro">
+                <button id="btnMapSheetToggle" type="button" class="map-sheet-toggle" aria-expanded="true" aria-label="Enrollar panel del mapa">
+                    <span class="map-sheet-toggle-bar" aria-hidden="true"></span>
+                </button>
                 <button id="btnModeInventario" type="button" class="tw-mode-btn active" data-mode="inventario">Inventario</button>
                 <button id="btnModeAcciones" type="button" class="tw-mode-btn" data-mode="acciones">Intervenciones</button>
                 <button id="btnModeEventos" type="button" class="tw-mode-btn" data-mode="eventos">Evento</button>

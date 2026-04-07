@@ -78,6 +78,7 @@ const mapFloatingControls = document.getElementById("mapFloatingControls");
 const btnModeInventario = document.getElementById("btnModeInventario");
 const btnModeAcciones = document.getElementById("btnModeAcciones");
 const btnModeEventos = document.getElementById("btnModeEventos");
+const btnMapSheetToggle = document.getElementById("btnMapSheetToggle");
 const projectSwitcher = document.getElementById("projectSwitcher");
 const selectProyecto = document.getElementById("selectProyecto");
 const btnCambiarProyecto = document.getElementById("btnCambiarProyecto");
@@ -156,6 +157,8 @@ const insLdFoto = document.getElementById("insLdFoto");
 const insEc1Foto = document.getElementById("insEc1Foto");
 const insEc2Foto = document.getElementById("insEc2Foto");
 const dashboardOverlay = document.getElementById("dashboardOverlay");
+const dashSidebar = dashboardOverlay ? dashboardOverlay.querySelector(".dash-sidebar") : null;
+const btnDashSidebarToggle = document.getElementById("btnDashSidebarToggle");
 const btnDashLogout = document.getElementById("btnDashLogout");
 const dashUserName = document.getElementById("dashUserName");
 const dashUserEmail = document.getElementById("dashUserEmail");
@@ -6043,6 +6046,7 @@ function setDashView(view){
 
   dashboardOverlay.classList.remove("hidden");
   dashboardOverlay.setAttribute("aria-hidden","false");
+  syncDashSidebarForViewport();
 
   dashboardOverlay.classList.toggle("dash-mode-mapa", view === "mapa");
   dashboardOverlay.classList.toggle("dash-mode-reportes", view === "reportes");
@@ -6181,6 +6185,78 @@ function isMobileViewport(){
   return window.innerWidth <= 900;
 }
 
+function updateDashSidebarToggle(){
+  if(!btnDashSidebarToggle) return;
+  const isMobile = isMobileViewport();
+  const isCollapsed = !!(dashSidebar && dashSidebar.classList.contains("dash-sidebar-collapsed"));
+  btnDashSidebarToggle.hidden = !isMobile;
+  btnDashSidebarToggle.setAttribute("aria-hidden", String(!isMobile));
+  btnDashSidebarToggle.setAttribute("aria-expanded", String(!(isMobile && isCollapsed)));
+  btnDashSidebarToggle.setAttribute(
+    "aria-label",
+    isMobile && isCollapsed ? "Desenrollar menu del dashboard" : "Ocultar menu del dashboard"
+  );
+}
+
+function setDashSidebarCollapsed(collapsed){
+  if(!dashSidebar) return;
+  if(!isMobileViewport()){
+    dashSidebar.classList.remove("dash-sidebar-collapsed");
+    updateDashSidebarToggle();
+    return;
+  }
+  dashSidebar.classList.toggle("dash-sidebar-collapsed", !!collapsed);
+  updateDashSidebarToggle();
+}
+
+function syncDashSidebarForViewport(){
+  if(!dashSidebar) return;
+  if(isMobileViewport()){
+    if(!dashSidebar.dataset.mobileReady){
+      dashSidebar.dataset.mobileReady = "true";
+      dashSidebar.classList.add("dash-sidebar-collapsed");
+    }
+  } else {
+    dashSidebar.classList.remove("dash-sidebar-collapsed");
+    delete dashSidebar.dataset.mobileReady;
+  }
+  updateDashSidebarToggle();
+}
+
+function shouldUseMobileMapSheet(){
+  return !!(
+    mapFloatingControls &&
+    isMobileViewport() &&
+    dashboardOverlay &&
+    !dashboardOverlay.classList.contains("hidden") &&
+    dashboardOverlay.classList.contains("dash-mode-mapa")
+  );
+}
+
+function updateMapSheetToggle(){
+  if(!btnMapSheetToggle || !mapFloatingControls) return;
+  const active = shouldUseMobileMapSheet();
+  const collapsed = active && mapFloatingControls.classList.contains("map-sheet-collapsed");
+  btnMapSheetToggle.hidden = !active;
+  btnMapSheetToggle.setAttribute("aria-hidden", String(!active));
+  btnMapSheetToggle.setAttribute("aria-expanded", String(!collapsed));
+  btnMapSheetToggle.setAttribute(
+    "aria-label",
+    collapsed ? "Desenrollar panel inferior del mapa" : "Enrollar panel inferior del mapa"
+  );
+}
+
+function setMapSheetCollapsed(collapsed){
+  if(!mapFloatingControls) return;
+  if(!shouldUseMobileMapSheet()){
+    mapFloatingControls.classList.remove("map-sheet-collapsed");
+    updateMapSheetToggle();
+    return;
+  }
+  mapFloatingControls.classList.toggle("map-sheet-collapsed", !!collapsed);
+  updateMapSheetToggle();
+}
+
 function hideFABs(){
   if(btnFloatingFilters) btnFloatingFilters.classList.add("fab-hidden");
   if(btnFloatingReport) btnFloatingReport.classList.add("fab-hidden");
@@ -6236,8 +6312,11 @@ function updateMobileBanner(){
 
 updateMobileBanner();
 repositionMapFloatingControls();
+updateMapSheetToggle();
 window.addEventListener("resize", ()=>{
+  syncDashSidebarForViewport();
   repositionMapFloatingControls();
+  updateMapSheetToggle();
   repositionMobileBanner();
   updateMobileBanner();
 });
@@ -6264,14 +6343,22 @@ function repositionMobileBanner(){
 function repositionMapFloatingControls(){
   if(!mapFloatingControls) return;
   mapFloatingControls.style.top = "";
-  if(!isMobileViewport()) return;
-  if(!dashboardOverlay || dashboardOverlay.classList.contains("hidden")) return;
-  if(!(dashboardOverlay.classList.contains("dash-mode-mapa") || dashboardOverlay.classList.contains("dash-mode-reportes"))) return;
+  mapFloatingControls.style.removeProperty("--map-floating-top");
+  if(!shouldUseMobileMapSheet()){
+    setMapSheetCollapsed(false);
+    updateMapSheetToggle();
+    return;
+  }
   const dashSide = dashboardOverlay.querySelector(".dash-sidebar");
   if(!dashSide) return;
   const rectSide = dashSide.getBoundingClientRect();
-  const nextTop = Math.max(12, rectSide.bottom + 12);
+  const isCollapsed = dashSide.classList.contains("dash-sidebar-collapsed");
+  const dashBrand = dashSide.querySelector(".dash-brand");
+  const anchorBottom = isCollapsed && dashBrand ? dashBrand.getBoundingClientRect().bottom : rectSide.bottom;
+  const nextTop = Math.max(12, anchorBottom + (isCollapsed ? 20 : 24));
   mapFloatingControls.style.top = nextTop + "px";
+  mapFloatingControls.style.setProperty("--map-floating-top", nextTop + "px");
+  updateMapSheetToggle();
 }
 
 // Ubicacion actual
@@ -6710,6 +6797,30 @@ if(dashboardOverlay){
     }
 
     setDashView(key);
+    if(isMobileViewport() && btn.classList.contains("dash-link")){
+      setDashSidebarCollapsed(true);
+      try{ repositionMapFloatingControls(); }catch(e){}
+      try{ repositionMobileBanner(); }catch(e){}
+    }
+  });
+}
+
+if(btnDashSidebarToggle){
+  btnDashSidebarToggle.addEventListener("click", ()=>{
+    if(!dashSidebar || !isMobileViewport()) return;
+    const willCollapse = !dashSidebar.classList.contains("dash-sidebar-collapsed");
+    setDashSidebarCollapsed(willCollapse);
+    try{ repositionMapFloatingControls(); }catch(e){}
+    try{ repositionMobileBanner(); }catch(e){}
+  });
+}
+
+if(btnMapSheetToggle){
+  btnMapSheetToggle.addEventListener("click", ()=>{
+    if(!shouldUseMobileMapSheet() || !mapFloatingControls) return;
+    const willCollapse = !mapFloatingControls.classList.contains("map-sheet-collapsed");
+    setMapSheetCollapsed(willCollapse);
+    try{ repositionMobileBanner(); }catch(e){}
   });
 }
 
